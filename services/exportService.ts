@@ -1,0 +1,388 @@
+// Service d'export multi-format (CSV, JSON, XLSX, PDF)
+
+import { stringify } from 'csv-stringify/sync'
+import ExcelJS from 'exceljs'
+import { renderToBuffer } from '@react-pdf/renderer'
+import { prisma } from '@/lib/prisma'
+import { ExportOptions, ValidationResult } from './types'
+
+// Types pour le PDF
+import { Document, Page, Text, View, StyleSheet, Font } from '@react-pdf/renderer'
+
+// Enregistrer les polices pour le PDF
+Font.register({
+  family: 'Helvetica',
+  fonts: [
+    { src: 'https://fonts.gstatic.com/s/roboto/v30/KFOmCnqEu92Fr1Mu4mxP.ttf', fontWeight: 'normal' },
+    { src: 'https://fonts.gstatic.com/s/roboto/v30/KFOlCnqEu92Fr1MmWUlfBBc9.ttf', fontWeight: 'bold' },
+  ],
+})
+
+const styles = StyleSheet.create({
+  page: {
+    padding: 40,
+    fontFamily: 'Helvetica',
+  },
+  header: {
+    marginBottom: 20,
+  },
+  title: {
+    fontSize: 24,
+    marginBottom: 10,
+  },
+  subtitle: {
+    fontSize: 12,
+    color: '#666',
+  },
+  kpiRow: {
+    flexDirection: 'row',
+    marginBottom: 20,
+    gap: 10,
+  },
+  kpi: {
+    flex: 1,
+    padding: 15,
+    backgroundColor: '#f5f5f5',
+    borderRadius: 8,
+  },
+  kpiLabel: {
+    fontSize: 10,
+    color: '#666',
+    marginBottom: 5,
+  },
+  kpiValue: {
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  section: {
+    marginTop: 20,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 10,
+  },
+  table: {
+    marginTop: 10,
+  },
+  tableRow: {
+    flexDirection: 'row',
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+    paddingVertical: 8,
+  },
+  tableCell: {
+    fontSize: 10,
+    flex: 1,
+  },
+  tableHeader: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    flex: 1,
+    backgroundColor: '#f9f9f9',
+    paddingVertical: 8,
+  },
+  recommendation: {
+    fontSize: 11,
+    marginBottom: 8,
+    paddingLeft: 10,
+    borderLeftWidth: 3,
+    borderLeftColor: '#00A36C',
+  },
+  footer: {
+    position: 'absolute',
+    bottom: 30,
+    left: 40,
+    right: 40,
+    textAlign: 'center',
+    fontSize: 9,
+    color: '#999',
+  },
+})
+
+function createPDFDocument(results: any[], meta: { jobId: string; filename: string }) {
+  const valid = results.filter((r: any) => r.status === 'valid').length
+  const invalid = results.filter((r: any) => r.status === 'invalid').length
+  const risky = results.filter((r: any) => r.status === 'risky').length
+  const avgScore = results.length > 0
+    ? Math.round(results.reduce((sum: number, r: any) => sum + r.score, 0) / results.length)
+    : 0
+  const deliverabilityRate = results.length > 0 ? Math.round((valid / results.length) * 100) : 0
+  
+  const recommendations: string[] = []
+  if (invalid > 0) recommendations.push(`${invalid} emails invalides détectés - à supprimer avant l'envoi`)
+  if (risky > 0) recommendations.push(`${risky} emails risqués détectés - à vérifier manuellement`)
+  const disposableCount = results.filter((r: any) => !r.checksJson?.disposable?.passed).length
+  if (disposableCount > 0) recommendations.push(`${disposableCount} emails jetables détectés - à supprimer`)
+  
+  const highRiskEmails = results.filter((r: any) => r.score < 40).slice(0, 30)
+  
+  return (
+    <Document>
+      <Page size="A4" style={styles.page}>
+        {/* Header */}
+        <View style={styles.header}>
+          <Text style={styles.title}>Email Validation Report</Text>
+          <Text style={styles.subtitle}>
+            Generated: {new Date().toLocaleDateString()} | File: {meta.filename}
+          </Text>
+        </View>
+        
+        {/* KPIs */}
+        <View style={styles.kpiRow}>
+          <View style={styles.kpi}>
+            <Text style={styles.kpiLabel}>Total</Text>
+            <Text style={styles.kpiValue}>{results.length}</Text>
+          </View>
+          <View style={styles.kpi}>
+            <Text style={styles.kpiLabel}>Valid</Text>
+            <Text style={styles.kpiValue}>{valid}</Text>
+          </View>
+          <View style={styles.kpi}>
+            <Text style={styles.kpiLabel}>Invalid</Text>
+            <Text style={styles.kpiValue}>{invalid}</Text>
+          </View>
+          <View style={styles.kpi}>
+            <Text style={styles.kpiLabel}>Avg Score</Text>
+            <Text style={styles.kpiValue}>{avgScore}</Text>
+          </View>
+        </View>
+        
+        {/* Deliverability Rate */}
+        <View style={{ alignItems: 'center', marginBottom: 30 }}>
+          <Text style={{ fontSize: 48, color: '#00A36C' }}>{deliverabilityRate}%</Text>
+          <Text style={{ fontSize: 14, color: '#666' }}>Estimated Deliverability Rate</Text>
+        </View>
+        
+        {/* Recommendations */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Recommendations</Text>
+          {recommendations.map((rec, i) => (
+            <Text key={i} style={styles.recommendation}>{rec}</Text>
+          ))}
+        </View>
+        
+        {/* High Risk Emails */}
+        {highRiskEmails.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>High Risk Emails (Score &lt; 40)</Text>
+            {highRiskEmails.map((r: any, i: number) => (
+              <Text key={i} style={{ fontSize: 10, marginBottom: 4 }}>
+                {r.email} - Score: {r.score}
+              </Text>
+            ))}
+          </View>
+        )}
+        
+        <Text style={styles.footer}>
+          Generated by MailGuard Pro | mailguard.pro | {new Date().toISOString()}
+        </Text>
+      </Page>
+    </Document>
+  )
+}
+
+export async function exportResults(options: ExportOptions): Promise<Buffer> {
+  const { jobId, format, filters } = options
+  
+  // Récupérer les résultats
+  const where: any = { bulkJobId: jobId }
+  
+  if (filters?.status && filters.status.length > 0) {
+    where.status = { in: filters.status }
+  }
+  
+  if (filters?.minScore !== undefined) {
+    where.score = { ...where.score, gte: filters.minScore }
+  }
+  
+  if (filters?.maxScore !== undefined) {
+    where.score = { ...where.score, lte: filters.maxScore }
+  }
+  
+  const results = await prisma.validation.findMany({
+    where,
+    orderBy: { score: 'desc' },
+  })
+  
+  // Formater les résultats pour l'export
+  const formattedResults = results.map(r => ({
+    email: r.email,
+    score: r.score,
+    status: r.status,
+    formatValid: r.checksJson?.format?.passed,
+    mxValid: r.checksJson?.mx?.passed,
+    smtpValid: r.checksJson?.smtp?.passed,
+    disposable: r.checksJson?.disposable?.passed,
+    catchall: r.checksJson?.catchAll?.passed,
+    generic: r.checksJson?.generic?.passed,
+    freeProvider: r.checksJson?.freeProvider?.passed,
+    dnsbl: r.checksJson?.dnsbl?.passed,
+    spfValid: r.checksJson?.spf?.passed,
+    dmarcValid: r.checksJson?.dmarc?.passed,
+    typo: r.checksJson?.typo?.passed,
+    suggestion: r.checksJson?.typo?.suggestion,
+    domainReputation: r.checksJson?.domain?.reputation,
+    processingTimeMs: r.processingTimeMs,
+  }))
+  
+  switch (format) {
+    case 'csv':
+      return exportCSV(formattedResults)
+    case 'json':
+      return exportJSON(formattedResults, { jobId })
+    case 'xlsx':
+      return exportXLSX(formattedResults, { jobId })
+    case 'pdf':
+      return exportPDF(formattedResults, { jobId })
+    default:
+      throw new Error(`Unsupported format: ${format}`)
+  }
+}
+
+function exportCSV(results: any[]): Buffer {
+  const rows = results.map(r => ({
+    email: r.email,
+    score: r.score,
+    status: r.status,
+    format_valid: r.formatValid,
+    mx_valid: r.mxValid,
+    smtp_valid: r.smtpValid,
+    disposable: r.disposable,
+    catchall: r.catchall,
+    generic: r.generic,
+    free_provider: r.freeProvider,
+    dnsbl: r.dnsbl,
+    spf_valid: r.spfValid,
+    dmarc_valid: r.dmarcValid,
+    typo: r.typo,
+    suggestion: r.suggestion || '',
+    domain_reputation: r.domainReputation || '',
+    processing_time_ms: r.processingTimeMs,
+  }))
+  
+  return Buffer.from(stringify(rows, { header: true, delimiter: ',' }))
+}
+
+function exportJSON(results: any[], meta: { jobId: string }): Buffer {
+  const summary = {
+    valid: results.filter(r => r.status === 'valid').length,
+    invalid: results.filter(r => r.status === 'invalid').length,
+    risky: results.filter(r => r.status === 'risky').length,
+    unknown: results.filter(r => r.status === 'unknown').length,
+    avgScore: results.length > 0
+      ? Math.round(results.reduce((sum, r) => sum + r.score, 0) / results.length)
+      : 0,
+  }
+  
+  return Buffer.from(JSON.stringify({
+    meta: {
+      jobId: meta.jobId,
+      exportedAt: new Date().toISOString(),
+      totalEmails: results.length,
+    },
+    summary,
+    results,
+  }, null, 2))
+}
+
+async function exportXLSX(results: any[], meta: { jobId: string }): Promise<Buffer> {
+  const workbook = new ExcelJS.Workbook()
+  workbook.creator = 'MailGuard Pro'
+  workbook.created = new Date()
+  
+  // Sheet 1: Summary
+  const summarySheet = workbook.addWorksheet('Summary')
+  summarySheet.addRows([
+    ['Email Validation Report'],
+    [''],
+    ['Total emails', results.length],
+    ['Valid', results.filter(r => r.status === 'valid').length],
+    ['Invalid', results.filter(r => r.status === 'invalid').length],
+    ['Risky', results.filter(r => r.status === 'risky').length],
+    ['Unknown', results.filter(r => r.status === 'unknown').length],
+    [''],
+    ['Avg Score', results.length > 0
+      ? Math.round(results.reduce((sum, r) => sum + r.score, 0) / results.length)
+      : 0],
+    ['Export date', new Date().toISOString()],
+  ])
+  summarySheet.getRow(1).font = { size: 16, bold: true }
+  
+  // Sheet 2: Results
+  const resultsSheet = workbook.addWorksheet('Results')
+  resultsSheet.columns = [
+    { header: 'Email', key: 'email', width: 35 },
+    { header: 'Score', key: 'score', width: 8 },
+    { header: 'Status', key: 'status', width: 12 },
+    { header: 'Format', key: 'formatValid', width: 10 },
+    { header: 'MX', key: 'mxValid', width: 8 },
+    { header: 'SMTP', key: 'smtpValid', width: 8 },
+    { header: 'Disposable', key: 'disposable', width: 12 },
+    { header: 'Catch-all', key: 'catchall', width: 12 },
+    { header: 'Generic', key: 'generic', width: 10 },
+    { header: 'Free Provider', key: 'freeProvider', width: 14 },
+    { header: 'Suggestion', key: 'suggestion', width: 30 },
+    { header: 'Domain Rep', key: 'domainReputation', width: 14 },
+  ]
+  
+  // Ajouter les données avec couleur conditionnelle sur le score
+  results.forEach((r, index) => {
+    const row = resultsSheet.addRow(r)
+    const scoreCell = row.getCell('score')
+    
+    // Couleur selon le score
+    if (r.score > 70) {
+      scoreCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '00C851' } }
+    } else if (r.score > 40) {
+      scoreCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF8800' } }
+    } else {
+      scoreCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'CC0000' } }
+    }
+    
+    // Couleur de la rangée selon le status
+    if (r.status === 'invalid') {
+      row.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEBEE' } }
+    } else if (r.status === 'risky') {
+      row.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8E1' } }
+    }
+  })
+  
+  // Sheet 3: High Risk
+  const highRiskSheet = workbook.addWorksheet('High Risk')
+  highRiskSheet.columns = [
+    { header: 'Email', key: 'email', width: 40 },
+    { header: 'Score', key: 'score', width: 8 },
+    { header: 'Issue', key: 'issue', width: 40 },
+  ]
+  
+  const highRisk = results.filter(r => r.score < 40)
+  highRisk.forEach(r => {
+    let issue = []
+    if (!r.smtpValid) issue.push('SMTP failed')
+    if (!r.disposable) issue.push('Disposable')
+    if (!r.formatValid) issue.push('Invalid format')
+    
+    highRiskSheet.addRow({
+      email: r.email,
+      score: r.score,
+      issue: issue.join(', ') || 'Low score',
+    })
+  })
+  
+  return Buffer.from(await workbook.xlsx.writeBuffer()) as Buffer
+}
+
+async function exportPDF(results: any[], meta: { jobId: string }): Promise<Buffer> {
+  const job = await prisma.bulkJob.findUnique({
+    where: { id: meta.jobId },
+    select: { filename: true },
+  })
+  
+  const doc = createPDFDocument(results, {
+    jobId: meta.jobId,
+    filename: job?.filename || 'unknown',
+  })
+  
+  return Buffer.from(await renderToBuffer(doc))
+}
