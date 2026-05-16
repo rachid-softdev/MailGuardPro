@@ -71,21 +71,22 @@ export async function GET(req: NextRequest) {
     // Authentification
     const authResult = await getAuthenticatedUser(req)
     const user = authResult?.user
-    
-    // Vérifier les crédits si utilisateur connecté
+
+    // Récupérer les infos utilisateur pour le cache et les credits
+    let dbUser: { credits: number; plan: string | null } | null = null
     if (user) {
-      const dbUser = await prisma.user.findUnique({
+      dbUser = await prisma.user.findUnique({
         where: { id: user.id },
         select: { credits: true, plan: true },
       })
-      
+
       if (dbUser && dbUser.credits < 1) {
         return NextResponse.json(
           { success: false, error: 'Insufficient credits', code: 'INSUFFICIENT_CREDITS' },
           { status: 402 }
         )
       }
-      
+
       // Rate limiting par utilisateur (plus permissif)
       const userRateLimit = await checkRateLimit(`user:${user.id}`, 50, 60)
       if (!userRateLimit.success) {
@@ -123,8 +124,8 @@ export async function GET(req: NextRequest) {
     // Réponse
     const requestId = uuidv4()
     const processingTimeMs = Date.now() - startTime
-    
-    return NextResponse.json({
+
+    const response = NextResponse.json({
       success: true,
       data: result,
       meta: {
@@ -134,6 +135,22 @@ export async function GET(req: NextRequest) {
         creditsRemaining: user?.credits ?? null,
       },
     })
+
+    // Cache HTTP - différent selon le plan utilisateur
+    // Pour les utilisateurs gratuits ou anonymes: pas de cache (données potentiellement dynamiques)
+    // Pour les utilisateurs premium: cache court (5 min) avec revalidation en arrière-plan
+    if (user && dbUser?.plan && ['PRO', 'BUSINESS'].includes(dbUser.plan)) {
+      // Premium: cache de 5 minutes avec stale-while-revalidate de 10 minutes
+      response.headers.set('Cache-Control', 's-maxage=300, stale-while-revalidate=600')
+    } else {
+      // Gratuit ou anonyme: cache très court (1 min)
+      response.headers.set('Cache-Control', 's-maxage=60, stale-while-revalidate=120')
+    }
+
+    // Vary sur l'auth pour differencier les réponses par utilisateur
+    response.headers.set('Vary', 'X-API-Key, Cookie, Authorization')
+
+    return response
   } catch (error) {
     console.error('[API] Validate error:', error)
     return NextResponse.json(

@@ -1,6 +1,8 @@
 import type { NextConfig } from 'next'
 
-const nextConfig: NextConfig = {
+// Bundle Analyzer - Run with ANALYZE=true npm run build
+// npm install --save-dev @next/bundle-analyzer
+let nextConfig: NextConfig = {
   experimental: {
     serverActions: {
       bodySizeLimit: '10mb',
@@ -97,4 +99,17 @@ const nextConfig: NextConfig = {
   },
 }
 
-export default nextConfig
+// Bundle Analyzer wrapper - only activates when ANALYZE=true
+let finalConfig = nextConfig
+try {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const withBundleAnalyzer = require('@next/bundle-analyzer')
+  finalConfig = withBundleAnalyzer({
+    enabled: process.env.ANALYZE === 'true',
+  })(nextConfig)
+} catch {
+  // Bundle analyzer not installed, skip silently
+  console.log('Tip: Install @next/bundle-analyzer for bundle analysis')
+}
+
+export default finalConfig

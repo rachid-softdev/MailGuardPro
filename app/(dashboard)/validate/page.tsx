@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import { ScoreCircle } from '@/components/validator/ScoreCircle'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 
@@ -21,17 +21,43 @@ export default function ValidatePage() {
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<ValidationResult | null>(null)
   const [error, setError] = useState('')
+  const abortControllerRef = useRef<AbortController | null>(null)
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  // Cleanup on unmount to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort()
+      }
+    }
+  }, [])
+
+  const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault()
     if (!email) return
+
+    // Cancel any in-flight request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+    }
+
+    // Create new AbortController for this request
+    const controller = new AbortController()
+    abortControllerRef.current = controller
 
     setLoading(true)
     setError('')
     setResult(null)
 
     try {
-      const response = await fetch(`/api/v1/validate?email=${encodeURIComponent(email)}`)
+      const response = await fetch(
+        `/api/v1/validate?email=${encodeURIComponent(email)}`,
+        { signal: controller.signal }
+      )
+
+      // Ignore abort errors
+      if (response.status === 0) return
+
       const data = await response.json()
 
       if (data.success) {
@@ -40,11 +66,15 @@ export default function ValidatePage() {
         setError(data.error || 'Validation failed')
       }
     } catch (err) {
+      // Ignore AbortError - this is expected when cancelling requests
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        return
+      }
       setError('An error occurred during validation')
     } finally {
       setLoading(false)
     }
-  }
+  }, [email])
 
   return (
     <div className="min-h-screen bg-[var(--bg-base)] p-6">
