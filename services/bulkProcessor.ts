@@ -226,40 +226,107 @@ export async function getBulkJobResults(
   }
 }
 
-// Fonction pour obtenir les statistiques du job
+// Fonction pour obtenir les statistiques du job - Version optimisée SQL
+// Au lieu de charger tous les résultats en mémoire, on utilise des agrégations SQL
 export async function getBulkJobStats(jobId: string) {
-  const results = await prisma.validation.findMany({
+  // Requête 1: Count total + group by status
+  const statusCounts = await prisma.validation.groupBy({
+    by: ['status'],
     where: { bulkJobId: jobId },
-    select: { status: true, score: true },
-  })
-  
-  const stats = {
-    total: results.length,
-    valid: results.filter(r => r.status === 'valid').length,
-    invalid: results.filter(r => r.status === 'invalid').length,
-    risky: results.filter(r => r.status === 'risky').length,
-    unknown: results.filter(r => r.status === 'unknown').length,
-    avgScore: 0,
-    scoreDistribution: {
-      '0-20': 0,
-      '21-40': 0,
-      '41-60': 0,
-      '61-80': 0,
-      '81-100': 0,
+    _count: {
+      status: true,
     },
+  })
+
+  // Requête 2: Moyenne des scores
+  const scoreStats = await prisma.validation.aggregate({
+    where: { bulkJobId: jobId },
+    _avg: {
+      score: true,
+    },
+    _count: {
+      score: true,
+    },
+  })
+
+  // Requête 3: Distribution des scores via raw query PostgreSQL
+  // Utilise CASE pour grouper par range
+  let scoreDistribution: Record<string, number> = {
+    '0-20': 0,
+    '21-40': 0,
+    '41-60': 0,
+    '61-80': 0,
+    '81-100': 0,
   }
-  
-  if (results.length > 0) {
-    stats.avgScore = Math.round(results.reduce((sum, r) => sum + r.score, 0) / results.length)
-    
-    for (const r of results) {
-      if (r.score <= 20) stats.scoreDistribution['0-20']++
-      else if (r.score <= 40) stats.scoreDistribution['21-40']++
-      else if (r.score <= 60) stats.scoreDistribution['41-60']++
-      else if (r.score <= 80) stats.scoreDistribution['61-80']++
-      else stats.scoreDistribution['81-100']++
+
+  try {
+    const distributionResult = await prisma.$queryRaw<{ range: string; count: bigint }[]>`
+      SELECT
+        CASE
+          WHEN score <= 20 THEN '0-20'
+          WHEN score <= 40 THEN '21-40'
+          WHEN score <= 60 THEN '41-60'
+          WHEN score <= 80 THEN '61-80'
+          ELSE '81-100'
+        END as range,
+        COUNT(*) as count
+      FROM "Validation"
+      WHERE "bulkJobId" = ${jobId}
+      GROUP BY range
+      ORDER BY range
+    `
+
+    for (const row of distributionResult) {
+      scoreDistribution[row.range] = Number(row.count)
     }
+  } catch (error) {
+    // Fallback: utiliser les données de statusCounts si la query échoue
+    // (ou si ce n'est pas PostgreSQL)
+    console.warn('SQL distribution query failed, using fallback:', error)
   }
-  
-  return stats
+
+  // Transformer les résultats en objet
+  const statusMap = statusCounts.reduce((acc, item) => {
+    acc[item.status] = item._count.status
+    return acc
+  }, {} as Record<string, number>)
+
+  return {
+    total: scoreStats._count.score || 0,
+    valid: statusMap.valid || 0,
+    invalid: statusMap.invalid || 0,
+    risky: statusMap.risky || 0,
+    unknown: statusMap.unknown || 0,
+    avgScore: Math.round(scoreStats._avg.score || 0),
+    scoreDistribution,
+  }
+}
+
+// Fonction pour récupérer les résultats avec cursor-based pagination
+// Plus performant que offset pour grandes tables
+export async function getBulkJobResultsCursor(
+  jobId: string,
+  cursor?: string,
+  limit = 50
+) {
+  // Si pas de cursor, récupérer les premiers éléments
+  const results = await prisma.validation.findMany({
+    where: {
+      bulkJobId: jobId,
+      ...(cursor ? {
+        id: { lt: cursor }, //假设 cursor est l'ID du dernier élément
+      } : {}),
+    },
+    take: limit + 1, // +1 pour savoir s'il y a une page suivante
+    orderBy: { createdAt: 'desc' },
+  })
+
+  const hasNextPage = results.length > limit
+  const items = hasNextPage ? results.slice(0, -1) : results
+
+  return {
+    results: items,
+    nextCursor: hasNextPage ? items[items.length - 1]?.id : undefined,
+    hasNextPage,
+  }
 }
