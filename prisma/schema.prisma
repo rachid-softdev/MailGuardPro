@@ -90,7 +90,7 @@ model ApiKey {
 
 model Validation {
   id              String   @id @default(cuid())
-  email           String
+  email           String   @db.VarChar(255)
   score           Int
   status          String
   checksJson      Json
@@ -102,6 +102,12 @@ model Validation {
 
   user            User?    @relation(fields: [userId], references: [id])
   bulkJob         BulkJob? @relation(fields: [bulkJobId], references: [id])
+
+  // Performance indexes
+  @@index([email])
+  @@index([userId, createdAt])
+  @@index([bulkJobId])
+  @@index([status, createdAt])
 }
 
 model BulkJob {
@@ -119,6 +125,10 @@ model BulkJob {
   createdAt     DateTime    @default(now())
 
   validations   Validation[]
+
+  // Performance indexes
+  @@index([userId, createdAt])
+  @@index([status])
 }
 
 model Webhook {
@@ -138,4 +148,21 @@ model RateLimit {
   resetAt   DateTime // Quand le compteur sera réinitialisé
 
   @@index([resetAt])
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  userId      String?
+  action      String   // AuditAction enum value
+  resource    String   // AuditResource enum value
+  resourceId  String?
+  ipAddress   String?
+  userAgent   String?
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([resource, resourceId])
+  @@index([action, createdAt])
+  @@index([createdAt])
 }

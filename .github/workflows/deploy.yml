@@ -1,0 +1,136 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - staging
+          - production
+
+jobs:
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && inputs.environment == 'staging'
+    environment:
+      name: staging
+      url: https://staging.mailguard.pro
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma Client
+        run: npx prisma generate
+
+      - name: Build application
+        run: npm run build
+        env:
+          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+          REDIS_URL: ${{ secrets.STAGING_REDIS_URL }}
+          AUTH_SECRET: ${{ secrets.STAGING_AUTH_SECRET }}
+          AUTH_URL: https://staging.mailguard.pro
+
+      - name: Deploy to staging server
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.STAGING_HOST }}
+          username: ${{ secrets.STAGING_USERNAME }}
+          key: ${{ secrets.STAGING_SSH_KEY }}
+          script: |
+            cd /opt/mailguard-pro
+            git pull origin main
+            npm ci
+            npx prisma migrate deploy
+            npm run build
+            sudo systemctl restart mailguard-pro
+
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    environment:
+      name: production
+      url: https://mailguard.pro
+    if: "!contains(github.event.head_commit.message, '[skip deploy]')"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma Client
+        run: npx prisma generate
+
+      - name: Build application
+        run: npm run build
+        env:
+          DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
+          REDIS_URL: ${{ secrets.PRODUCTION_REDIS_URL }}
+          AUTH_SECRET: ${{ secrets.PRODUCTION_AUTH_SECRET }}
+          AUTH_URL: https://mailguard.pro
+
+      - name: Run database migrations
+        run: npx prisma migrate deploy
+        env:
+          DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
+
+      - name: Deploy to production server
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.PRODUCTION_HOST }}
+          username: ${{ secrets.PRODUCTION_USERNAME }}
+          key: ${{ secrets.PRODUCTION_SSH_KEY }}
+          script: |
+            cd /opt/mailguard-pro
+            git pull origin main
+            npm ci
+            npx prisma migrate deploy
+            npm run build
+            sudo systemctl restart mailguard-pro
+
+      - name: Notify Slack on success
+        if: success()
+        uses: 8398a7/action-slack@v3
+        with:
+          status: success
+          fields: repo,message,commit,author
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
+
+      - name: Notify Slack on failure
+        if: failure()
+        uses: 8398a7/action-slack@v3
+        with:
+          status: failure
+          fields: repo,message,commit,author
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
