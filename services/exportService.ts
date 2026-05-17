@@ -1,53 +1,13 @@
-// Service d'export multi-format (CSV, JSON, XLSX, PDF)
+// Service d'export multi-format (CSV, JSON, XLSX)
+// PDF généré côté client avec jsPDF pour compatibilité Serverless
 
 import { stringify } from 'csv-stringify/sync'
 import ExcelJS from 'exceljs'
-import { renderToBuffer } from '@react-pdf/renderer'
 import { prisma } from '@/lib/prisma'
 import { ExportOptions, ValidationResult } from './types'
 
-// Types pour le PDF
-import { Document, Page, Text, View, StyleSheet, Font } from '@react-pdf/renderer'
-
-// Enregistrer les polices pour le PDF
-Font.register({
-  family: 'Helvetica',
-  fonts: [
-    { src: 'https://fonts.gstatic.com/s/roboto/v30/KFOmCnqEu92Fr1Mu4mxP.ttf', fontWeight: 'normal' },
-    { src: 'https://fonts.gstatic.com/s/roboto/v30/KFOlCnqEu92Fr1MmWUlfBBc9.ttf', fontWeight: 'bold' },
-  ],
-})
-
-const styles = StyleSheet.create({
-  page: {
-    padding: 40,
-    fontFamily: 'Helvetica',
-  },
-  header: {
-    marginBottom: 20,
-  },
-  title: {
-    fontSize: 24,
-    marginBottom: 10,
-  },
-  subtitle: {
-    fontSize: 12,
-    color: '#666',
-  },
-  kpiRow: {
-    flexDirection: 'row',
-    marginBottom: 20,
-    gap: 10,
-  },
-  kpi: {
-    flex: 1,
-    padding: 15,
-    backgroundColor: '#f5f5f5',
-    borderRadius: 8,
-  },
-  kpiLabel: {
-    fontSize: 10,
-    color: '#666',
+// NOTE: PDF est maintenant généré côté client via components/export/PdfGenerator.tsx
+// pour compatibilité avec les environnements Serverless (Vercel, Netlify, Cloudflare)
     marginBottom: 5,
   },
   kpiValue: {
@@ -234,7 +194,9 @@ export async function exportResults(options: ExportOptions): Promise<Buffer> {
     case 'xlsx':
       return exportXLSX(formattedResults, { jobId })
     case 'pdf':
-      return exportPDF(formattedResults, { jobId })
+      // PDF est généré côté client via /api/v1/bulk/[jobId]/export-data
+      // qui retourne les données JSON pour le composant PdfGenerator
+      throw new Error('PDF is generated client-side. Use /export-data endpoint.')
     default:
       throw new Error(`Unsupported format: ${format}`)
   }

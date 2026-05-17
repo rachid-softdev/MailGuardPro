@@ -4,6 +4,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { logAudit, AuditAction, AuditResource } from '@/services/auditLogger'
 
 export async function DELETE(
   req: NextRequest,
@@ -39,6 +40,16 @@ export async function DELETE(
     await prisma.apiKey.update({
       where: { id },
       data: { isActive: false },
+    })
+
+    // Audit log
+    logAudit({
+      userId: session.user.id,
+      action: AuditAction.API_KEY_REVOKED,
+      resource: AuditResource.API_KEY,
+      resourceId: id,
+      ipAddress: req.headers.get('x-forwarded-for') || undefined,
+      metadata: { keyName: apiKey.name },
     })
 
     return NextResponse.json({
