@@ -1,4 +1,15 @@
 import Link from 'next/link'
+import { Metadata } from 'next'
+
+export const metadata: Metadata = {
+  title: 'Pricing - MailGuard Pro',
+  description: 'Simple, transparent pricing for email validation. Free tier with 100 validations, paid plans starting at €9/month.',
+  openGraph: {
+    title: 'Pricing - MailGuard Pro',
+    description: 'Choose the plan that fits your needs. Free tier available.',
+    url: 'https://mailguard.pro/pricing',
+  },
+}
 
 export default function PricingPage() {
   const plans = [

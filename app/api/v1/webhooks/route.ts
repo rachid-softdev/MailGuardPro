@@ -1,79 +1,126 @@
 // API Route: Gestion des webhooks
-// GET /api/v1/webhooks - List
-// POST /api/v1/webhooks - Create
-// DELETE /api/v1/webhooks/[id] - Delete
+// GET /api/v1/webhooks - Lister les webhooks
+// POST /api/v1/webhooks - Créer un webhook
 
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { v4 as uuidv4 } from 'uuid'
 import { z } from 'zod'
 
-const createSchema = z.object({
+const createWebhookSchema = z.object({
   url: z.string().url(),
+  name: z.string().min(1).max(100),
   events: z.array(z.string()).min(1),
 })
 
 export async function GET(req: NextRequest) {
   try {
     const session = await auth()
-    if (!session?.user) {
-      return NextResponse.json({ success: false, error: 'Authentication required' }, { status: 401 })
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { success: false, error: 'Authentication required' },
+        { status: 401 }
+      )
     }
-    
+
     const webhooks = await prisma.webhook.findMany({
       where: { userId: session.user.id },
+      orderBy: { createdAt: 'desc' },
       select: {
         id: true,
         url: true,
+        name: true,
         events: true,
         isActive: true,
         createdAt: true,
       },
     })
-    
-    return NextResponse.json({ success: true, data: webhooks })
+
+    return NextResponse.json({
+      success: true,
+      data: webhooks,
+    })
   } catch (error) {
     console.error('[API] Webhooks list error:', error)
-    return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 })
+    return NextResponse.json(
+      { success: false, error: 'Internal server error' },
+      { status: 500 }
+    )
   }
 }
 
 export async function POST(req: NextRequest) {
   try {
     const session = await auth()
-    if (!session?.user) {
-      return NextResponse.json({ success: false, error: 'Authentication required' }, { status: 401 })
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { success: false, error: 'Authentication required' },
+        { status: 401 }
+      )
     }
-    
+
     const body = await req.json()
-    const validated = createSchema.safeParse(body)
-    
-    if (!validated.success) {
-      return NextResponse.json({ success: false, error: 'Invalid request body' }, { status: 400 })
+    const validation = createWebhookSchema.safeParse(body)
+
+    if (!validation.success) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid input', details: validation.error.errors },
+        { status: 400 }
+      )
     }
-    
-    // Créer le webhook
+
+    const { url, name, events } = validation.data
+
+    // Vérifier HTTPS en production
+    if (process.env.NODE_ENV === 'production' && !url.startsWith('https://')) {
+      return NextResponse.json(
+        { success: false, error: 'Webhooks must use HTTPS in production' },
+        { status: 400 }
+      )
+    }
+
+    // Vérifier le nombre de webhooks existants
+    const existingWebhooksCount = await prisma.webhook.count({
+      where: { userId: session.user.id },
+    })
+
+    if (existingWebhooksCount >= 10) {
+      return NextResponse.json(
+        { success: false, error: 'Maximum 10 webhooks allowed' },
+        { status: 400 }
+      )
+    }
+
+    // Générer un secret pour le webhook
+    const crypto = await import('crypto')
+    const secret = crypto.randomBytes(32).toString('hex')
+
     const webhook = await prisma.webhook.create({
       data: {
+        url,
+        name,
+        events,
+        secret,
         userId: session.user.id,
-        url: validated.data.url,
-        events: validated.data.events,
-        secret: uuidv4(),
       },
     })
-    
+
     return NextResponse.json({
       success: true,
       data: {
         id: webhook.id,
         url: webhook.url,
+        name: webhook.name,
         events: webhook.events,
-        secret: webhook.secret, // À afficher une seule fois
+        isActive: webhook.isActive,
+        createdAt: webhook.createdAt,
       },
     })
   } catch (error) {
-    console.error('[API] Webhooks create error:', error)
-    return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 })
+    console.error('[API] Webhook create error:', error)
+    return NextResponse.json(
+      { success: false, error: 'Internal server error' },
+      { status: 500 }
+    )
   }
 }
