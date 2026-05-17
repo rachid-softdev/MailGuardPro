@@ -17,6 +17,7 @@
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
     "db:studio": "prisma studio",
+    "db:seed:entitlements": "npx tsx prisma/seed-entitlements.ts",
     "test": "vitest",
     "test:run": "vitest --run",
     "test:coverage": "vitest --coverage",

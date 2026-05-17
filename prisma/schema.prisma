@@ -33,12 +33,16 @@ model User {
   stripeCustomerId  String?   @unique
   stripeSubscriptionId String?
 
+  organizationId    String?   // relation vers organization (optionnel pour backward compat)
+  organization      Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+
   accounts          Account[]
   sessions          Session[]
   apiKeys           ApiKey[]
   bulkJobs          BulkJob[]
   webhooks          Webhook[]
   validations       Validation[]
+  entitlementOverrides EntitlementOverride[] @relation("UserOverrides")
 }
 
 model Account {
@@ -167,4 +171,168 @@ model AuditLog {
   @@index([resource, resourceId])
   @@index([action, createdAt])
   @@index([createdAt])
+}
+
+// =====================================================
+// FEATURE FLAGS + ENTITLEMENTS SYSTEM
+// =====================================================
+
+enum FeatureType {
+  BOOLEAN  @default(BOOLEAN)
+  LIMIT   @default(LIMIT)
+  EXPERIMENT @default(EXPERIMENT)
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  TRIALING
+  PAST_DUE
+  CANCELED
+  INCOMPLETE
+  INCOMPLETE_EXPIRED
+}
+
+enum OverrideScope {
+  ORG
+  USER
+}
+
+enum DowngradeStrategy {
+  GRACEFUL
+  IMMEDIATE
+  FREEZE
+}
+
+model Plan {
+  id            String   @id @default(cuid())
+  key           String   @unique // "free", "starter", "pro", "business"
+  name          String
+  priceMonthly  Int      @default(0) // en centimes
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  features      PlanFeature[]
+  subscriptions Subscription[]
+
+  @@index([key])
+}
+
+model Feature {
+  id              String       @id @default(cuid())
+  key             String       @unique // "EXPORT_PDF", "BULK_VALIDATION", etc.
+  description     String?
+  type            FeatureType  @default(BOOLEAN)
+  defaultConfig   Json?        // config par défaut pour experiments
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  planFeatures    PlanFeature[]
+  overrides       EntitlementOverride[]
+  usageTracking   UsageTracking[]
+
+  @@index([key])
+}
+
+model PlanFeature {
+  id          String  @id @default(cuid())
+  planId      String
+  featureId   String
+  enabled     Boolean @default(false)
+  limitValue  Int?    // null = illimité pour type LIMIT
+  configJson  Json?   // config pour experiments
+  downgradeStrategy DowngradeStrategy @default(GRACEFUL)
+
+  plan        Plan     @relation(fields: [planId], references: [id], onDelete: Cascade)
+  feature     Feature  @relation(fields: [featureId], references: [id], onDelete: Cascade)
+
+  @@unique([planId, featureId])
+  @@index([planId])
+  @@index([featureId])
+}
+
+model Organization {
+  id                String   @id @default(cuid())
+  name              String?
+  stripeCustomerId  String?  @unique
+  isPersonal        Boolean  @default(true) // true = user seul, false = équipe
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  users             User[]   // relation optionnelle vers users existants
+  subscriptions     Subscription[]
+  entitlementOverrides EntitlementOverride[] @relation("OrgOverrides")
+  usageTracking    UsageTracking[]
+
+  @@index([stripeCustomerId])
+}
+
+model Subscription {
+  id                   String             @id @default(cuid())
+  orgId                String
+  planKey              String             // référence vers Plan.key
+  status               SubscriptionStatus @default(ACTIVE)
+  stripeSubscriptionId String?            @unique
+  stripePriceId        String?
+  currentPeriodStart   DateTime
+  currentPeriodEnd     DateTime
+  cancelAtPeriodEnd    Boolean             @default(false)
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+
+  org                  Organization        @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  plan                 Plan?               @relation(fields: [planKey], references: [key])
+
+  @@index([orgId])
+  @@index([status])
+  @@index([stripeSubscriptionId])
+}
+
+model EntitlementOverride {
+  id          String        @id @default(cuid())
+  scope       OverrideScope // "ORG" ou "USER"
+  scopeId     String        // orgId ou userId (pas de FK direct car scope决定类型)
+  featureKey  String
+  enabled     Boolean       @default(false)
+  limitValue  Int?
+  expiresAt   DateTime?     // null = jamais expiré
+  reason      String?       // reason obligatoire pour audit
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  createdBy   String?       // admin user id
+
+  // Note: Pas de FK direct vers Organization ou User car scope决定类型
+  // Les queries doivent filtrer par scope + scopeId
+
+  @@unique([scope, scopeId, featureKey])
+  @@index([scope, scopeId])
+  @@index([featureKey])
+  @@index([expiresAt])
+}
+
+model UsageTracking {
+  id            String   @id @default(cuid())
+  orgId         String
+  featureKey    String
+  usageCount    Int      @default(0)
+  periodStart   DateTime // début de la période mensuelle
+  periodEnd     DateTime // fin de la période mensuelle
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  organization  Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  feature       Feature      @relation(fields: [featureKey], references: [key])
+
+  @@unique([orgId, featureKey, periodStart])
+  @@index([orgId, featureKey])
+  @@index([periodEnd])
+}
+
+// Pour idempotency des webhooks Stripe
+model WebhookEvent {
+  id          String   @id // Stripe event ID
+  processedAt DateTime @default(now())
+  orgId       String?
+
+  @@index([processedAt])
 }
