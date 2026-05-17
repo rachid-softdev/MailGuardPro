@@ -17,10 +17,19 @@ export default async function DashboardLayout({
     { href: '/dashboard', label: 'Dashboard', icon: '◉' },
     { href: '/validate', label: 'Validate', icon: '✓' },
     { href: '/bulk', label: 'Bulk', icon: '↑' },
+    { href: '/history', label: 'History', icon: '☰' },
     { href: '/api-keys', label: 'API Keys', icon: '⚿' },
     { href: '/webhooks', label: 'Webhooks', icon: '⚡' },
     { href: '/settings', label: 'Settings', icon: '⚙' },
   ]
+
+  // Get user credits from database
+  const { prisma } = await import('@/lib/prisma')
+  const user = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { credits: true },
+  })
+  const credits = user?.credits ?? 0
 
   return (
     <div className="min-h-screen bg-[var(--bg-base)] flex">
@@ -50,7 +59,7 @@ export default async function DashboardLayout({
           <div className="flex items-center justify-between text-sm">
             <div>
               <p className="text-[var(--text-muted)]">Credits</p>
-              <p className="font-mono font-semibold">{session.user.credits}</p>
+              <p className="font-mono font-semibold">{credits}</p>
             </div>
             <form action={async () => {
               'use server'

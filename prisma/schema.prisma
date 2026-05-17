@@ -22,21 +22,23 @@ enum JobStatus {
 }
 
 model User {
-  id            String    @id @default(cuid())
-  name          String?
-  email         String?   @unique
-  emailVerified DateTime?
-  image         String?
-  plan          Plan      @default(FREE)
-  credits       Int       @default(100)
-  createdAt     DateTime  @default(now())
+  id                String    @id @default(cuid())
+  name              String?
+  email             String?   @unique
+  emailVerified     DateTime?
+  image             String?
+  plan              Plan      @default(FREE)
+  credits           Int       @default(100)
+  createdAt         DateTime  @default(now())
+  stripeCustomerId  String?   @unique
+  stripeSubscriptionId String?
 
-  accounts      Account[]
-  sessions      Session[]
-  apiKeys       ApiKey[]
-  bulkJobs      BulkJob[]
-  webhooks      Webhook[]
-  validations   Validation[]
+  accounts          Account[]
+  sessions          Session[]
+  apiKeys           ApiKey[]
+  bulkJobs          BulkJob[]
+  webhooks          Webhook[]
+  validations       Validation[]
 }
 
 model Account {
