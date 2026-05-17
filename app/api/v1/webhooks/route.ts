@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
+import { logAudit, AuditAction, AuditResource } from '@/services/auditLogger'
 
 const createWebhookSchema = z.object({
   url: z.string().url(),
@@ -103,6 +104,16 @@ export async function POST(req: NextRequest) {
         secret,
         userId: session.user.id,
       },
+    })
+
+    // Audit log
+    logAudit({
+      userId: session.user.id,
+      action: AuditAction.WEBHOOK_CREATED,
+      resource: AuditResource.WEBHOOK,
+      resourceId: webhook.id,
+      ipAddress: req.headers.get('x-forwarded-for') || undefined,
+      metadata: { webhookName: name, url, events },
     })
 
     return NextResponse.json({

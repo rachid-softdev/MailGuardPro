@@ -7,6 +7,7 @@ import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { v4 as uuidv4 } from 'uuid'
 import crypto from 'crypto'
+import { logAudit, AuditAction, AuditResource } from '@/services/auditLogger'
 
 // Helper pour générer une clé API
 function generateApiKey(prefix: string = 'mg_live'): string {
@@ -109,6 +110,16 @@ export async function POST(req: NextRequest) {
         name: name.trim(),
         userId: session.user.id,
       },
+    })
+
+    // Audit log
+    logAudit({
+      userId: session.user.id,
+      action: AuditAction.API_KEY_CREATED,
+      resource: AuditResource.API_KEY,
+      resourceId: newKey.id,
+      ipAddress: req.headers.get('x-forwarded-for') || undefined,
+      metadata: { keyName: name.trim(), keyPrefix },
     })
 
     return NextResponse.json({

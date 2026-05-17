@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { logAudit, AuditAction, AuditResource } from '@/services/auditLogger'
 
 export async function DELETE(
   req: NextRequest,

@@ -8,6 +8,7 @@ import { prisma } from '@/lib/prisma'
 import { checkRateLimit } from '@/lib/redis'
 import { validateEmail } from '@/services/emailValidator'
 import { z } from 'zod'
+import { logAudit, AuditAction, AuditResource } from '@/services/auditLogger'
 
 // Schema de validation
 const validateQuerySchema = z.object({
