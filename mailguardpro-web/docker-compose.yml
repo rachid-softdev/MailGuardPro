@@ -1,0 +1,98 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: mailguard-postgres
+    environment:
+      POSTGRES_USER: mailguard
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: mailguard
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mailguard -d mailguard"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - mailguard-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: mailguard-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    restart: unless-stopped
+    networks:
+      - mailguard-network
+
+  next:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mailguard-next
+    ports:
+      - "3000:3000"
+    environment:
+      - DATABASE_URL=postgresql://mailguard:password@postgres:5432/mailguard
+      - REDIS_URL=redis://redis:6379
+      - NODE_ENV=production
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    networks:
+      - mailguard-network
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    container_name: mailguard-worker
+    environment:
+      - DATABASE_URL=postgresql://mailguard:password@postgres:5432/mailguard
+      - REDIS_URL=redis://redis:6379
+      - NODE_ENV=production
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "pg_isready", "-h", "postgres", "-U", "mailguard"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+    networks:
+      - mailguard-network
+
+networks:
+  mailguard-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:

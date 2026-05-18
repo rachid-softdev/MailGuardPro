@@ -1,0 +1,170 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Plan {
+  FREE
+  STARTER
+  PRO
+  BUSINESS
+}
+
+enum JobStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+model User {
+  id                String    @id @default(cuid())
+  name              String?
+  email             String?   @unique
+  emailVerified     DateTime?
+  image             String?
+  plan              Plan      @default(FREE)
+  credits           Int       @default(100)
+  createdAt         DateTime  @default(now())
+  stripeCustomerId  String?   @unique
+  stripeSubscriptionId String?
+
+  accounts          Account[]
+  sessions          Session[]
+  apiKeys           ApiKey[]
+  bulkJobs          BulkJob[]
+  webhooks          Webhook[]
+  validations       Validation[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model ApiKey {
+  id          String   @id @default(cuid())
+  key         String   @unique // mg_live_xxx ou mg_test_xxx
+  keyHash     String   @unique // Hash de la clé pour sécurité
+  keyPrefix   String   // Prefixe pour affichage (ex: mg_live_abc1...)
+  name        String
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  lastUsedAt  DateTime?
+  createdAt   DateTime @default(now())
+  isActive    Boolean  @default(true)
+}
+
+model Validation {
+  id              String   @id @default(cuid())
+  email           String   @db.VarChar(255)
+  score           Int
+  status          String
+  checksJson      Json
+  processingTimeMs Int
+  userId          String?
+  apiKeyId        String?
+  bulkJobId       String?
+  createdAt       DateTime @default(now())
+
+  user            User?    @relation(fields: [userId], references: [id])
+  bulkJob         BulkJob? @relation(fields: [bulkJobId], references: [id])
+
+  // Performance indexes
+  @@index([email])
+  @@index([userId, createdAt])
+  @@index([bulkJobId])
+  @@index([status, createdAt])
+}
+
+model BulkJob {
+  id            String      @id @default(cuid())
+  userId        String
+  user          User        @relation(fields: [userId], references: [id])
+  filename      String
+  totalEmails   Int
+  processed     Int         @default(0)
+  status        JobStatus   @default(PENDING)
+  resultUrl     String?
+  reportUrl     String?
+  startedAt     DateTime?
+  completedAt   DateTime?
+  createdAt     DateTime    @default(now())
+
+  validations   Validation[]
+
+  // Performance indexes
+  @@index([userId, createdAt])
+  @@index([status])
+}
+
+model Webhook {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  url       String
+  events    String[] // ['bulk_job_completed', 'daily_report']
+  secret    String   // Secret pour HMAC signing
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
+
+model RateLimit {
+  key       String   @id // Clé de rate limiting (ip:endpoint ou apiKey:endpoint)
+  count     Int      @default(0)
+  resetAt   DateTime // Quand le compteur sera réinitialisé
+
+  @@index([resetAt])
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  userId      String?
+  action      String   // AuditAction enum value
+  resource    String   // AuditResource enum value
+  resourceId  String?
+  ipAddress   String?
+  userAgent   String?
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([resource, resourceId])
+  @@index([action, createdAt])
+  @@index([createdAt])
+}

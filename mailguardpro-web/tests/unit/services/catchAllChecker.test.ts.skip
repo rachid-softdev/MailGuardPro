@@ -1,0 +1,115 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { checkCatchAll, checkCatchAllQuick } from '@/services/catchAllChecker'
+
+// Mock dns/promises
+vi.mock('dns/promises', () => ({
+  resolveMx: vi.fn(),
+}))
+
+import dns from 'dns/promises'
+
+describe('catchAllChecker', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  describe('checkCatchAll', () => {
+    it('should return passed for domain without MX records', async () => {
+      vi.mocked(dns.resolveMx).mockRejectedValue(new Error('ENOTFOUND'))
+
+      const result = await checkCatchAll('example.com')
+
+      expect(result.passed).toBe(true)
+      expect(result.weight).toBe(5)
+      expect(result.message).toBe('Pas de MX record')
+    })
+
+    it('should return passed for domain with no MX records', async () => {
+      vi.mocked(dns.resolveMx).mockResolvedValue([])
+
+      const result = await checkCatchAll('example.com')
+
+      expect(result.passed).toBe(true)
+      expect(result.message).toBe('Pas de MX record')
+    })
+
+    it('should return failed for domain with many MX records (likely catch-all)', async () => {
+      const mxRecords = [
+        { priority: 10, exchange: 'mx1.example.com' },
+        { priority: 20, exchange: 'mx2.example.com' },
+        { priority: 30, exchange: 'mx3.example.com' },
+        { priority: 40, exchange: 'mx4.example.com' },
+        { priority: 50, exchange: 'mx5.example.com' },
+        { priority: 60, exchange: 'mx6.example.com' },
+      ]
+      vi.mocked(dns.resolveMx).mockResolvedValue(mxRecords)
+
+      const result = await checkCatchAll('example.com')
+
+      expect(result.passed).toBe(false)
+      expect(result.message).toBe('Domaine potentiellement catch-all')
+    })
+
+    it('should return passed for domain with normal MX configuration', async () => {
+      const mxRecords = [
+        { priority: 10, exchange: 'mx1.example.com' },
+        { priority: 20, exchange: 'mx2.example.com' },
+      ]
+      vi.mocked(dns.resolveMx).mockResolvedValue(mxRecords)
+
+      const result = await checkCatchAll('example.com')
+
+      expect(result.passed).toBe(true)
+      expect(result.message).toBe('Non catch-all')
+      expect(result.weight).toBe(10)
+    })
+
+    it('should handle DNS resolution errors gracefully', async () => {
+      vi.mocked(dns.resolveMx).mockRejectedValue(new Error('DNS error'))
+
+      const result = await checkCatchAll('example.com')
+
+      expect(result.passed).toBe(true)
+      expect(result.message).toBe('Vérification impossible')
+    })
+  })
+
+  describe('checkCatchAllQuick', () => {
+    it('should return passed for domain with few MX records', async () => {
+      const mxRecords = [
+        { priority: 10, exchange: 'mx1.example.com' },
+      ]
+      vi.mocked(dns.resolveMx).mockResolvedValue(mxRecords)
+
+      const result = await checkCatchAllQuick('example.com')
+
+      expect(result.passed).toBe(true)
+      expect(result.message).toBe('Likely not catch-all')
+    })
+
+    it('should return failed for domain with many MX records', async () => {
+      const mxRecords = [
+        { priority: 10, exchange: 'mx1.example.com' },
+        { priority: 20, exchange: 'mx2.example.com' },
+        { priority: 30, exchange: 'mx3.example.com' },
+        { priority: 40, exchange: 'mx4.example.com' },
+        { priority: 50, exchange: 'mx5.example.com' },
+      ]
+      vi.mocked(dns.resolveMx).mockResolvedValue(mxRecords)
+
+      const result = await checkCatchAllQuick('example.com')
+
+      expect(result.passed).toBe(false)
+      expect(result.message).toBe('Possibly catch-all')
+    })
+
+    it('should return passed when MX lookup fails', async () => {
+      vi.mocked(dns.resolveMx).mockRejectedValue(new Error('Not found'))
+
+      const result = await checkCatchAllQuick('example.com')
+
+      expect(result.passed).toBe(true)
+      expect(result.message).toBe('Cannot verify')
+    })
+  })
+})

@@ -1,0 +1,33 @@
+{
+  "name": "@mailguardpro/root",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@9.15.9",
+  "scripts": {
+    "dev": "turbo run dev --parallel",
+    "dev:web": "pnpm --filter mailguardpro-web dev",
+    "build": "turbo run build",
+    "build:web": "pnpm --filter mailguardpro-web build",
+    "start": "pnpm --filter mailguardpro-web start",
+    "format": "biome format --write .",
+    "format:check": "biome format .",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "check": "pnpm run format:check && pnpm run lint && pnpm run typecheck",
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.0",
+    "@playwright/test": "^1.49.1",
+    "@types/node": "^22.10.5",
+    "@types/react": "^19.0.6",
+    "@types/react-dom": "^19.0.2",
+    "husky": "^9.1.7",
+    "lint-staged": "^15.3.0",
+    "turbo": "^2.0.0",
+    "typescript": "^5.7.2"
+  },
+  "lint-staged": {
+    "*.{ts,tsx}": ["biome check --write"]
+  }
+}
