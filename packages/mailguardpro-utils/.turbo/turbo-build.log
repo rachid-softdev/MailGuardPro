@@ -1,0 +1,6 @@
+
+> @mailguardpro/utils@0.1.0 build D:\git-projects\MailGuardPro\packages\mailguardpro-utils
+> tsup
+
+[31mNo input files, try "tsup <your-file>" instead[39m
+ ELIFECYCLE  Command failed with exit code 1.

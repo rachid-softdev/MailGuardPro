@@ -1,90 +1,88 @@
-'use client'
+"use client";
 
-import { useState, useEffect, useCallback } from 'react'
-import { useSearchParams, useRouter } from 'next/navigation'
-import { formatDistanceToNow } from 'date-fns'
-import { StatusBadge } from '@/components/ui/StatusBadge'
+import { StatusBadge } from "@/components/ui/StatusBadge";
+import { formatDistanceToNow } from "date-fns";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
 
 interface Validation {
-  id: string
-  email: string
-  score: number
-  status: string
-  createdAt: string
+  id: string;
+  email: string;
+  score: number;
+  status: string;
+  createdAt: string;
 }
 
 export default function HistoryPage() {
-  const router = useRouter()
-  const searchParams = useSearchParams()
-  
-  const [validations, setValidations] = useState<Validation[]>([])
-  const [loading, setLoading] = useState(true)
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const [validations, setValidations] = useState<Validation[]>([]);
+  const [loading, setLoading] = useState(true);
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 20,
     total: 0,
     totalPages: 0,
-  })
+  });
 
   // Filters from URL
-  const page = parseInt(searchParams.get('page') || '1')
-  const statusFilter = searchParams.get('status') || ''
-  const searchQuery = searchParams.get('search') || ''
+  const page = parseInt(searchParams.get("page") || "1");
+  const statusFilter = searchParams.get("status") || "";
+  const searchQuery = searchParams.get("search") || "";
 
   const fetchValidations = useCallback(async () => {
-    setLoading(true)
+    setLoading(true);
     try {
-      const params = new URLSearchParams()
-      params.set('page', page.toString())
-      params.set('limit', pagination.limit.toString())
-      if (statusFilter) params.set('status', statusFilter)
-      if (searchQuery) params.set('search', searchQuery)
+      const params = new URLSearchParams();
+      params.set("page", page.toString());
+      params.set("limit", pagination.limit.toString());
+      if (statusFilter) params.set("status", statusFilter);
+      if (searchQuery) params.set("search", searchQuery);
 
-      const res = await fetch(`/api/v1/validations?${params.toString()}`)
+      const res = await fetch(`/api/v1/validations?${params.toString()}`);
       if (res.ok) {
-        const data = await res.json()
-        setValidations(data.data || [])
-        setPagination(data.meta?.pagination || pagination)
+        const data = await res.json();
+        setValidations(data.data || []);
+        setPagination(data.meta?.pagination || pagination);
       }
     } catch (error) {
-      console.error('Failed to fetch validations:', error)
+      console.error("Failed to fetch validations:", error);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }, [page, statusFilter, searchQuery, pagination.limit])
+  }, [page, statusFilter, searchQuery, pagination.limit]);
 
   useEffect(() => {
-    fetchValidations()
-  }, [fetchValidations])
+    fetchValidations();
+  }, [fetchValidations]);
 
   const handleSearch = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-    const formData = new FormData(e.currentTarget)
-    const search = formData.get('search') as string
-    router.push(`/history?search=${encodeURIComponent(search)}`)
-  }
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    const search = formData.get("search") as string;
+    router.push(`/history?search=${encodeURIComponent(search)}`);
+  };
 
   const handleStatusFilter = (status: string) => {
     if (status) {
-      router.push(`/history?status=${status}`)
+      router.push(`/history?status=${status}`);
     } else {
-      router.push('/history')
+      router.push("/history");
     }
-  }
+  };
 
   const handlePageChange = (newPage: number) => {
-    const params = new URLSearchParams(searchParams)
-    params.set('page', newPage.toString())
-    router.push(`/history?${params.toString()}`)
-  }
+    const params = new URLSearchParams(searchParams);
+    params.set("page", newPage.toString());
+    router.push(`/history?${params.toString()}`);
+  };
 
   return (
     <div className="p-8">
       <div className="mb-8">
         <h1 className="text-3xl font-display font-bold mb-2">Validation History</h1>
-        <p className="text-[var(--text-secondary)]">
-          View all your email validations
-        </p>
+        <p className="text-[var(--text-secondary)]">View all your email validations</p>
       </div>
 
       {/* Filters */}
@@ -152,26 +150,39 @@ export default function HistoryPage() {
                 </thead>
                 <tbody>
                   {validations.map((validation) => (
-                    <tr key={validation.id} className="border-b border-[var(--border)] last:border-0">
+                    <tr
+                      key={validation.id}
+                      className="border-b border-[var(--border)] last:border-0"
+                    >
                       <td className="py-3 px-4 font-mono text-sm">{validation.email}</td>
                       <td className="py-3 px-4">
-                        <span className={`font-bold ${
-                          validation.score >= 75 ? 'text-[var(--status-valid)]' :
-                          validation.score >= 40 ? 'text-[var(--status-warning)]' :
-                          'text-[var(--status-invalid)]'
-                        }`}>
+                        <span
+                          className={`font-bold ${
+                            validation.score >= 75
+                              ? "text-[var(--status-valid)]"
+                              : validation.score >= 40
+                                ? "text-[var(--status-warning)]"
+                                : "text-[var(--status-invalid)]"
+                          }`}
+                        >
                           {validation.score}
                         </span>
                       </td>
                       <td className="py-3 px-4">
-                        <StatusBadge status={validation.status as 'valid' | 'invalid' | 'risky' | 'unknown'} />
+                        <StatusBadge
+                          status={validation.status as "valid" | "invalid" | "risky" | "unknown"}
+                        />
                       </td>
                       <td className="py-3 px-4 text-sm text-[var(--text-muted)]">
-                        {formatDistanceToNow(new Date(validation.createdAt), { addSuffix: true })}
+                        {formatDistanceToNow(new Date(validation.createdAt), {
+                          addSuffix: true,
+                        })}
                       </td>
                       <td className="py-3 px-4 text-right">
                         <button
-                          onClick={() => router.push(`/validate?email=${encodeURIComponent(validation.email)}`)}
+                          onClick={() =>
+                            router.push(`/validate?email=${encodeURIComponent(validation.email)}`)
+                          }
                           className="btn btn-ghost btn-sm"
                         >
                           Revalidate
@@ -187,7 +198,9 @@ export default function HistoryPage() {
             {pagination.totalPages > 1 && (
               <div className="flex items-center justify-between mt-4 pt-4 border-t border-[var(--border)]">
                 <p className="text-sm text-[var(--text-muted)]">
-                  Showing {((pagination.page - 1) * pagination.limit) + 1} to {Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total} results
+                  Showing {(pagination.page - 1) * pagination.limit + 1} to{" "}
+                  {Math.min(pagination.page * pagination.limit, pagination.total)} of{" "}
+                  {pagination.total} results
                 </p>
                 <div className="flex gap-2">
                   <button
@@ -215,10 +228,7 @@ export default function HistoryPage() {
           <div className="text-center py-12 text-[var(--text-muted)]">
             <p>No validations found</p>
             {(searchQuery || statusFilter) && (
-              <button
-                onClick={() => router.push('/history')}
-                className="btn btn-ghost mt-4"
-              >
+              <button onClick={() => router.push("/history")} className="btn btn-ghost mt-4">
                 Clear filters
               </button>
             )}
@@ -226,5 +236,5 @@ export default function HistoryPage() {
         )}
       </div>
     </div>
-  )
+  );
 }

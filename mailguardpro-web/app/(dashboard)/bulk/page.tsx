@@ -1,125 +1,125 @@
-'use client'
+"use client";
 
-import { useState, useCallback, useRef } from 'react'
-import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-import { formatDistanceToNow } from 'date-fns'
+import { formatDistanceToNow } from "date-fns";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useCallback, useRef, useState } from "react";
 
 interface BulkJob {
-  id: string
-  filename: string
-  status: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED'
-  totalEmails: number
-  processed: number
-  createdAt: string
-  completedAt?: string
+  id: string;
+  filename: string;
+  status: "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED";
+  totalEmails: number;
+  processed: number;
+  createdAt: string;
+  completedAt?: string;
 }
 
 export default function BulkPage() {
-  const router = useRouter()
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  const [jobs, setJobs] = useState<BulkJob[]>([])
-  const [loading, setLoading] = useState(false)
-  const [uploading, setUploading] = useState(false)
-  const [dragActive, setDragActive] = useState(false)
+  const router = useRouter();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [jobs, setJobs] = useState<BulkJob[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [dragActive, setDragActive] = useState(false);
 
   // Fetch jobs on mount
   useState(() => {
-    fetchJobs()
-  })
+    fetchJobs();
+  });
 
   const fetchJobs = async () => {
-    setLoading(true)
+    setLoading(true);
     try {
-      const res = await fetch('/api/v1/bulk')
+      const res = await fetch("/api/v1/bulk");
       if (res.ok) {
-        const data = await res.json()
-        setJobs(data.data || [])
+        const data = await res.json();
+        setJobs(data.data || []);
       }
     } catch (error) {
-      console.error('Failed to fetch jobs:', error)
+      console.error("Failed to fetch jobs:", error);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const handleDrag = useCallback((e: React.DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    if (e.type === 'dragenter' || e.type === 'dragover') {
-      setDragActive(true)
-    } else if (e.type === 'dragleave') {
-      setDragActive(false)
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true);
+    } else if (e.type === "dragleave") {
+      setDragActive(false);
     }
-  }, [])
+  }, []);
 
   const handleDrop = useCallback(async (e: React.DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    setDragActive(false)
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
 
-    const files = e.dataTransfer.files
+    const files = e.dataTransfer.files;
     if (files && files[0]) {
-      await uploadFile(files[0])
+      await uploadFile(files[0]);
     }
-  }, [])
+  }, []);
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files
+    const files = e.target.files;
     if (files && files[0]) {
-      await uploadFile(files[0])
+      await uploadFile(files[0]);
     }
-  }
+  };
 
   const uploadFile = async (file: File) => {
-    if (!file.name.endsWith('.csv')) {
-      alert('Please upload a CSV file')
-      return
+    if (!file.name.endsWith(".csv")) {
+      alert("Please upload a CSV file");
+      return;
     }
 
-    setUploading(true)
+    setUploading(true);
     try {
-      const formData = new FormData()
-      formData.append('file', file)
+      const formData = new FormData();
+      formData.append("file", file);
 
-      const res = await fetch('/api/v1/validate/bulk', {
-        method: 'POST',
+      const res = await fetch("/api/v1/validate/bulk", {
+        method: "POST",
         body: formData,
-      })
+      });
 
-      const data = await res.json()
+      const data = await res.json();
 
       if (data.success) {
         // Add new job to list
         const newJob: BulkJob = {
           id: data.data.jobId,
           filename: file.name,
-          status: 'PENDING',
+          status: "PENDING",
           totalEmails: data.data.totalEmails,
           processed: 0,
           createdAt: new Date().toISOString(),
-        }
-        setJobs((prev) => [newJob, ...prev])
-        
+        };
+        setJobs((prev) => [newJob, ...prev]);
+
         // Poll for status updates
-        pollJobStatus(data.data.jobId)
+        pollJobStatus(data.data.jobId);
       } else {
-        alert(data.error || 'Upload failed')
+        alert(data.error || "Upload failed");
       }
     } catch (error) {
-      console.error('Upload failed:', error)
-      alert('Upload failed. Please try again.')
+      console.error("Upload failed:", error);
+      alert("Upload failed. Please try again.");
     } finally {
-      setUploading(false)
+      setUploading(false);
     }
-  }
+  };
 
   const pollJobStatus = async (jobId: string) => {
     const poll = async () => {
       try {
-        const res = await fetch(`/api/v1/bulk/${jobId}/status`)
+        const res = await fetch(`/api/v1/bulk/${jobId}/status`);
         if (res.ok) {
-          const data = await res.json()
+          const data = await res.json();
           if (data.data) {
             setJobs((prev) =>
               prev.map((job) =>
@@ -130,36 +130,36 @@ export default function BulkPage() {
                       processed: data.data.processed,
                       completedAt: data.data.completedAt,
                     }
-                  : job
-              )
-            )
+                  : job,
+              ),
+            );
 
             // Stop polling if completed or failed
-            if (data.data.status === 'COMPLETED' || data.data.status === 'FAILED') {
-              return
+            if (data.data.status === "COMPLETED" || data.data.status === "FAILED") {
+              return;
             }
           }
         }
       } catch (error) {
-        console.error('Poll failed:', error)
+        console.error("Poll failed:", error);
       }
 
       // Continue polling
-      setTimeout(poll, 2000)
-    }
+      setTimeout(poll, 2000);
+    };
 
-    poll()
-  }
+    poll();
+  };
 
   const getStatusBadge = (status: string) => {
     const statusClasses: Record<string, string> = {
-      PENDING: 'badge-default',
-      PROCESSING: 'badge-warning',
-      COMPLETED: 'badge-success',
-      FAILED: 'badge-error',
-    }
-    return statusClasses[status] || 'badge-default'
-  }
+      PENDING: "badge-default",
+      PROCESSING: "badge-warning",
+      COMPLETED: "badge-success",
+      FAILED: "badge-error",
+    };
+    return statusClasses[status] || "badge-default";
+  };
 
   return (
     <div className="p-8">
@@ -172,7 +172,7 @@ export default function BulkPage() {
 
       {/* Upload Zone */}
       <div
-        className={`card mb-8 ${dragActive ? 'border-[var(--accent)]' : ''}`}
+        className={`card mb-8 ${dragActive ? "border-[var(--accent)]" : ""}`}
         onDragEnter={handleDrag}
         onDragLeave={handleDrag}
         onDragOver={handleDrag}
@@ -201,9 +201,7 @@ export default function BulkPage() {
                   />
                 </svg>
               </div>
-              <p className="text-lg font-medium mb-2">
-                Drag and drop your CSV file here
-              </p>
+              <p className="text-lg font-medium mb-2">Drag and drop your CSV file here</p>
               <p className="text-sm text-[var(--text-muted)] mb-4">
                 or click to browse. Maximum 100,000 rows.
               </p>
@@ -214,10 +212,7 @@ export default function BulkPage() {
                 className="hidden"
                 onChange={handleFileSelect}
               />
-              <button
-                className="btn btn-primary"
-                onClick={() => fileInputRef.current?.click()}
-              >
+              <button className="btn btn-primary" onClick={() => fileInputRef.current?.click()}>
                 Select CSV File
               </button>
               <p className="text-xs text-[var(--text-muted)] mt-4">
@@ -270,12 +265,10 @@ export default function BulkPage() {
                       </div>
                     </td>
                     <td className="py-3 px-4">
-                      <span className={`badge ${getStatusBadge(job.status)}`}>
-                        {job.status}
-                      </span>
+                      <span className={`badge ${getStatusBadge(job.status)}`}>{job.status}</span>
                     </td>
                     <td className="py-3 px-4">
-                      {job.status === 'PROCESSING' && (
+                      {job.status === "PROCESSING" && (
                         <div className="flex items-center gap-2">
                           <div className="w-24 h-2 bg-[var(--bg-subtle)] rounded-full overflow-hidden">
                             <div
@@ -290,33 +283,32 @@ export default function BulkPage() {
                           </span>
                         </div>
                       )}
-                      {job.status === 'COMPLETED' && (
+                      {job.status === "COMPLETED" && (
                         <span className="text-sm text-[var(--text-muted)]">
                           {job.processed.toLocaleString()} / {job.totalEmails.toLocaleString()}
                         </span>
                       )}
-                      {job.status === 'PENDING' && (
+                      {job.status === "PENDING" && (
                         <span className="text-sm text-[var(--text-muted)]">Waiting...</span>
                       )}
-                      {job.status === 'FAILED' && (
+                      {job.status === "FAILED" && (
                         <span className="text-sm text-[var(--status-invalid)]">Failed</span>
                       )}
                     </td>
                     <td className="py-3 px-4">
                       <span className="text-sm text-[var(--text-muted)]">
-                        {formatDistanceToNow(new Date(job.createdAt), { addSuffix: true })}
+                        {formatDistanceToNow(new Date(job.createdAt), {
+                          addSuffix: true,
+                        })}
                       </span>
                     </td>
                     <td className="py-3 px-4 text-right">
-                      {job.status === 'COMPLETED' && (
-                        <Link
-                          href={`/bulk/${job.id}`}
-                          className="btn btn-ghost btn-sm"
-                        >
+                      {job.status === "COMPLETED" && (
+                        <Link href={`/bulk/${job.id}`} className="btn btn-ghost btn-sm">
                           View Results
                         </Link>
                       )}
-                      {job.status === 'PROCESSING' && (
+                      {job.status === "PROCESSING" && (
                         <button
                           onClick={() => pollJobStatus(job.id)}
                           className="btn btn-ghost btn-sm"
@@ -337,5 +329,5 @@ export default function BulkPage() {
         )}
       </div>
     </div>
-  )
+  );
 }

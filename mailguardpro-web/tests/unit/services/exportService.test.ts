@@ -1,29 +1,29 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // Use vi.hoisted for proper mock hoisting
 const { mockValidationFindMany } = vi.hoisted(() => ({
   mockValidationFindMany: vi.fn().mockResolvedValue([]),
-}))
+}));
 
-vi.mock('@/lib/prisma', () => ({
+vi.mock("@/lib/prisma", () => ({
   prisma: {
     validation: {
       findMany: mockValidationFindMany,
     },
     bulkJob: {
-      findUnique: vi.fn().mockResolvedValue({ id: 'job-123', filename: 'test.csv' }),
+      findUnique: vi.fn().mockResolvedValue({ id: "job-123", filename: "test.csv" }),
     },
   },
-}))
+}));
 
-import { exportResults } from '@/services/exportService'
+import { exportResults } from "@/services/exportService";
 
-describe('exportService', () => {
+describe("exportService", () => {
   const mockValidationData = [
     {
-      email: 'valid@example.com',
+      email: "valid@example.com",
       score: 85,
-      status: 'valid',
+      status: "valid",
       checksJson: {
         format: { passed: true },
         mx: { passed: true },
@@ -40,9 +40,9 @@ describe('exportService', () => {
       processingTimeMs: 150,
     },
     {
-      email: 'invalid@example.com',
+      email: "invalid@example.com",
       score: 25,
-      status: 'invalid',
+      status: "invalid",
       checksJson: {
         format: { passed: false },
         mx: { passed: false },
@@ -54,17 +54,17 @@ describe('exportService', () => {
         dnsbl: { passed: true },
         spf: { passed: false },
         dmarc: { passed: false },
-        typo: { passed: true, suggestion: 'correct@example.com' },
+        typo: { passed: true, suggestion: "correct@example.com" },
       },
       processingTimeMs: 200,
       checksJson: {
-        domain: { reputation: 'good' },
+        domain: { reputation: "good" },
       },
     },
     {
-      email: 'risky@example.com',
+      email: "risky@example.com",
       score: 55,
-      status: 'risky',
+      status: "risky",
       checksJson: {
         format: { passed: true },
         mx: { passed: true },
@@ -72,210 +72,210 @@ describe('exportService', () => {
       },
       processingTimeMs: 180,
     },
-  ]
+  ];
 
   beforeEach(() => {
-    vi.clearAllMocks()
-    mockValidationFindMany.mockResolvedValue(mockValidationData)
-  })
+    vi.clearAllMocks();
+    mockValidationFindMany.mockResolvedValue(mockValidationData);
+  });
 
-  describe('exportResults', () => {
-    it('should export CSV format', async () => {
+  describe("exportResults", () => {
+    it("should export CSV format", async () => {
       const result = await exportResults({
-        jobId: 'test-job',
-        format: 'csv',
-      })
-      expect(result).toBeDefined()
-      expect(Buffer.isBuffer(result)).toBe(true)
-      
-      const content = result.toString()
-      expect(content).toContain('email')
-      expect(content).toContain('valid@example.com')
-      expect(content).toContain('invalid@example.com')
-    })
+        jobId: "test-job",
+        format: "csv",
+      });
+      expect(result).toBeDefined();
+      expect(Buffer.isBuffer(result)).toBe(true);
 
-    it('should export CSV with all check columns', async () => {
-      const result = await exportResults({
-        jobId: 'test-job',
-        format: 'csv',
-      })
-      
-      const content = result.toString()
-      expect(content).toContain('score')
-      expect(content).toContain('status')
-      expect(content).toContain('format_valid')
-      expect(content).toContain('mx_valid')
-      expect(content).toContain('smtp_valid')
-    })
+      const content = result.toString();
+      expect(content).toContain("email");
+      expect(content).toContain("valid@example.com");
+      expect(content).toContain("invalid@example.com");
+    });
 
-    it('should export JSON format with summary', async () => {
+    it("should export CSV with all check columns", async () => {
       const result = await exportResults({
-        jobId: 'test-job',
-        format: 'json',
-      })
-      expect(result).toBeDefined()
-      expect(Buffer.isBuffer(result)).toBe(true)
-      
-      const content = result.toString()
-      const parsed = JSON.parse(content)
-      
-      expect(parsed.meta).toBeDefined()
-      expect(parsed.meta.jobId).toBe('test-job')
-      expect(parsed.meta.exportedAt).toBeDefined()
-      expect(parsed.meta.totalEmails).toBe(3)
-      
-      expect(parsed.summary).toBeDefined()
-      expect(parsed.summary.valid).toBe(1)
-      expect(parsed.summary.invalid).toBe(1)
-      expect(parsed.summary.risky).toBe(1)
-      expect(parsed.summary.unknown).toBe(0)
-      expect(parsed.summary.avgScore).toBe(55) // (85+25+55)/3 = 55
-    })
+        jobId: "test-job",
+        format: "csv",
+      });
 
-    it('should export JSON with empty results when no data', async () => {
-      mockValidationFindMany.mockResolvedValueOnce([])
-      
-      const result = await exportResults({
-        jobId: 'test-job',
-        format: 'json',
-      })
-      
-      const content = result.toString()
-      const parsed = JSON.parse(content)
-      
-      expect(parsed.summary.valid).toBe(0)
-      expect(parsed.summary.avgScore).toBe(0)
-    })
+      const content = result.toString();
+      expect(content).toContain("score");
+      expect(content).toContain("status");
+      expect(content).toContain("format_valid");
+      expect(content).toContain("mx_valid");
+      expect(content).toContain("smtp_valid");
+    });
 
-    it('should export XLSX format with multiple sheets', async () => {
+    it("should export JSON format with summary", async () => {
       const result = await exportResults({
-        jobId: 'test-job',
-        format: 'xlsx',
-      })
-      expect(result).toBeDefined()
-      expect(Buffer.isBuffer(result)).toBe(true)
-      expect(result.length).toBeGreaterThan(0)
-    })
+        jobId: "test-job",
+        format: "json",
+      });
+      expect(result).toBeDefined();
+      expect(Buffer.isBuffer(result)).toBe(true);
 
-    it('should include check results in export', async () => {
+      const content = result.toString();
+      const parsed = JSON.parse(content);
+
+      expect(parsed.meta).toBeDefined();
+      expect(parsed.meta.jobId).toBe("test-job");
+      expect(parsed.meta.exportedAt).toBeDefined();
+      expect(parsed.meta.totalEmails).toBe(3);
+
+      expect(parsed.summary).toBeDefined();
+      expect(parsed.summary.valid).toBe(1);
+      expect(parsed.summary.invalid).toBe(1);
+      expect(parsed.summary.risky).toBe(1);
+      expect(parsed.summary.unknown).toBe(0);
+      expect(parsed.summary.avgScore).toBe(55); // (85+25+55)/3 = 55
+    });
+
+    it("should export JSON with empty results when no data", async () => {
+      mockValidationFindMany.mockResolvedValueOnce([]);
+
       const result = await exportResults({
-        jobId: 'test-job',
-        format: 'csv',
-      })
-      
-      const content = result.toString()
+        jobId: "test-job",
+        format: "json",
+      });
+
+      const content = result.toString();
+      const parsed = JSON.parse(content);
+
+      expect(parsed.summary.valid).toBe(0);
+      expect(parsed.summary.avgScore).toBe(0);
+    });
+
+    it("should export XLSX format with multiple sheets", async () => {
+      const result = await exportResults({
+        jobId: "test-job",
+        format: "xlsx",
+      });
+      expect(result).toBeDefined();
+      expect(Buffer.isBuffer(result)).toBe(true);
+      expect(result.length).toBeGreaterThan(0);
+    });
+
+    it("should include check results in export", async () => {
+      const result = await exportResults({
+        jobId: "test-job",
+        format: "csv",
+      });
+
+      const content = result.toString();
       // Should include various check results
-      expect(content).toContain('disposable')
-      expect(content).toContain('catchall')
-    })
+      expect(content).toContain("disposable");
+      expect(content).toContain("catchall");
+    });
 
-    it('should apply status filters', async () => {
+    it("should apply status filters", async () => {
       await exportResults({
-        jobId: 'test-job',
-        format: 'csv',
-        filters: { status: ['valid'] },
-      })
-      
+        jobId: "test-job",
+        format: "csv",
+        filters: { status: ["valid"] },
+      });
+
       expect(mockValidationFindMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
-            bulkJobId: 'test-job',
-            status: { in: ['valid'] },
+            bulkJobId: "test-job",
+            status: { in: ["valid"] },
           }),
-        })
-      )
-    })
+        }),
+      );
+    });
 
-    it('should apply score filters', async () => {
+    it("should apply score filters", async () => {
       await exportResults({
-        jobId: 'test-job',
-        format: 'csv',
+        jobId: "test-job",
+        format: "csv",
         filters: { minScore: 50, maxScore: 80 },
-      })
-      
+      });
+
       expect(mockValidationFindMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
-            bulkJobId: 'test-job',
+            bulkJobId: "test-job",
             score: expect.objectContaining({
               gte: 50,
               lte: 80,
             }),
           }),
-        })
-      )
-    })
+        }),
+      );
+    });
 
-    it('should throw for PDF format', async () => {
+    it("should throw for PDF format", async () => {
       await expect(
         exportResults({
-          jobId: 'test-job',
-          format: 'pdf',
-        })
-      ).rejects.toThrow('PDF is generated client-side')
-    })
+          jobId: "test-job",
+          format: "pdf",
+        }),
+      ).rejects.toThrow("PDF is generated client-side");
+    });
 
-    it('should throw for unsupported format', async () => {
+    it("should throw for unsupported format", async () => {
       await expect(
         exportResults({
-          jobId: 'test-job',
-          format: 'invalid' as any,
-        })
-      ).rejects.toThrow('Unsupported format')
-    })
+          jobId: "test-job",
+          format: "invalid" as any,
+        }),
+      ).rejects.toThrow("Unsupported format");
+    });
 
-    it('should sort results by score descending', async () => {
+    it("should sort results by score descending", async () => {
       await exportResults({
-        jobId: 'test-job',
-        format: 'csv',
-      })
-      
+        jobId: "test-job",
+        format: "csv",
+      });
+
       expect(mockValidationFindMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          orderBy: { score: 'desc' },
-        })
-      )
-    })
+          orderBy: { score: "desc" },
+        }),
+      );
+    });
 
-    it('should include suggestion from typo check', async () => {
+    it("should include suggestion from typo check", async () => {
       const result = await exportResults({
-        jobId: 'test-job',
-        format: 'csv',
-      })
-      
-      const content = result.toString()
-      expect(content).toContain('suggestion')
-    })
+        jobId: "test-job",
+        format: "csv",
+      });
 
-    it('should handle missing optional fields gracefully', async () => {
+      const content = result.toString();
+      expect(content).toContain("suggestion");
+    });
+
+    it("should handle missing optional fields gracefully", async () => {
       mockValidationFindMany.mockResolvedValueOnce([
         {
-          email: 'minimal@example.com',
+          email: "minimal@example.com",
           score: 50,
-          status: 'unknown',
+          status: "unknown",
           checksJson: {},
           processingTimeMs: null,
         },
-      ])
-      
-      const result = await exportResults({
-        jobId: 'test-job',
-        format: 'csv',
-      })
-      
-      expect(result).toBeDefined()
-      const content = result.toString()
-      expect(content).toContain('minimal@example.com')
-    })
+      ]);
 
-    it('should include domain reputation when available', async () => {
       const result = await exportResults({
-        jobId: 'test-job',
-        format: 'csv',
-      })
-      
-      const content = result.toString()
-      expect(content).toContain('domain_reputation')
-    })
-  })
-})
+        jobId: "test-job",
+        format: "csv",
+      });
+
+      expect(result).toBeDefined();
+      const content = result.toString();
+      expect(content).toContain("minimal@example.com");
+    });
+
+    it("should include domain reputation when available", async () => {
+      const result = await exportResults({
+        jobId: "test-job",
+        format: "csv",
+      });
+
+      const content = result.toString();
+      expect(content).toContain("domain_reputation");
+    });
+  });
+});

@@ -1,0 +1,4 @@
+
+> @mailguardpro/types@0.1.0 typecheck D:\git-projects\MailGuardPro\packages\mailguardpro-types
+> tsc --noEmit
+

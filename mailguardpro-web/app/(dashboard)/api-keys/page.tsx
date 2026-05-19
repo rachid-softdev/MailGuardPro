@@ -1,95 +1,95 @@
-'use client'
+"use client";
 
-import { useState, useEffect } from 'react'
+import { useEffect, useState } from "react";
 
 interface ApiKey {
-  id: string
-  keyPrefix: string
-  name: string
-  isActive: boolean
-  lastUsedAt: string | null
-  createdAt: string
+  id: string;
+  keyPrefix: string;
+  name: string;
+  isActive: boolean;
+  lastUsedAt: string | null;
+  createdAt: string;
 }
 
 export default function ApiKeysPage() {
-  const [keys, setKeys] = useState<ApiKey[]>([])
-  const [loading, setLoading] = useState(true)
-  const [showCreateModal, setShowCreateModal] = useState(false)
-  const [newKeyName, setNewKeyName] = useState('')
-  const [creating, setCreating] = useState(false)
-  const [newKey, setNewKey] = useState<string | null>(null)
+  const [keys, setKeys] = useState<ApiKey[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [newKeyName, setNewKeyName] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [newKey, setNewKey] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchKeys()
-  }, [])
+    fetchKeys();
+  }, []);
 
   const fetchKeys = async () => {
-    setLoading(true)
+    setLoading(true);
     try {
-      const res = await fetch('/api/v1/api-keys')
+      const res = await fetch("/api/v1/api-keys");
       if (res.ok) {
-        const data = await res.json()
-        setKeys(data.data || [])
+        const data = await res.json();
+        setKeys(data.data || []);
       }
     } catch (error) {
-      console.error('Failed to fetch keys:', error)
+      console.error("Failed to fetch keys:", error);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const createKey = async () => {
-    if (!newKeyName.trim()) return
+    if (!newKeyName.trim()) return;
 
-    setCreating(true)
+    setCreating(true);
     try {
-      const res = await fetch('/api/v1/api-keys', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const res = await fetch("/api/v1/api-keys", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: newKeyName }),
-      })
+      });
 
-      const data = await res.json()
+      const data = await res.json();
 
       if (data.success) {
-        setNewKey(data.data.key)
-        fetchKeys()
+        setNewKey(data.data.key);
+        fetchKeys();
       } else {
-        alert(data.error || 'Failed to create key')
+        alert(data.error || "Failed to create key");
       }
     } catch (error) {
-      console.error('Failed to create key:', error)
-      alert('Failed to create key')
+      console.error("Failed to create key:", error);
+      alert("Failed to create key");
     } finally {
-      setCreating(false)
+      setCreating(false);
     }
-  }
+  };
 
   const deleteKey = async (keyId: string) => {
-    if (!confirm('Are you sure you want to delete this API key? This action cannot be undone.')) {
-      return
+    if (!confirm("Are you sure you want to delete this API key? This action cannot be undone.")) {
+      return;
     }
 
     try {
       const res = await fetch(`/api/v1/api-keys/${keyId}`, {
-        method: 'DELETE',
-      })
+        method: "DELETE",
+      });
 
       if (res.ok) {
-        fetchKeys()
+        fetchKeys();
       } else {
-        alert('Failed to delete key')
+        alert("Failed to delete key");
       }
     } catch (error) {
-      console.error('Failed to delete key:', error)
-      alert('Failed to delete key')
+      console.error("Failed to delete key:", error);
+      alert("Failed to delete key");
     }
-  }
+  };
 
   const formatDate = (dateStr: string | null) => {
-    if (!dateStr) return 'Never'
-    return new Date(dateStr).toLocaleDateString()
-  }
+    if (!dateStr) return "Never";
+    return new Date(dateStr).toLocaleDateString();
+  };
 
   return (
     <div className="p-8">
@@ -100,10 +100,7 @@ export default function ApiKeysPage() {
             Manage your API keys for programmatic access
           </p>
         </div>
-        <button
-          className="btn btn-primary"
-          onClick={() => setShowCreateModal(true)}
-        >
+        <button className="btn btn-primary" onClick={() => setShowCreateModal(true)}>
           Create New Key
         </button>
       </div>
@@ -111,14 +108,24 @@ export default function ApiKeysPage() {
       {/* Warning */}
       <div className="card mb-8 bg-[var(--accent-light)] border-[var(--accent)]">
         <div className="flex items-start gap-3">
-          <svg className="w-5 h-5 text-[var(--accent)] mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          <svg
+            className="w-5 h-5 text-[var(--accent)] mt-0.5"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+            />
           </svg>
           <div>
             <p className="font-medium">Keep your API keys secure</p>
             <p className="text-sm text-[var(--text-secondary)] mt-1">
-              Never share your API keys in public repositories or client-side code. 
-              Rotate keys immediately if you suspect they have been compromised.
+              Never share your API keys in public repositories or client-side code. Rotate keys
+              immediately if you suspect they have been compromised.
             </p>
           </div>
         </div>
@@ -163,8 +170,8 @@ export default function ApiKeysPage() {
                     <td className="py-3 px-4 font-medium">{key.name}</td>
                     <td className="py-3 px-4 font-mono text-sm">{key.keyPrefix}...</td>
                     <td className="py-3 px-4">
-                      <span className={`badge ${key.isActive ? 'badge-success' : 'badge-default'}`}>
-                        {key.isActive ? 'Active' : 'Inactive'}
+                      <span className={`badge ${key.isActive ? "badge-success" : "badge-default"}`}>
+                        {key.isActive ? "Active" : "Inactive"}
                       </span>
                     </td>
                     <td className="py-3 px-4 text-sm text-[var(--text-muted)]">
@@ -190,7 +197,12 @@ export default function ApiKeysPage() {
           <div className="text-center py-8 text-[var(--text-muted)]">
             <div className="w-12 h-12 bg-[var(--bg-subtle)] rounded-full flex items-center justify-center mx-auto mb-4">
               <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"
+                />
               </svg>
             </div>
             <p>No API keys yet</p>
@@ -204,7 +216,7 @@ export default function ApiKeysPage() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="card max-w-md w-full mx-4">
             <h3 className="text-xl font-display font-semibold mb-4">Create API Key</h3>
-            
+
             {newKey ? (
               <div>
                 <div className="bg-[var(--accent-light)] border border-[var(--accent)] rounded-lg p-4 mb-4">
@@ -217,10 +229,10 @@ export default function ApiKeysPage() {
                 <button
                   className="btn btn-primary w-full"
                   onClick={() => {
-                    navigator.clipboard.writeText(newKey)
-                    setNewKey(null)
-                    setShowCreateModal(false)
-                    setNewKeyName('')
+                    navigator.clipboard.writeText(newKey);
+                    setNewKey(null);
+                    setShowCreateModal(false);
+                    setNewKeyName("");
                   }}
                 >
                   Copy & Close
@@ -229,9 +241,7 @@ export default function ApiKeysPage() {
             ) : (
               <>
                 <div className="mb-4">
-                  <label className="block text-sm font-medium mb-2">
-                    Key Name
-                  </label>
+                  <label className="block text-sm font-medium mb-2">Key Name</label>
                   <input
                     type="text"
                     value={newKeyName}
@@ -244,8 +254,8 @@ export default function ApiKeysPage() {
                   <button
                     className="btn btn-ghost flex-1"
                     onClick={() => {
-                      setShowCreateModal(false)
-                      setNewKeyName('')
+                      setShowCreateModal(false);
+                      setNewKeyName("");
                     }}
                   >
                     Cancel
@@ -255,7 +265,7 @@ export default function ApiKeysPage() {
                     onClick={createKey}
                     disabled={creating || !newKeyName.trim()}
                   >
-                    {creating ? 'Creating...' : 'Create Key'}
+                    {creating ? "Creating..." : "Create Key"}
                   </button>
                 </div>
               </>
@@ -264,5 +274,5 @@ export default function ApiKeysPage() {
         </div>
       )}
     </div>
-  )
+  );
 }

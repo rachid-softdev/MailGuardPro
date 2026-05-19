@@ -1,5 +1,4 @@
 {
-  "*.{ts,tsx}": ["eslint --fix", "prettier --write"],
-  "*.{json,css,md}": ["prettier --write"],
-  "*.prisma": ["prisma format"]
+  "*.{ts,tsx}": ["biome check --write"],
+  "*.{json,css,md}": ["biome format --write"]
 }

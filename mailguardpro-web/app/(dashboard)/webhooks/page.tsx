@@ -1,178 +1,178 @@
-'use client'
+"use client";
 
-import { useState, useEffect } from 'react'
+import { useEffect, useState } from "react";
 
 interface Webhook {
-  id: string
-  url: string
-  name: string
-  events: string[]
-  isActive: boolean
-  createdAt: string
+  id: string;
+  url: string;
+  name: string;
+  events: string[];
+  isActive: boolean;
+  createdAt: string;
 }
 
 const AVAILABLE_EVENTS = [
-  { value: 'bulk_job_completed', label: 'Bulk Job Completed' },
-  { value: 'credits_low', label: 'Credits Low' },
-  { value: 'subscription_renewed', label: 'Subscription Renewed' },
-  { value: 'subscription_cancelled', label: 'Subscription Cancelled' },
-  { value: 'daily_report', label: 'Daily Report' },
-]
+  { value: "bulk_job_completed", label: "Bulk Job Completed" },
+  { value: "credits_low", label: "Credits Low" },
+  { value: "subscription_renewed", label: "Subscription Renewed" },
+  { value: "subscription_cancelled", label: "Subscription Cancelled" },
+  { value: "daily_report", label: "Daily Report" },
+];
 
 export default function WebhooksPage() {
-  const [webhooks, setWebhooks] = useState<Webhook[]>([])
-  const [loading, setLoading] = useState(true)
-  const [showCreateModal, setShowCreateModal] = useState(false)
-  const [showTestModal, setShowTestModal] = useState(false)
-  const [testWebhook, setTestWebhook] = useState<Webhook | null>(null)
-  const [testing, setTesting] = useState(false)
-  const [testResult, setTestResult] = useState<string | null>(null)
+  const [webhooks, setWebhooks] = useState<Webhook[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showTestModal, setShowTestModal] = useState(false);
+  const [testWebhook, setTestWebhook] = useState<Webhook | null>(null);
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState<string | null>(null);
 
   // Form state
-  const [formUrl, setFormUrl] = useState('')
-  const [formName, setFormName] = useState('')
-  const [formEvents, setFormEvents] = useState<string[]>([])
-  const [creating, setCreating] = useState(false)
+  const [formUrl, setFormUrl] = useState("");
+  const [formName, setFormName] = useState("");
+  const [formEvents, setFormEvents] = useState<string[]>([]);
+  const [creating, setCreating] = useState(false);
 
   useEffect(() => {
-    fetchWebhooks()
-  }, [])
+    fetchWebhooks();
+  }, []);
 
   const fetchWebhooks = async () => {
-    setLoading(true)
+    setLoading(true);
     try {
-      const res = await fetch('/api/v1/webhooks')
+      const res = await fetch("/api/v1/webhooks");
       if (res.ok) {
-        const data = await res.json()
-        setWebhooks(data.data || [])
+        const data = await res.json();
+        setWebhooks(data.data || []);
       }
     } catch (error) {
-      console.error('Failed to fetch webhooks:', error)
+      console.error("Failed to fetch webhooks:", error);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const createWebhook = async () => {
     if (!formUrl.trim() || !formName.trim() || formEvents.length === 0) {
-      alert('Please fill in all fields')
-      return
+      alert("Please fill in all fields");
+      return;
     }
 
     // Validate URL
     try {
-      new URL(formUrl)
+      new URL(formUrl);
     } catch {
-      alert('Please enter a valid URL')
-      return
+      alert("Please enter a valid URL");
+      return;
     }
 
     // Check HTTPS in production
-    if (process.env.NODE_ENV === 'production' && !formUrl.startsWith('https://')) {
-      alert('Webhooks must use HTTPS in production')
-      return
+    if (process.env.NODE_ENV === "production" && !formUrl.startsWith("https://")) {
+      alert("Webhooks must use HTTPS in production");
+      return;
     }
 
-    setCreating(true)
+    setCreating(true);
     try {
-      const res = await fetch('/api/v1/webhooks', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const res = await fetch("/api/v1/webhooks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           url: formUrl,
           name: formName,
           events: formEvents,
         }),
-      })
+      });
 
-      const data = await res.json()
+      const data = await res.json();
 
       if (data.success) {
-        fetchWebhooks()
-        setShowCreateModal(false)
-        resetForm()
+        fetchWebhooks();
+        setShowCreateModal(false);
+        resetForm();
       } else {
-        alert(data.error || 'Failed to create webhook')
+        alert(data.error || "Failed to create webhook");
       }
     } catch (error) {
-      console.error('Failed to create webhook:', error)
-      alert('Failed to create webhook')
+      console.error("Failed to create webhook:", error);
+      alert("Failed to create webhook");
     } finally {
-      setCreating(false)
+      setCreating(false);
     }
-  }
+  };
 
   const deleteWebhook = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this webhook?')) {
-      return
+    if (!confirm("Are you sure you want to delete this webhook?")) {
+      return;
     }
 
     try {
       const res = await fetch(`/api/v1/webhooks/${id}`, {
-        method: 'DELETE',
-      })
+        method: "DELETE",
+      });
 
       if (res.ok) {
-        fetchWebhooks()
+        fetchWebhooks();
       } else {
-        alert('Failed to delete webhook')
+        alert("Failed to delete webhook");
       }
     } catch (error) {
-      console.error('Failed to delete webhook:', error)
-      alert('Failed to delete webhook')
+      console.error("Failed to delete webhook:", error);
+      alert("Failed to delete webhook");
     }
-  }
+  };
 
   const toggleWebhook = async (id: string, isActive: boolean) => {
     try {
       const res = await fetch(`/api/v1/webhooks/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ isActive: !isActive }),
-      })
+      });
 
       if (res.ok) {
-        fetchWebhooks()
+        fetchWebhooks();
       }
     } catch (error) {
-      console.error('Failed to toggle webhook:', error)
+      console.error("Failed to toggle webhook:", error);
     }
-  }
+  };
 
   const testWebhook = async (webhook: Webhook) => {
-    setTestWebhook(webhook)
-    setShowTestModal(true)
-    setTestResult(null)
-    setTesting(true)
+    setTestWebhook(webhook);
+    setShowTestModal(true);
+    setTestResult(null);
+    setTesting(true);
 
     try {
       const res = await fetch(`/api/v1/webhooks/${webhook.id}/test`, {
-        method: 'POST',
-      })
+        method: "POST",
+      });
 
-      const data = await res.json()
+      const data = await res.json();
 
       if (data.success) {
-        setTestResult('Test request sent successfully! Check your endpoint for the payload.')
+        setTestResult("Test request sent successfully! Check your endpoint for the payload.");
       } else {
-        setTestResult(`Test failed: ${data.error}`)
+        setTestResult(`Test failed: ${data.error}`);
       }
     } catch (error) {
-      setTestResult(`Test failed: Network error`)
+      setTestResult(`Test failed: Network error`);
     } finally {
-      setTesting(false)
+      setTesting(false);
     }
-  }
+  };
 
   const resetForm = () => {
-    setFormUrl('')
-    setFormName('')
-    setFormEvents([])
-  }
+    setFormUrl("");
+    setFormName("");
+    setFormEvents([]);
+  };
 
   const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString()
-  }
+    return new Date(dateStr).toLocaleDateString();
+  };
 
   return (
     <div className="p-8">
@@ -183,10 +183,7 @@ export default function WebhooksPage() {
             Receive real-time notifications when events occur
           </p>
         </div>
-        <button
-          className="btn btn-primary"
-          onClick={() => setShowCreateModal(true)}
-        >
+        <button className="btn btn-primary" onClick={() => setShowCreateModal(true)}>
           Add Webhook
         </button>
       </div>
@@ -221,8 +218,10 @@ export default function WebhooksPage() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-3 mb-1">
                     <h3 className="font-medium">{webhook.name}</h3>
-                    <span className={`badge ${webhook.isActive ? 'badge-success' : 'badge-default'}`}>
-                      {webhook.isActive ? 'Active' : 'Inactive'}
+                    <span
+                      className={`badge ${webhook.isActive ? "badge-success" : "badge-default"}`}
+                    >
+                      {webhook.isActive ? "Active" : "Inactive"}
                     </span>
                   </div>
                   <p className="text-sm font-mono text-[var(--text-muted)] truncate">
@@ -237,17 +236,14 @@ export default function WebhooksPage() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2 ml-4">
-                  <button
-                    onClick={() => testWebhook(webhook)}
-                    className="btn btn-ghost btn-sm"
-                  >
+                  <button onClick={() => testWebhook(webhook)} className="btn btn-ghost btn-sm">
                     Test
                   </button>
                   <button
                     onClick={() => toggleWebhook(webhook.id, webhook.isActive)}
                     className="btn btn-ghost btn-sm"
                   >
-                    {webhook.isActive ? 'Disable' : 'Enable'}
+                    {webhook.isActive ? "Disable" : "Enable"}
                   </button>
                   <button
                     onClick={() => deleteWebhook(webhook.id)}
@@ -263,7 +259,12 @@ export default function WebhooksPage() {
           <div className="text-center py-8 text-[var(--text-muted)]">
             <div className="w-12 h-12 bg-[var(--bg-subtle)] rounded-full flex items-center justify-center mx-auto mb-4">
               <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
+                />
               </svg>
             </div>
             <p>No webhooks configured</p>
@@ -311,9 +312,9 @@ export default function WebhooksPage() {
                         checked={formEvents.includes(event.value)}
                         onChange={(e) => {
                           if (e.target.checked) {
-                            setFormEvents([...formEvents, event.value])
+                            setFormEvents([...formEvents, event.value]);
                           } else {
-                            setFormEvents(formEvents.filter((ev) => ev !== event.value))
+                            setFormEvents(formEvents.filter((ev) => ev !== event.value));
                           }
                         }}
                         className="rounded"
@@ -329,8 +330,8 @@ export default function WebhooksPage() {
               <button
                 className="btn btn-ghost flex-1"
                 onClick={() => {
-                  setShowCreateModal(false)
-                  resetForm()
+                  setShowCreateModal(false);
+                  resetForm();
                 }}
               >
                 Cancel
@@ -340,7 +341,7 @@ export default function WebhooksPage() {
                 onClick={createWebhook}
                 disabled={creating || !formUrl || !formName || formEvents.length === 0}
               >
-                {creating ? 'Creating...' : 'Create Webhook'}
+                {creating ? "Creating..." : "Create Webhook"}
               </button>
             </div>
           </div>
@@ -364,7 +365,9 @@ export default function WebhooksPage() {
                 <p className="text-sm mt-2">Sending test request...</p>
               </div>
             ) : testResult ? (
-              <div className={`p-4 rounded-lg ${testResult.includes('success') ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
+              <div
+                className={`p-4 rounded-lg ${testResult.includes("success") ? "bg-green-50 border border-green-200" : "bg-red-50 border border-red-200"}`}
+              >
                 <p className="text-sm">{testResult}</p>
               </div>
             ) : null}
@@ -372,9 +375,9 @@ export default function WebhooksPage() {
             <button
               className="btn btn-primary w-full mt-4"
               onClick={() => {
-                setShowTestModal(false)
-                setTestWebhook(null)
-                setTestResult(null)
+                setShowTestModal(false);
+                setTestWebhook(null);
+                setTestResult(null);
               }}
             >
               Close
@@ -383,5 +386,5 @@ export default function WebhooksPage() {
         </div>
       )}
     </div>
-  )
+  );
 }

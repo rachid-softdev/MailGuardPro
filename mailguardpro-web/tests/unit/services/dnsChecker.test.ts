@@ -1,12 +1,12 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import * as dns from 'dns/promises'
-import { checkMX, checkSPF, checkDMARC, getDomainInfo } from '@/services/dnsChecker'
+import { checkDMARC, checkMX, checkSPF, getDomainInfo } from "@/services/dnsChecker";
+import * as dns from "dns/promises";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // Mock dns/promises
-vi.mock('dns/promises', () => {
-  const mockResolveMx = vi.fn()
-  const mockResolveTxt = vi.fn()
-  const mockResolve4 = vi.fn()
+vi.mock("dns/promises", () => {
+  const mockResolveMx = vi.fn();
+  const mockResolveTxt = vi.fn();
+  const mockResolve4 = vi.fn();
   return {
     __esModule: true,
     default: {
@@ -17,217 +17,204 @@ vi.mock('dns/promises', () => {
     resolveMx: mockResolveMx,
     resolveTxt: mockResolveTxt,
     resolve4: mockResolve4,
-  }
-})
+  };
+});
 
-describe('dnsChecker', () => {
+describe("dnsChecker", () => {
   beforeEach(() => {
-    vi.clearAllMocks()
-  })
+    vi.clearAllMocks();
+  });
 
-  describe('checkMX', () => {
-    it('should return passed with valid MX records', async () => {
+  describe("checkMX", () => {
+    it("should return passed with valid MX records", async () => {
       vi.mocked(dns.resolveMx).mockResolvedValue([
-        { priority: 10, exchange: 'mx1.example.com' },
-        { priority: 20, exchange: 'mx2.example.com' },
-      ])
-      
-      const result = await checkMX('user@example.com')
-      
-      expect(result.passed).toBe(true)
-      expect(result.message).toBe('MX valide')
-      expect(result.detail).toContain('mx1.example.com')
-    })
+        { priority: 10, exchange: "mx1.example.com" },
+        { priority: 20, exchange: "mx2.example.com" },
+      ]);
 
-    it('should return failed when no MX records found', async () => {
-      vi.mocked(dns.resolveMx).mockResolvedValue([])
-      
-      const result = await checkMX('user@example.com')
-      
-      expect(result.passed).toBe(false)
-      expect(result.message).toBe('Aucun enregistrement MX trouvé')
-      expect(result.weight).toBe(25)
-    })
+      const result = await checkMX("user@example.com");
 
-    it('should sort MX records by priority', async () => {
+      expect(result.passed).toBe(true);
+      expect(result.message).toBe("MX valide");
+      expect(result.detail).toContain("mx1.example.com");
+    });
+
+    it("should return failed when no MX records found", async () => {
+      vi.mocked(dns.resolveMx).mockResolvedValue([]);
+
+      const result = await checkMX("user@example.com");
+
+      expect(result.passed).toBe(false);
+      expect(result.message).toBe("Aucun enregistrement MX trouvé");
+      expect(result.weight).toBe(25);
+    });
+
+    it("should sort MX records by priority", async () => {
       vi.mocked(dns.resolveMx).mockResolvedValue([
-        { priority: 30, exchange: 'mx3.example.com' },
-        { priority: 10, exchange: 'mx1.example.com' },
-        { priority: 20, exchange: 'mx2.example.com' },
-      ])
-      
-      const result = await checkMX('user@example.com')
-      
-      expect(result.detail).toContain('mx1.example.com')
-      expect(result.detail).toContain('priorité: 10')
-    })
+        { priority: 30, exchange: "mx3.example.com" },
+        { priority: 10, exchange: "mx1.example.com" },
+        { priority: 20, exchange: "mx2.example.com" },
+      ]);
 
-    it('should handle DNS resolution errors', async () => {
-      vi.mocked(dns.resolveMx).mockRejectedValue(new Error('DNS error'))
-      
-      const result = await checkMX('user@invalid.com')
-      
-      expect(result.passed).toBe(false)
-      expect(result.message).toBe('Erreur de résolution DNS')
-    })
+      const result = await checkMX("user@example.com");
 
-    it('should handle undefined MX records', async () => {
-      vi.mocked(dns.resolveMx).mockResolvedValue(undefined as any)
-      
-      const result = await checkMX('user@example.com')
-      
-      expect(result.passed).toBe(false)
-    })
-  })
+      expect(result.detail).toContain("mx1.example.com");
+      expect(result.detail).toContain("priorité: 10");
+    });
 
-  describe('checkSPF', () => {
-    it('should return passed when SPF record found', async () => {
+    it("should handle DNS resolution errors", async () => {
+      vi.mocked(dns.resolveMx).mockRejectedValue(new Error("DNS error"));
+
+      const result = await checkMX("user@invalid.com");
+
+      expect(result.passed).toBe(false);
+      expect(result.message).toBe("Erreur de résolution DNS");
+    });
+
+    it("should handle undefined MX records", async () => {
+      vi.mocked(dns.resolveMx).mockResolvedValue(undefined as any);
+
+      const result = await checkMX("user@example.com");
+
+      expect(result.passed).toBe(false);
+    });
+  });
+
+  describe("checkSPF", () => {
+    it("should return passed when SPF record found", async () => {
+      vi.mocked(dns.resolveTxt).mockResolvedValue([["v=spf1", "include:_spf.google.com", "+all"]]);
+
+      const result = await checkSPF("example.com");
+
+      expect(result.passed).toBe(true);
+      expect(result.message).toBe("SPF configuré");
+      expect(result.weight).toBe(5);
+    });
+
+    it("should return passed for SPF with softfail (~all)", async () => {
+      vi.mocked(dns.resolveTxt).mockResolvedValue([["v=spf1", "~all"]]);
+
+      const result = await checkSPF("example.com");
+
+      expect(result.passed).toBe(true);
+    });
+
+    it("should return failed when no SPF record found", async () => {
+      vi.mocked(dns.resolveTxt).mockResolvedValue([["some-other-record"]]);
+
+      const result = await checkSPF("example.com");
+
+      expect(result.passed).toBe(false);
+      expect(result.message).toBe("SPF non trouvé");
+    });
+
+    it("should return failed when no TXT records exist", async () => {
+      vi.mocked(dns.resolveTxt).mockResolvedValue([]);
+
+      const result = await checkSPF("example.com");
+
+      expect(result.passed).toBe(false);
+    });
+
+    it("should handle DNS errors", async () => {
+      vi.mocked(dns.resolveTxt).mockRejectedValue(new Error("DNS error"));
+
+      const result = await checkSPF("invalid.com");
+
+      expect(result.passed).toBe(false);
+      expect(result.message).toBe("Erreur vérification SPF");
+    });
+
+    it("should truncate long SPF records in detail", async () => {
+      const longRecord = "v=spf1 include:_spf.google.com ~all " + "a".repeat(100);
+      vi.mocked(dns.resolveTxt).mockResolvedValue([[longRecord]]);
+
+      const result = await checkSPF("example.com");
+
+      expect(result.detail?.length).toBeLessThanOrEqual(103); // 100 + '...'
+    });
+  });
+
+  describe("checkDMARC", () => {
+    it("should return passed when DMARC record found", async () => {
       vi.mocked(dns.resolveTxt).mockResolvedValue([
-        ['v=spf1', 'include:_spf.google.com', '+all'],
-      ])
-      
-      const result = await checkSPF('example.com')
-      
-      expect(result.passed).toBe(true)
-      expect(result.message).toBe('SPF configuré')
-      expect(result.weight).toBe(5)
-    })
+        ["v=DMARC1", "p=quarantine", "rua=mailto:dmarc@example.com"],
+      ]);
 
-    it('should return passed for SPF with softfail (~all)', async () => {
-      vi.mocked(dns.resolveTxt).mockResolvedValue([
-        ['v=spf1', '~all'],
-      ])
-      
-      const result = await checkSPF('example.com')
-      
-      expect(result.passed).toBe(true)
-    })
+      const result = await checkDMARC("example.com");
 
-    it('should return failed when no SPF record found', async () => {
-      vi.mocked(dns.resolveTxt).mockResolvedValue([
-        ['some-other-record'],
-      ])
-      
-      const result = await checkSPF('example.com')
-      
-      expect(result.passed).toBe(false)
-      expect(result.message).toBe('SPF non trouvé')
-    })
+      expect(result.passed).toBe(true);
+      expect(result.message).toBe("DMARC configuré");
+    });
 
-    it('should return failed when no TXT records exist', async () => {
-      vi.mocked(dns.resolveTxt).mockResolvedValue([])
-      
-      const result = await checkSPF('example.com')
-      
-      expect(result.passed).toBe(false)
-    })
+    it("should return failed when no DMARC record found", async () => {
+      vi.mocked(dns.resolveTxt).mockResolvedValue([]);
 
-    it('should handle DNS errors', async () => {
-      vi.mocked(dns.resolveTxt).mockRejectedValue(new Error('DNS error'))
-      
-      const result = await checkSPF('invalid.com')
-      
-      expect(result.passed).toBe(false)
-      expect(result.message).toBe('Erreur vérification SPF')
-    })
+      const result = await checkDMARC("example.com");
 
-    it('should truncate long SPF records in detail', async () => {
-      const longRecord = 'v=spf1 include:_spf.google.com ~all ' + 'a'.repeat(100)
-      vi.mocked(dns.resolveTxt).mockResolvedValue([[longRecord]])
-      
-      const result = await checkSPF('example.com')
-      
-      expect(result.detail?.length).toBeLessThanOrEqual(103) // 100 + '...'
-    })
-  })
+      expect(result.passed).toBe(false);
+      expect(result.message).toBe("DMARC non trouvé");
+    });
 
-  describe('checkDMARC', () => {
-    it('should return passed when DMARC record found', async () => {
-      vi.mocked(dns.resolveTxt).mockResolvedValue([
-        ['v=DMARC1', 'p=quarantine', 'rua=mailto:dmarc@example.com'],
-      ])
-      
-      const result = await checkDMARC('example.com')
-      
-      expect(result.passed).toBe(true)
-      expect(result.message).toBe('DMARC configuré')
-    })
+    it("should query _dmarc subdomain", async () => {
+      vi.mocked(dns.resolveTxt).mockResolvedValue([["v=DMARC1", "p=none"]]);
 
-    it('should return failed when no DMARC record found', async () => {
-      vi.mocked(dns.resolveTxt).mockResolvedValue([])
-      
-      const result = await checkDMARC('example.com')
-      
-      expect(result.passed).toBe(false)
-      expect(result.message).toBe('DMARC non trouvé')
-    })
+      await checkDMARC("example.com");
 
-    it('should query _dmarc subdomain', async () => {
-      vi.mocked(dns.resolveTxt).mockResolvedValue([
-        ['v=DMARC1', 'p=none'],
-      ])
-      
-      await checkDMARC('example.com')
-      
-      expect(dns.resolveTxt).toHaveBeenCalledWith('_dmarc.example.com')
-    })
+      expect(dns.resolveTxt).toHaveBeenCalledWith("_dmarc.example.com");
+    });
 
-    it('should handle DNS errors', async () => {
-      vi.mocked(dns.resolveTxt).mockRejectedValue(new Error('DNS error'))
-      
-      const result = await checkDMARC('invalid.com')
-      
-      expect(result.passed).toBe(false)
-      expect(result.message).toBe('Erreur vérification DMARC')
-    })
+    it("should handle DNS errors", async () => {
+      vi.mocked(dns.resolveTxt).mockRejectedValue(new Error("DNS error"));
 
-    it('should truncate long DMARC records', async () => {
-      const longRecord = 'v=DMARC1 p=quarantine rua=mailto:dmarc@example.com ' + 'a'.repeat(100)
-      vi.mocked(dns.resolveTxt).mockResolvedValue([[longRecord]])
-      
-      const result = await checkDMARC('example.com')
-      
-      expect(result.detail?.length).toBeLessThanOrEqual(100)
-    })
-  })
+      const result = await checkDMARC("invalid.com");
 
-  describe('getDomainInfo', () => {
-    it('should return domain info with MX, SPF, and DMARC status', async () => {
-      vi.mocked(dns.resolveMx).mockResolvedValue([
-        { priority: 10, exchange: 'mx1.example.com' },
-      ])
-      vi.mocked(dns.resolveTxt).mockResolvedValue([
-        ['v=spf1 +all'],
-        ['v=DMARC1 p=none'],
-      ])
-      
-      const result = await getDomainInfo('example.com')
-      
-      expect(result.mx).toContain('mx1.example.com')
-      expect(result.spf).toBe(true)
-      expect(result.dmarc).toBe(true)
-    })
+      expect(result.passed).toBe(false);
+      expect(result.message).toBe("Erreur vérification DMARC");
+    });
 
-    it('should handle empty responses', async () => {
-      vi.mocked(dns.resolveMx).mockResolvedValue([])
-      vi.mocked(dns.resolveTxt).mockResolvedValue([])
-      
-      const result = await getDomainInfo('empty.com')
-      
-      expect(result.mx).toEqual([])
-      expect(result.spf).toBe(false)
-      expect(result.dmarc).toBe(false)
-    })
+    it("should truncate long DMARC records", async () => {
+      const longRecord = "v=DMARC1 p=quarantine rua=mailto:dmarc@example.com " + "a".repeat(100);
+      vi.mocked(dns.resolveTxt).mockResolvedValue([[longRecord]]);
 
-    it('should handle DNS errors gracefully', async () => {
-      vi.mocked(dns.resolveMx).mockRejectedValue(new Error('DNS error'))
-      vi.mocked(dns.resolveTxt).mockRejectedValue(new Error('DNS error'))
-      
-      const result = await getDomainInfo('error.com')
-      
-      expect(result.mx).toEqual([])
-      expect(result.spf).toBe(false)
-      expect(result.dmarc).toBe(false)
-    })
-  })
-})
+      const result = await checkDMARC("example.com");
+
+      expect(result.detail?.length).toBeLessThanOrEqual(100);
+    });
+  });
+
+  describe("getDomainInfo", () => {
+    it("should return domain info with MX, SPF, and DMARC status", async () => {
+      vi.mocked(dns.resolveMx).mockResolvedValue([{ priority: 10, exchange: "mx1.example.com" }]);
+      vi.mocked(dns.resolveTxt).mockResolvedValue([["v=spf1 +all"], ["v=DMARC1 p=none"]]);
+
+      const result = await getDomainInfo("example.com");
+
+      expect(result.mx).toContain("mx1.example.com");
+      expect(result.spf).toBe(true);
+      expect(result.dmarc).toBe(true);
+    });
+
+    it("should handle empty responses", async () => {
+      vi.mocked(dns.resolveMx).mockResolvedValue([]);
+      vi.mocked(dns.resolveTxt).mockResolvedValue([]);
+
+      const result = await getDomainInfo("empty.com");
+
+      expect(result.mx).toEqual([]);
+      expect(result.spf).toBe(false);
+      expect(result.dmarc).toBe(false);
+    });
+
+    it("should handle DNS errors gracefully", async () => {
+      vi.mocked(dns.resolveMx).mockRejectedValue(new Error("DNS error"));
+      vi.mocked(dns.resolveTxt).mockRejectedValue(new Error("DNS error"));
+
+      const result = await getDomainInfo("error.com");
+
+      expect(result.mx).toEqual([]);
+      expect(result.spf).toBe(false);
+      expect(result.dmarc).toBe(false);
+    });
+  });
+});

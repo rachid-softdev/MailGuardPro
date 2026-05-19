@@ -1,72 +1,60 @@
 // API Route: Upload CSV pour traitement bulk
 // POST /api/v1/validate/bulk
 
-import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
-import { processBulkUpload } from '@/services/bulkProcessor'
+import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { processBulkUpload } from "@/services/bulkProcessor";
+import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(req: NextRequest) {
   try {
     // Authentification requise
-    const session = await auth()
+    const session = await auth();
     if (!session?.user) {
       return NextResponse.json(
-        { success: false, error: 'Authentication required' },
-        { status: 401 }
-      )
+        { success: false, error: "Authentication required" },
+        { status: 401 },
+      );
     }
-    
+
     // Vérifier les crédits pour le bulk
     const user = await prisma.user.findUnique({
       where: { id: session.user.id },
       select: { credits: true, plan: true },
-    })
-    
+    });
+
     // Limite selon le plan
-    const maxBatchSize = user?.plan === 'PRO' || user?.plan === 'BUSINESS' ? 100000 : 10000
-    
+    const maxBatchSize = user?.plan === "PRO" || user?.plan === "BUSINESS" ? 100000 : 10000;
+
     // Parser le multipart form
-    const formData = await req.formData()
-    const file = formData.get('file') as File | null
-    
+    const formData = await req.formData();
+    const file = formData.get("file") as File | null;
+
     if (!file) {
-      return NextResponse.json(
-        { success: false, error: 'No file provided' },
-        { status: 400 }
-      )
+      return NextResponse.json({ success: false, error: "No file provided" }, { status: 400 });
     }
-    
+
     // Vérifier le type de fichier
-    if (!file.name.endsWith('.csv')) {
-      return NextResponse.json(
-        { success: false, error: 'File must be a CSV' },
-        { status: 400 }
-      )
+    if (!file.name.endsWith(".csv")) {
+      return NextResponse.json({ success: false, error: "File must be a CSV" }, { status: 400 });
     }
-    
+
     // Traiter le fichier
-    const result = await processBulkUpload(file, session.user.id)
-    
+    const result = await processBulkUpload(file, session.user.id);
+
     if (!result.success || !result.jobId) {
-      return NextResponse.json(
-        { success: false, errors: result.errors },
-        { status: 400 }
-      )
+      return NextResponse.json({ success: false, errors: result.errors }, { status: 400 });
     }
-    
+
     return NextResponse.json({
       success: true,
       data: {
         jobId: result.jobId,
         totalEmails: result.totalEmails,
       },
-    })
+    });
   } catch (error) {
-    console.error('[API] Bulk upload error:', error)
-    return NextResponse.json(
-      { success: false, error: 'Internal server error' },
-      { status: 500 }
-    )
+    console.error("[API] Bulk upload error:", error);
+    return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 });
   }
 }

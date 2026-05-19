@@ -1,17 +1,14 @@
-import type { Metadata } from 'next'
-import './globals.css'
+import type { Metadata } from "next";
+import "./globals.css";
 
 export const metadata: Metadata = {
-  title: 'MailGuard Pro - Email Intelligence Platform',
-  description: 'Validate emails with a quality score 0-100. Bulk processing, exports, and webhooks.',
-  keywords: ['email validation', 'email verifier', 'bulk email validation', 'email quality score'],
-}
+  title: "MailGuard Pro - Email Intelligence Platform",
+  description:
+    "Validate emails with a quality score 0-100. Bulk processing, exports, and webhooks.",
+  keywords: ["email validation", "email verifier", "bulk email validation", "email quality score"],
+};
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
@@ -29,9 +26,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body>
-        {children}
-      </body>
+      <body>{children}</body>
     </html>
-  )
+  );
 }

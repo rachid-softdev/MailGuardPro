@@ -1,80 +1,82 @@
-'use client'
+"use client";
 
-import { useState, useRef, useCallback, useEffect } from 'react'
-import { ScoreCircle } from '@/components/validator/ScoreCircle'
-import { StatusBadge } from '@/components/ui/StatusBadge'
+import { StatusBadge } from "@/components/ui/StatusBadge";
+import { ScoreCircle } from "@/components/validator/ScoreCircle";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 interface ValidationResult {
-  email: string
-  score: number
-  status: 'valid' | 'invalid' | 'risky' | 'unknown'
-  checks: Record<string, { passed: boolean; message: string; detail?: string }>
+  email: string;
+  score: number;
+  status: "valid" | "invalid" | "risky" | "unknown";
+  checks: Record<string, { passed: boolean; message: string; detail?: string }>;
   domain: {
-    name: string
-    reputation: string
-  }
-  suggestion?: string
+    name: string;
+    reputation: string;
+  };
+  suggestion?: string;
 }
 
 export default function ValidatePage() {
-  const [email, setEmail] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [result, setResult] = useState<ValidationResult | null>(null)
-  const [error, setError] = useState('')
-  const abortControllerRef = useRef<AbortController | null>(null)
+  const [email, setEmail] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<ValidationResult | null>(null);
+  const [error, setError] = useState("");
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   // Cleanup on unmount to prevent memory leaks
   useEffect(() => {
     return () => {
       if (abortControllerRef.current) {
-        abortControllerRef.current.abort()
+        abortControllerRef.current.abort();
       }
-    }
-  }, [])
+    };
+  }, []);
 
-  const handleSubmit = useCallback(async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!email) return
+  const handleSubmit = useCallback(
+    async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!email) return;
 
-    // Cancel any in-flight request
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort()
-    }
-
-    // Create new AbortController for this request
-    const controller = new AbortController()
-    abortControllerRef.current = controller
-
-    setLoading(true)
-    setError('')
-    setResult(null)
-
-    try {
-      const response = await fetch(
-        `/api/v1/validate?email=${encodeURIComponent(email)}`,
-        { signal: controller.signal }
-      )
-
-      // Ignore abort errors
-      if (response.status === 0) return
-
-      const data = await response.json()
-
-      if (data.success) {
-        setResult(data.data)
-      } else {
-        setError(data.error || 'Validation failed')
+      // Cancel any in-flight request
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
       }
-    } catch (err) {
-      // Ignore AbortError - this is expected when cancelling requests
-      if (err instanceof DOMException && err.name === 'AbortError') {
-        return
+
+      // Create new AbortController for this request
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
+
+      setLoading(true);
+      setError("");
+      setResult(null);
+
+      try {
+        const response = await fetch(`/api/v1/validate?email=${encodeURIComponent(email)}`, {
+          signal: controller.signal,
+        });
+
+        // Ignore abort errors
+        if (response.status === 0) return;
+
+        const data = await response.json();
+
+        if (data.success) {
+          setResult(data.data);
+        } else {
+          setError(data.error || "Validation failed");
+        }
+      } catch (err) {
+        // Ignore AbortError - this is expected when cancelling requests
+        if (err instanceof DOMException && err.name === "AbortError") {
+          return;
+        }
+        setError("An error occurred during validation");
+      } finally {
+        setLoading(false);
       }
-      setError('An error occurred during validation')
-    } finally {
-      setLoading(false)
-    }
-  }, [email])
+    },
+    [email],
+  );
 
   return (
     <div className="min-h-screen bg-[var(--bg-base)] p-6">
@@ -90,14 +92,10 @@ export default function ValidatePage() {
               onChange={(e) => setEmail(e.target.value)}
               placeholder="Enter an email address..."
               className="input flex-1"
-              style={{ height: '56px', fontSize: 'var(--text-base)' }}
+              style={{ height: "56px", fontSize: "var(--text-base)" }}
             />
-            <button 
-              type="submit" 
-              disabled={loading || !email}
-              className="btn btn-accent btn-lg"
-            >
-              {loading ? 'Analyzing...' : 'Analyze'}
+            <button type="submit" disabled={loading || !email} className="btn btn-accent btn-lg">
+              {loading ? "Analyzing..." : "Analyze"}
             </button>
           </div>
         </form>
@@ -121,7 +119,8 @@ export default function ValidatePage() {
                 {result.suggestion && (
                   <div className="mt-4 text-center">
                     <p className="text-sm text-[var(--text-muted)]">
-                      Did you mean: <span className="text-[var(--accent)] font-mono">{result.suggestion}</span>?
+                      Did you mean:{" "}
+                      <span className="text-[var(--accent)] font-mono">{result.suggestion}</span>?
                     </p>
                   </div>
                 )}
@@ -132,12 +131,14 @@ export default function ValidatePage() {
                 <h2 className="text-lg font-display font-semibold mb-4">Validation Details</h2>
                 <div className="space-y-3">
                   {Object.entries(result.checks).map(([key, check]) => (
-                    <div 
-                      key={key} 
+                    <div
+                      key={key}
                       className="flex items-start gap-3 py-2 border-b border-[var(--border)] last:border-0"
                     >
-                      <span className={`text-lg ${check.passed ? 'text-[var(--status-valid)]' : 'text-[var(--status-invalid)]'}`}>
-                        {check.passed ? '✓' : '✗'}
+                      <span
+                        className={`text-lg ${check.passed ? "text-[var(--status-valid)]" : "text-[var(--status-invalid)]"}`}
+                      >
+                        {check.passed ? "✓" : "✗"}
                       </span>
                       <div>
                         <p className="font-mono text-sm capitalize">{key}</p>
@@ -163,5 +164,5 @@ export default function ValidatePage() {
         )}
       </div>
     </div>
-  )
+  );
 }

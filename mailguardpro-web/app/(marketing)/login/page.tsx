@@ -1,25 +1,25 @@
-'use client'
+"use client";
 
-import { signIn } from 'next-auth/react'
-import { useState } from 'react'
-import Link from 'next/link'
+import { signIn } from "next-auth/react";
+import Link from "next/link";
+import { useState } from "react";
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('')
-  const [loading, setLoading] = useState('')
+  const [email, setEmail] = useState("");
+  const [loading, setLoading] = useState("");
 
   const handleMagicLink = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!email) return
+    e.preventDefault();
+    if (!email) return;
 
-    setLoading('magic')
-    await signIn('resend', { email, callbackUrl: '/dashboard' })
-  }
+    setLoading("magic");
+    await signIn("resend", { email, callbackUrl: "/dashboard" });
+  };
 
   const handleGoogle = () => {
-    setLoading('google')
-    signIn('google', { callbackUrl: '/dashboard' })
-  }
+    setLoading("google");
+    signIn("google", { callbackUrl: "/dashboard" });
+  };
 
   return (
     <div className="min-h-screen bg-[var(--bg-base)] flex items-center justify-center p-6">
@@ -37,11 +37,7 @@ export default function LoginPage() {
           <h1 className="text-2xl font-display font-bold text-center mb-6">Sign in</h1>
 
           {/* Google */}
-          <button
-            onClick={handleGoogle}
-            disabled={!!loading}
-            className="btn btn-ghost w-full mb-6"
-          >
+          <button onClick={handleGoogle} disabled={!!loading} className="btn btn-ghost w-full mb-6">
             <svg className="w-5 h-5" viewBox="0 0 24 24">
               <path
                 fill="currentColor"
@@ -81,12 +77,8 @@ export default function LoginPage() {
               className="input mb-4"
               required
             />
-            <button
-              type="submit"
-              disabled={!!loading || !email}
-              className="btn btn-primary w-full"
-            >
-              {loading === 'magic' ? 'Sending...' : 'Send magic link'}
+            <button type="submit" disabled={!!loading || !email} className="btn btn-primary w-full">
+              {loading === "magic" ? "Sending..." : "Send magic link"}
             </button>
           </form>
 
@@ -96,5 +88,5 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
-  )
+  );
 }
