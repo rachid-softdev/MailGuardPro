@@ -1,75 +1,75 @@
-'use client'
+"use client";
 
-import { useEffect, useState } from 'react'
-import { useSearchParams, useRouter } from 'next/navigation'
-import Link from 'next/link'
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
 
 export default function VerifyPage() {
-  const searchParams = useSearchParams()
-  const router = useRouter()
-  const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading')
-  const [message, setMessage] = useState('')
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
+  const [message, setMessage] = useState("");
 
   useEffect(() => {
-    const token = searchParams.get('token')
-    const type = searchParams.get('type')
+    const token = searchParams.get("token");
+    const type = searchParams.get("type");
 
     if (!token) {
-      setStatus('error')
-      setMessage('Invalid verification link. Please request a new one.')
-      return
+      setStatus("error");
+      setMessage("Invalid verification link. Please request a new one.");
+      return;
     }
 
     // If this is a magic link verification, we need to handle it via the session
     // NextAuth will handle the actual verification when the user clicks the link
     // This page is shown AFTER the link is clicked and verified
-    
-    if (type === 'email') {
+
+    if (type === "email") {
       // Email verification complete
-      setStatus('success')
-      setMessage('Your email has been verified successfully!')
-      
+      setStatus("success");
+      setMessage("Your email has been verified successfully!");
+
       // Redirect to dashboard after 3 seconds
       setTimeout(() => {
-        router.push('/dashboard')
-      }, 3000)
-    } else if (type === 'magic') {
+        router.push("/dashboard");
+      }, 3000);
+    } else if (type === "magic") {
       // Magic link - sign in
-      setStatus('success')
-      setMessage('Signing you in...')
-      
+      setStatus("success");
+      setMessage("Signing you in...");
+
       setTimeout(() => {
-        router.push('/dashboard')
-      }, 2000)
+        router.push("/dashboard");
+      }, 2000);
     } else {
       // Default - assume success for now (NextAuth handles this)
-      setStatus('success')
-      setMessage('Verification successful! Redirecting...')
-      
+      setStatus("success");
+      setMessage("Verification successful! Redirecting...");
+
       setTimeout(() => {
-        router.push('/dashboard')
-      }, 3000)
+        router.push("/dashboard");
+      }, 3000);
     }
-  }, [searchParams, router])
+  }, [searchParams, router]);
 
   const handleResend = async () => {
     try {
-      const res = await fetch('/api/auth/send-verification', {
-        method: 'POST',
-      })
-      
+      const res = await fetch("/api/auth/send-verification", {
+        method: "POST",
+      });
+
       if (res.ok) {
-        setMessage('Verification email sent! Please check your inbox.')
-        setStatus('success')
+        setMessage("Verification email sent! Please check your inbox.");
+        setStatus("success");
       } else {
-        setMessage('Failed to send verification email. Please try again.')
-        setStatus('error')
+        setMessage("Failed to send verification email. Please try again.");
+        setStatus("error");
       }
     } catch {
-      setMessage('An error occurred. Please try again.')
-      setStatus('error')
+      setMessage("An error occurred. Please try again.");
+      setStatus("error");
     }
-  }
+  };
 
   return (
     <div className="min-h-screen bg-[var(--bg-base)] flex items-center justify-center p-4">
@@ -82,14 +82,14 @@ export default function VerifyPage() {
         </div>
 
         <div className="card">
-          {status === 'loading' && (
+          {status === "loading" && (
             <div className="text-center py-8">
               <div className="w-12 h-12 border-4 border-[var(--accent)] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
               <p className="text-[var(--text-secondary)]">Verifying your account...</p>
             </div>
           )}
 
-          {status === 'success' && (
+          {status === "success" && (
             <div className="text-center py-8">
               <div className="w-16 h-16 bg-[var(--status-valid)] bg-opacity-10 rounded-full flex items-center justify-center mx-auto mb-4">
                 <svg
@@ -112,7 +112,7 @@ export default function VerifyPage() {
             </div>
           )}
 
-          {status === 'error' && (
+          {status === "error" && (
             <div className="text-center py-8">
               <div className="w-16 h-16 bg-[var(--status-invalid)] bg-opacity-10 rounded-full flex items-center justify-center mx-auto mb-4">
                 <svg
@@ -145,5 +145,5 @@ export default function VerifyPage() {
         </p>
       </div>
     </div>
-  )
+  );
 }

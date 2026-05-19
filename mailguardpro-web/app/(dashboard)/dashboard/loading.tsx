@@ -30,5 +30,5 @@ export default function DashboardPageLoading() {
         </div>
       </div>
     </div>
-  )
+  );
 }

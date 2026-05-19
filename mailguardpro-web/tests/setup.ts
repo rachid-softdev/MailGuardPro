@@ -1,11 +1,11 @@
 // Test setup global pour Vitest
 
-import { beforeAll, afterAll, afterEach, vi } from 'vitest'
+import { afterAll, afterEach, beforeAll, vi } from "vitest";
 
 // ==========================================
 // BUFFER MOCK (needed by crypto)
 // ==========================================
-vi.mock('buffer', () => ({
+vi.mock("buffer", () => ({
   __esModule: true,
   default: {
     Buffer: {
@@ -17,27 +17,27 @@ vi.mock('buffer', () => ({
     from: vi.fn((str) => str),
     isBuffer: vi.fn(() => false),
   },
-}))
+}));
 
 // ==========================================
 // CRYPTO MOCK - Must return actual mock functions, not vi.fn()
 // ==========================================
 const createHmacMock = () => ({
   update: vi.fn().mockReturnThis(),
-  digest: vi.fn(() => Buffer.from('mock-signature')),
-})
+  digest: vi.fn(() => Buffer.from("mock-signature")),
+});
 
 const createHashMock = () => ({
   update: vi.fn().mockReturnThis(),
-  digest: vi.fn(() => Buffer.from('mock-hash')),
-})
+  digest: vi.fn(() => Buffer.from("mock-hash")),
+});
 
-vi.mock('crypto', () => {
-  const createHmac = vi.fn(createHmacMock)
-  const createHash = vi.fn(createHashMock)
-  const timingSafeEqual = vi.fn(() => true)
-  const randomUUID = vi.fn(() => `test-${Date.now()}`)
-  
+vi.mock("crypto", () => {
+  const createHmac = vi.fn(createHmacMock);
+  const createHash = vi.fn(createHashMock);
+  const timingSafeEqual = vi.fn(() => true);
+  const randomUUID = vi.fn(() => `test-${Date.now()}`);
+
   return {
     __esModule: true,
     default: {
@@ -50,12 +50,12 @@ vi.mock('crypto', () => {
     createHmac,
     timingSafeEqual,
     createHash,
-  }
-})
+  };
+});
 
 // Set global crypto
 if (!globalThis.crypto) {
-  Object.defineProperty(globalThis, 'crypto', {
+  Object.defineProperty(globalThis, "crypto", {
     value: {
       randomUUID: () => `test-${Date.now()}`,
       createHmac: createHmacMock(),
@@ -63,7 +63,7 @@ if (!globalThis.crypto) {
       createHash: createHashMock(),
     },
     writable: true,
-  })
+  });
 }
 
 // ==========================================
@@ -75,21 +75,21 @@ const createDnsPromisesMock = () => ({
   resolve: vi.fn().mockResolvedValue([]),
   resolveCname: vi.fn().mockResolvedValue([]),
   reverse: vi.fn().mockResolvedValue([]),
-})
+});
 
-vi.mock('dns/promises', () => {
-  const mocks = createDnsPromisesMock()
+vi.mock("dns/promises", () => {
+  const mocks = createDnsPromisesMock();
   return {
     __esModule: true,
     default: mocks,
     ...mocks,
-  }
-})
+  };
+});
 
 // ==========================================
 // DNS MOCK (non-promises)
 // ==========================================
-vi.mock('dns', () => ({
+vi.mock("dns", () => ({
   __esModule: true,
   default: {
     resolve: vi.fn((hostname, rrtype, callback) => callback(null, [])),
@@ -101,7 +101,7 @@ vi.mock('dns', () => ({
   resolveMx: vi.fn((hostname, callback) => callback(null, [])),
   resolveTxt: vi.fn((hostname, callback) => callback(null, [])),
   setServers: vi.fn(),
-}))
+}));
 
 // ==========================================
 // FAST-LEVENSHTEIN MOCK - Must return function as default export
@@ -109,27 +109,27 @@ vi.mock('dns', () => ({
 // So default must be a function
 // ==========================================
 const distanceFn = vi.fn((a: string, b: string): number => {
-  const maxLen = Math.max(a.length, b.length)
-  if (maxLen === 0) return 0
-  let diff = 0
+  const maxLen = Math.max(a.length, b.length);
+  if (maxLen === 0) return 0;
+  let diff = 0;
   for (let i = 0; i < Math.min(a.length, b.length); i++) {
-    if (a[i] !== b[i]) diff++
+    if (a[i] !== b[i]) diff++;
   }
-  diff += Math.abs(a.length - b.length)
-  return diff
-})
+  diff += Math.abs(a.length - b.length);
+  return diff;
+});
 
-vi.mock('fast-levenshtein', () => ({
+vi.mock("fast-levenshtein", () => ({
   __esModule: true,
   default: distanceFn,
   get: distanceFn,
   getEditDistance: distanceFn,
-}))
+}));
 
 // ==========================================
 // NET MODULE MOCK (for SMTP)
 // ==========================================
-vi.mock('net', () => ({
+vi.mock("net", () => ({
   __esModule: true,
   default: {
     createConnection: vi.fn(() => ({
@@ -149,28 +149,28 @@ vi.mock('net', () => ({
     destroy: vi.fn(),
     write: vi.fn(),
   })),
-}))
+}));
 
 // ==========================================
 // CONSOLE MOCK
 // ==========================================
-const originalConsole = { ...console }
+const originalConsole = { ...console };
 beforeAll(() => {
   // Silence console in tests
-})
+});
 
 afterEach(() => {
-  vi.clearAllMocks()
-})
+  vi.clearAllMocks();
+});
 
 afterAll(() => {
-  Object.assign(console, originalConsole)
-})
+  Object.assign(console, originalConsole);
+});
 
 // ==========================================
 // PRISMA MOCK
 // ==========================================
-vi.mock('@/lib/prisma', () => ({
+vi.mock("@/lib/prisma", () => ({
   prisma: {
     user: {
       findUnique: vi.fn().mockResolvedValue(null),
@@ -185,7 +185,7 @@ vi.mock('@/lib/prisma', () => ({
       count: vi.fn().mockResolvedValue(0),
     },
     bulkJob: {
-      create: vi.fn().mockResolvedValue({ id: 'mock-job-id' }),
+      create: vi.fn().mockResolvedValue({ id: "mock-job-id" }),
       findUnique: vi.fn().mockResolvedValue(null),
       update: vi.fn().mockResolvedValue({}),
       findMany: vi.fn().mockResolvedValue([]),
@@ -197,7 +197,7 @@ vi.mock('@/lib/prisma', () => ({
       findMany: vi.fn().mockResolvedValue([]),
     },
     webhook: {
-      create: vi.fn().mockResolvedValue({ id: 'mock-webhook-id' }),
+      create: vi.fn().mockResolvedValue({ id: "mock-webhook-id" }),
       findMany: vi.fn().mockResolvedValue([]),
       update: vi.fn().mockResolvedValue({}),
       delete: vi.fn().mockResolvedValue({}),
@@ -214,16 +214,16 @@ vi.mock('@/lib/prisma', () => ({
     $connect: vi.fn().mockResolvedValue(undefined),
     $disconnect: vi.fn().mockResolvedValue(undefined),
   },
-}))
+}));
 
 // ==========================================
 // REDIS MOCK
 // ==========================================
-vi.mock('@/lib/redis', () => ({
+vi.mock("@/lib/redis", () => ({
   redis: {
     get: vi.fn().mockResolvedValue(null),
-    set: vi.fn().mockResolvedValue('OK'),
-    setex: vi.fn().mockResolvedValue('OK'),
+    set: vi.fn().mockResolvedValue("OK"),
+    setex: vi.fn().mockResolvedValue("OK"),
     del: vi.fn().mockResolvedValue(1),
     incr: vi.fn().mockResolvedValue(1),
     expire: vi.fn().mockResolvedValue(1),
@@ -233,26 +233,32 @@ vi.mock('@/lib/redis', () => ({
     keys: vi.fn().mockResolvedValue([]),
     ttl: vi.fn().mockResolvedValue(60),
   },
-  checkRateLimit: vi.fn(() => Promise.resolve({ success: true, resetAt: Date.now() + 60000, remaining: 100 })),
+  checkRateLimit: vi.fn(() =>
+    Promise.resolve({
+      success: true,
+      resetAt: Date.now() + 60000,
+      remaining: 100,
+    }),
+  ),
   getCached: vi.fn().mockResolvedValue(null),
   setCached: vi.fn().mockResolvedValue(undefined),
   deleteCached: vi.fn().mockResolvedValue(undefined),
-}))
+}));
 
 // ==========================================
 // NEXTAUTH MOCK
 // ==========================================
-vi.mock('@/lib/auth', () => ({
+vi.mock("@/lib/auth", () => ({
   auth: vi.fn(() => Promise.resolve(null)),
   handlers: { GET: vi.fn(), POST: vi.fn() },
   signIn: vi.fn(),
   signOut: vi.fn(),
-}))
+}));
 
 // ==========================================
 // SENTRY MOCK
 // ==========================================
-vi.mock('@sentry/nextjs', () => ({
+vi.mock("@sentry/nextjs", () => ({
   __esModule: true,
   default: {
     init: vi.fn(),
@@ -266,7 +272,7 @@ vi.mock('@sentry/nextjs', () => ({
   captureException: vi.fn(),
   setUser: vi.fn(),
   addBreadcrumb: vi.fn(),
-}))
+}));
 
 // ==========================================
 // PINO LOGGER MOCK
@@ -281,33 +287,33 @@ const createMockLogger = () => ({
   error: vi.fn(),
   debug: vi.fn(),
   bindings: {},
-})
+});
 
-vi.mock('pino', () => ({
+vi.mock("pino", () => ({
   __esModule: true,
   default: vi.fn(() => createMockLogger()),
-}))
+}));
 
 // ==========================================
 // STRIPE MOCK
 // ==========================================
-vi.mock('stripe', () => ({
+vi.mock("stripe", () => ({
   __esModule: true,
   default: vi.fn(() => ({
     customers: { create: vi.fn() },
     subscriptions: { create: vi.fn() },
     checkout: { sessions: { create: vi.fn() } },
   })),
-}))
+}));
 
 // ==========================================
 // RESEND MOCK
 // ==========================================
-vi.mock('resend', () => ({
+vi.mock("resend", () => ({
   __esModule: true,
   Resend: vi.fn(() => ({
-    emails: { send: vi.fn().mockResolvedValue({ id: 'email-123' }) },
+    emails: { send: vi.fn().mockResolvedValue({ id: "email-123" }) },
   })),
-}))
+}));
 
-export {}
+export {};

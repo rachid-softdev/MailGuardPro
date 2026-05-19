@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@600;700;800&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@600;700;800&display=swap");
 
 @tailwind base;
 @tailwind components;
@@ -6,9 +6,9 @@
 
 :root {
   /* ==================== TYPOGRAPHY ==================== */
-  --font-display: 'Syne', sans-serif;
-  --font-mono: 'DM Mono', monospace;
-  
+  --font-display: "Syne", sans-serif;
+  --font-mono: "DM Mono", monospace;
+
   /* Font sizes - Major Third scale */
   --text-xs: 0.64rem;
   --text-sm: 0.8rem;
@@ -19,69 +19,69 @@
   --text-3xl: 2.441rem;
   --text-4xl: 3.052rem;
   --text-5xl: 4rem;
-  
+
   /* Line heights */
   --leading-tight: 1.15;
   --leading-normal: 1.5;
   --leading-loose: 1.75;
-  
+
   /* Letter spacing */
   --tracking-tight: -0.03em;
   --tracking-normal: 0em;
   --tracking-wide: 0.08em;
   --tracking-widest: 0.15em;
-  
+
   /* ==================== LIGHT MODE (default) ==================== */
   /* Backgrounds */
-  --bg-base: #F7F6F3;
-  --bg-surface: #FFFFFF;
-  --bg-elevated: #FAFAF8;
-  --bg-subtle: #F0EFE9;
+  --bg-base: #f7f6f3;
+  --bg-surface: #ffffff;
+  --bg-elevated: #fafaf8;
+  --bg-subtle: #f0efe9;
   --bg-overlay: rgba(0, 0, 0, 0.04);
-  
+
   /* Borders */
-  --border: #E4E2DA;
-  --border-strong: #C8C5BA;
-  --border-focus: #1A1A1A;
-  
+  --border: #e4e2da;
+  --border-strong: #c8c5ba;
+  --border-focus: #1a1a1a;
+
   /* Textes */
   --text-primary: #111110;
-  --text-secondary: #6B6860;
-  --text-muted: #A09D96;
-  --text-inverted: #F7F6F3;
-  
+  --text-secondary: #6b6860;
+  --text-muted: #a09d96;
+  --text-inverted: #f7f6f3;
+
   /* Accents */
-  --accent: #00A36C;
-  --accent-light: #E6F7F1;
-  --accent-dark: #007A50;
+  --accent: #00a36c;
+  --accent-light: #e6f7f1;
+  --accent-dark: #007a50;
   --accent-glow: rgba(0, 163, 108, 0.15);
-  
+
   /* Score colors */
-  --score-critical: #DC2626;
-  --score-poor: #EA580C;
-  --score-medium: #D97706;
-  --score-good: #65A30D;
-  --score-excellent: #00A36C;
-  
+  --score-critical: #dc2626;
+  --score-poor: #ea580c;
+  --score-medium: #d97706;
+  --score-good: #65a30d;
+  --score-excellent: #00a36c;
+
   /* Status */
-  --status-valid: #00A36C;
-  --status-invalid: #DC2626;
-  --status-risky: #D97706;
-  --status-unknown: #6B6860;
-  
+  --status-valid: #00a36c;
+  --status-invalid: #dc2626;
+  --status-risky: #d97706;
+  --status-unknown: #6b6860;
+
   /* Status backgrounds */
-  --status-valid-bg: #E6F7F1;
-  --status-invalid-bg: #FEF2F2;
-  --status-risky-bg: #FFFBEB;
-  --status-unknown-bg: #F5F5F4;
-  
+  --status-valid-bg: #e6f7f1;
+  --status-invalid-bg: #fef2f2;
+  --status-risky-bg: #fffbeb;
+  --status-unknown-bg: #f5f5f4;
+
   /* Shadows */
-  --shadow-xs: 0 1px 2px rgba(0,0,0,0.06);
-  --shadow-sm: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
-  --shadow-md: 0 4px 6px rgba(0,0,0,0.06), 0 2px 4px rgba(0,0,0,0.04);
-  --shadow-lg: 0 10px 15px rgba(0,0,0,0.08), 0 4px 6px rgba(0,0,0,0.04);
-  --shadow-xl: 0 20px 25px rgba(0,0,0,0.08), 0 10px 10px rgba(0,0,0,0.03);
-  
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.06);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.06), 0 2px 4px rgba(0, 0, 0, 0.04);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.08), 0 4px 6px rgba(0, 0, 0, 0.04);
+  --shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.08), 0 10px 10px rgba(0, 0, 0, 0.03);
+
   /* ==================== SPACING ==================== */
   --space-1: 0.25rem;
   --space-2: 0.5rem;
@@ -95,7 +95,7 @@
   --space-16: 4rem;
   --space-20: 5rem;
   --space-24: 6rem;
-  
+
   /* Border radius */
   --radius-sm: 4px;
   --radius-md: 8px;
@@ -103,14 +103,14 @@
   --radius-xl: 16px;
   --radius-2xl: 24px;
   --radius-full: 9999px;
-  
+
   /* Containers */
   --container-sm: 640px;
   --container-md: 768px;
   --container-lg: 1024px;
   --container-xl: 1280px;
   --container-2xl: 1440px;
-  
+
   /* Dashboard layout */
   --sidebar-width: 240px;
   --sidebar-width-collapsed: 64px;
@@ -121,54 +121,54 @@
 [data-theme="dark"],
 .dark {
   /* Backgrounds */
-  --bg-base: #0C0C0A;
+  --bg-base: #0c0c0a;
   --bg-surface: #141412;
-  --bg-elevated: #1C1C19;
+  --bg-elevated: #1c1c19;
   --bg-subtle: #242420;
   --bg-overlay: rgba(255, 255, 255, 0.04);
-  
+
   /* Borders */
-  --border: #2A2A26;
-  --border-strong: #3D3D38;
-  --border-focus: #F7F6F3;
-  
+  --border: #2a2a26;
+  --border-strong: #3d3d38;
+  --border-focus: #f7f6f3;
+
   /* Textes */
-  --text-primary: #F0EFE9;
-  --text-secondary: #8C8A82;
-  --text-muted: #5C5A54;
+  --text-primary: #f0efe9;
+  --text-secondary: #8c8a82;
+  --text-muted: #5c5a54;
   --text-inverted: #111110;
-  
+
   /* Accents - brighter in dark */
-  --accent: #00C97E;
+  --accent: #00c97e;
   --accent-light: rgba(0, 201, 126, 0.1);
-  --accent-dark: #00F0A0;
+  --accent-dark: #00f0a0;
   --accent-glow: rgba(0, 201, 126, 0.2);
-  
+
   /* Score colors - brighter in dark */
-  --score-critical: #F87171;
-  --score-poor: #FB923C;
-  --score-medium: #FBBF24;
-  --score-good: #86EFAC;
-  --score-excellent: #00C97E;
-  
+  --score-critical: #f87171;
+  --score-poor: #fb923c;
+  --score-medium: #fbbf24;
+  --score-good: #86efac;
+  --score-excellent: #00c97e;
+
   /* Status - brighter in dark */
-  --status-valid: #00C97E;
-  --status-invalid: #F87171;
-  --status-risky: #FBBF24;
-  --status-unknown: #8C8A82;
-  
+  --status-valid: #00c97e;
+  --status-invalid: #f87171;
+  --status-risky: #fbbf24;
+  --status-unknown: #8c8a82;
+
   /* Status backgrounds */
   --status-valid-bg: rgba(0, 201, 126, 0.08);
   --status-invalid-bg: rgba(248, 113, 113, 0.08);
   --status-risky-bg: rgba(251, 191, 36, 0.08);
   --status-unknown-bg: rgba(140, 138, 130, 0.08);
-  
+
   /* Shadows - darker in dark */
-  --shadow-xs: 0 1px 2px rgba(0,0,0,0.4);
-  --shadow-sm: 0 1px 3px rgba(0,0,0,0.5);
-  --shadow-md: 0 4px 6px rgba(0,0,0,0.4);
-  --shadow-lg: 0 10px 15px rgba(0,0,0,0.5);
-  --shadow-xl: 0 20px 25px rgba(0,0,0,0.6);
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.5);
+  --shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.6);
 }
 
 /* ==================== BASE STYLES ==================== */
@@ -176,17 +176,17 @@
   * {
     @apply border-[var(--border)];
   }
-  
+
   body {
     @apply bg-[var(--bg-base)] text-[var(--text-primary)] antialiased;
     font-family: var(--font-display);
   }
-  
+
   /* Focus visible */
   :focus-visible {
     @apply outline-2 outline-[var(--border-focus)] outline-offset-3 rounded-[var(--radius-sm)];
   }
-  
+
   :focus:not(:focus-visible) {
     @apply outline-none;
   }
@@ -204,7 +204,7 @@
       transform: translateY(0);
     }
   }
-  
+
   @keyframes skeleton {
     from {
       background-position: 200% 0;
@@ -213,7 +213,7 @@
       background-position: -200% 0;
     }
   }
-  
+
   @keyframes shimmer {
     from {
       transform: translateX(-100%);
@@ -222,9 +222,10 @@
       transform: translateX(100%);
     }
   }
-  
+
   @keyframes pulse-dot {
-    0%, 100% {
+    0%,
+    100% {
       opacity: 1;
       transform: scale(1);
     }
@@ -257,18 +258,28 @@
   .animate-fade-up {
     animation: fadeUp 0.5s ease forwards;
   }
-  
+
   .animate-skeleton {
-    background: linear-gradient(90deg, var(--bg-subtle) 25%, var(--bg-elevated) 50%, var(--bg-subtle) 75%);
+    background: linear-gradient(
+      90deg,
+      var(--bg-subtle) 25%,
+      var(--bg-elevated) 50%,
+      var(--bg-subtle) 75%
+    );
     background-size: 200% 100%;
     animation: skeleton 1.5s ease-in-out infinite;
   }
-  
+
   .animate-shimmer {
-    background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.2) 50%, transparent 100%);
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(255, 255, 255, 0.2) 50%,
+      transparent 100%
+    );
     animation: shimmer 1.5s ease-in-out infinite;
   }
-  
+
   .animate-pulse-dot {
     animation: pulse-dot 2s ease-in-out infinite;
   }
@@ -296,11 +307,11 @@
     @apply hover:border-[var(--border-strong)];
     @apply focus:border-[var(--border-focus)] focus:ring-0;
   }
-  
+
   .input:focus {
     box-shadow: 0 0 0 3px var(--bg-overlay);
   }
-  
+
   /* Button */
   .btn {
     @apply inline-flex items-center justify-center gap-2;
@@ -309,51 +320,57 @@
     @apply cursor-pointer transition-all duration-150;
     @apply disabled:opacity-40 disabled:cursor-not-allowed;
   }
-  
-  .btn-sm { @apply h-8 px-3 text-xs; }
-  .btn-md { @apply h-10 px-4; }
-  .btn-lg { @apply h-12 px-6 text-base; }
-  
+
+  .btn-sm {
+    @apply h-8 px-3 text-xs;
+  }
+  .btn-md {
+    @apply h-10 px-4;
+  }
+  .btn-lg {
+    @apply h-12 px-6 text-base;
+  }
+
   .btn-primary {
     @apply bg-[var(--text-primary)] text-[var(--text-inverted)];
     @apply border-[var(--text-primary)];
     @apply hover:bg-[var(--text-secondary)] hover:border-[var(--text-secondary)];
     @apply hover:-translate-y-0.5 hover:shadow-md;
   }
-  
+
   .btn-accent {
     @apply bg-[var(--accent)] text-white border-[var(--accent)];
     @apply hover:bg-[var(--accent-dark)];
     @apply hover:-translate-y-0.5 hover:shadow-lg;
     box-shadow: 0 4px 12px var(--accent-glow);
   }
-  
+
   .btn-ghost {
     @apply bg-transparent text-[var(--text-primary)] border-[var(--border)];
     @apply hover:bg-[var(--bg-subtle)] hover:border-[var(--border-strong)];
   }
-  
+
   .btn-danger {
     @apply bg-transparent text-[var(--status-invalid)] border-[var(--status-invalid-bg)];
     @apply hover:bg-[var(--status-invalid-bg)];
   }
-  
+
   /* Card */
   .card {
     @apply bg-[var(--bg-surface)] border border-[var(--border)] rounded-[var(--radius-xl)];
     @apply p-6 shadow-[var(--shadow-sm)];
     @apply transition-all duration-200;
   }
-  
+
   .card:hover {
     @apply shadow-[var(--shadow-md)] border-[var(--border-strong)];
   }
-  
+
   /* Badge */
   .badge {
     @apply inline-flex items-center gap-1 px-2 py-0.5;
     @apply rounded-full text-xs font-mono uppercase tracking-widest;
   }
-  
+
   /* Score Circle styles are in the component */
 }

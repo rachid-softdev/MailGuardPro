@@ -1,85 +1,86 @@
-import Link from 'next/link'
-import { Metadata } from 'next'
+import { Metadata } from "next";
+import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: 'Pricing - MailGuard Pro',
-  description: 'Simple, transparent pricing for email validation. Free tier with 100 validations, paid plans starting at €9/month.',
+  title: "Pricing - MailGuard Pro",
+  description:
+    "Simple, transparent pricing for email validation. Free tier with 100 validations, paid plans starting at €9/month.",
   openGraph: {
-    title: 'Pricing - MailGuard Pro',
-    description: 'Choose the plan that fits your needs. Free tier available.',
-    url: 'https://mailguard.pro/pricing',
+    title: "Pricing - MailGuard Pro",
+    description: "Choose the plan that fits your needs. Free tier available.",
+    url: "https://mailguard.pro/pricing",
   },
-}
+};
 
 export default function PricingPage() {
   const plans = [
     {
-      name: 'Free',
-      price: '$0',
-      period: '/month',
-      credits: '100',
-      description: 'Perfect for testing',
+      name: "Free",
+      price: "$0",
+      period: "/month",
+      credits: "100",
+      description: "Perfect for testing",
       features: [
-        '100 validations/month',
-        'Single email validation',
-        'Basic score (0-100)',
-        'Email format check',
+        "100 validations/month",
+        "Single email validation",
+        "Basic score (0-100)",
+        "Email format check",
       ],
-      cta: 'Get started',
+      cta: "Get started",
       highlighted: false,
     },
     {
-      name: 'Starter',
-      price: '€9',
-      period: '/month',
-      credits: '5,000',
-      description: 'For small teams',
+      name: "Starter",
+      price: "€9",
+      period: "/month",
+      credits: "5,000",
+      description: "For small teams",
       features: [
-        '5,000 validations/month',
-        'Bulk CSV upload (10k rows)',
-        'CSV & JSON export',
-        'API access',
-        'Email support',
+        "5,000 validations/month",
+        "Bulk CSV upload (10k rows)",
+        "CSV & JSON export",
+        "API access",
+        "Email support",
       ],
-      cta: 'Start trial',
+      cta: "Start trial",
       highlighted: true,
     },
     {
-      name: 'Pro',
-      price: '€29',
-      period: '/month',
-      credits: '50,000',
-      description: 'For growing businesses',
+      name: "Pro",
+      price: "€29",
+      period: "/month",
+      credits: "50,000",
+      description: "For growing businesses",
       features: [
-        '50,000 validations/month',
-        'Bulk CSV upload (100k rows)',
-        'All export formats (XLSX, PDF)',
-        'Webhooks',
-        'Priority support',
-        'Advanced filters',
+        "50,000 validations/month",
+        "Bulk CSV upload (100k rows)",
+        "All export formats (XLSX, PDF)",
+        "Webhooks",
+        "Priority support",
+        "Advanced filters",
       ],
-      cta: 'Start trial',
+      cta: "Start trial",
       highlighted: false,
     },
     {
-      name: 'Business',
-      price: '€99',
-      period: '/month',
-      credits: 'Unlimited',
-      description: 'For enterprises',
+      name: "Business",
+      price: "€99",
+      period: "/month",
+      credits: "Unlimited",
+      description: "For enterprises",
       features: [
-        'Unlimited validations',
-        'Unlimited bulk size',
-        'All features included',
-        'Dedicated IP',
-        'SLA 99.9%',
-        'Phone support',
-        'Custom integrations',
+        "Unlimited validations",
+        "Unlimited bulk size",
+        "All features included",
+        "Dedicated IP",
+        "SLA 99.9%",
+        "Phone support",
+        "Custom integrations",
       ],
-      cta: 'Contact us',
+      cta: "Contact us",
       highlighted: false,
     },
-  ]
+  ];
 
   return (
     <div className="min-h-screen bg-[var(--bg-base)]">
@@ -108,16 +109,16 @@ export default function PricingPage() {
 
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
             {plans.map((plan) => (
-              <div 
+              <div
                 key={plan.name}
-                className={`card relative ${plan.highlighted ? 'border-[var(--accent)] ring-2 ring-[var(--accent-light)]' : ''}`}
+                className={`card relative ${plan.highlighted ? "border-[var(--accent)] ring-2 ring-[var(--accent-light)]" : ""}`}
               >
                 {plan.highlighted && (
                   <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-[var(--accent)] text-white text-xs font-semibold rounded-full">
                     Popular
                   </div>
                 )}
-                
+
                 <h3 className="text-lg font-display font-semibold mb-2">{plan.name}</h3>
                 <div className="flex items-baseline gap-1 mb-2">
                   <span className="text-3xl font-display font-bold">{plan.price}</span>
@@ -127,19 +128,29 @@ export default function PricingPage() {
                   {plan.credits} validations
                 </p>
                 <p className="text-xs text-[var(--text-muted)] mb-6">{plan.description}</p>
-                
+
                 <ul className="space-y-2 mb-6">
                   {plan.features.map((feature) => (
                     <li key={feature} className="text-sm flex items-center gap-2">
-                      <svg className="w-4 h-4 text-[var(--status-valid)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      <svg
+                        className="w-4 h-4 text-[var(--status-valid)]"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M5 13l4 4L19 7"
+                        />
                       </svg>
                       {feature}
                     </li>
                   ))}
                 </ul>
-                
-                <button className={`btn w-full ${plan.highlighted ? 'btn-accent' : 'btn-primary'}`}>
+
+                <button className={`btn w-full ${plan.highlighted ? "btn-accent" : "btn-primary"}`}>
                   {plan.cta}
                 </button>
               </div>
@@ -155,5 +166,5 @@ export default function PricingPage() {
         </div>
       </footer>
     </div>
-  )
+  );
 }

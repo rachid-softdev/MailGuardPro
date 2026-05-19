@@ -1,43 +1,43 @@
 // API Route: Outil DMARC Lookup
 // GET /api/v1/tools/dmarc?domain=xxx
 
-import { NextRequest, NextResponse } from 'next/server'
-import dns from 'dns/promises'
-import { z } from 'zod'
+import dns from "dns/promises";
+import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 
 const querySchema = z.object({
   domain: z.string().min(1).max(253),
-})
+});
 
 export async function GET(req: NextRequest) {
   try {
-    const { searchParams } = new URL(req.url)
-    const domain = searchParams.get('domain')
-    
-    const validated = querySchema.safeParse({ domain })
+    const { searchParams } = new URL(req.url);
+    const domain = searchParams.get("domain");
+
+    const validated = querySchema.safeParse({ domain });
     if (!validated.success) {
       return NextResponse.json(
-        { success: false, error: 'Invalid domain parameter' },
-        { status: 400 }
-      )
+        { success: false, error: "Invalid domain parameter" },
+        { status: 400 },
+      );
     }
-    
-    let dmarcRecord: string | null = null
-    let error: string | null = null
-    
+
+    let dmarcRecord: string | null = null;
+    let error: string | null = null;
+
     try {
-      const txtRecords = await dns.resolveTxt(`_dmarc.${validated.data.domain}`)
+      const txtRecords = await dns.resolveTxt(`_dmarc.${validated.data.domain}`);
       for (const record of txtRecords) {
-        const recordStr = record.join('')
-        if (recordStr.includes('v=DMARC1')) {
-          dmarcRecord = recordStr
-          break
+        const recordStr = record.join("");
+        if (recordStr.includes("v=DMARC1")) {
+          dmarcRecord = recordStr;
+          break;
         }
       }
     } catch (e) {
-      error = (e as Error).message
+      error = (e as Error).message;
     }
-    
+
     return NextResponse.json({
       success: true,
       data: {
@@ -46,12 +46,9 @@ export async function GET(req: NextRequest) {
         hasDmarc: dmarcRecord !== null,
         error,
       },
-    })
+    });
   } catch (error) {
-    console.error('[API] DMARC lookup error:', error)
-    return NextResponse.json(
-      { success: false, error: 'Internal server error' },
-      { status: 500 }
-    )
+    console.error("[API] DMARC lookup error:", error);
+    return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 });
   }
 }

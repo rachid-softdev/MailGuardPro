@@ -84,5 +84,5 @@ export default function MarketingLoading() {
         </div>
       </footer>
     </div>
-  )
+  );
 }

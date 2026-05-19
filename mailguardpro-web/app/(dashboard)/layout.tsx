@@ -1,35 +1,31 @@
-import { auth, signOut } from '@/lib/auth'
-import Link from 'next/link'
-import { redirect } from 'next/navigation'
+import { auth, signOut } from "@/lib/auth";
+import Link from "next/link";
+import { redirect } from "next/navigation";
 
-export default async function DashboardLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
-  const session = await auth()
-  
+export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
+  const session = await auth();
+
   if (!session?.user) {
-    redirect('/login')
+    redirect("/login");
   }
 
   const navItems = [
-    { href: '/dashboard', label: 'Dashboard', icon: '◉' },
-    { href: '/validate', label: 'Validate', icon: '✓' },
-    { href: '/bulk', label: 'Bulk', icon: '↑' },
-    { href: '/history', label: 'History', icon: '☰' },
-    { href: '/api-keys', label: 'API Keys', icon: '⚿' },
-    { href: '/webhooks', label: 'Webhooks', icon: '⚡' },
-    { href: '/settings', label: 'Settings', icon: '⚙' },
-  ]
+    { href: "/dashboard", label: "Dashboard", icon: "◉" },
+    { href: "/validate", label: "Validate", icon: "✓" },
+    { href: "/bulk", label: "Bulk", icon: "↑" },
+    { href: "/history", label: "History", icon: "☰" },
+    { href: "/api-keys", label: "API Keys", icon: "⚿" },
+    { href: "/webhooks", label: "Webhooks", icon: "⚡" },
+    { href: "/settings", label: "Settings", icon: "⚙" },
+  ];
 
   // Get user credits from database
-  const { prisma } = await import('@/lib/prisma')
+  const { prisma } = await import("@/lib/prisma");
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
     select: { credits: true },
-  })
-  const credits = user?.credits ?? 0
+  });
+  const credits = user?.credits ?? 0;
 
   return (
     <div className="min-h-screen bg-[var(--bg-base)] flex">
@@ -41,7 +37,7 @@ export default async function DashboardLayout({
             <span className="font-display font-bold">MailGuard</span>
           </Link>
         </div>
-        
+
         <nav className="p-4">
           {navItems.map((item) => (
             <Link
@@ -61,10 +57,12 @@ export default async function DashboardLayout({
               <p className="text-[var(--text-muted)]">Credits</p>
               <p className="font-mono font-semibold">{credits}</p>
             </div>
-            <form action={async () => {
-              'use server'
-              await signOut({ redirectTo: '/' })
-            }}>
+            <form
+              action={async () => {
+                "use server";
+                await signOut({ redirectTo: "/" });
+              }}
+            >
               <button className="btn btn-ghost btn-sm">Sign out</button>
             </form>
           </div>
@@ -72,9 +70,7 @@ export default async function DashboardLayout({
       </aside>
 
       {/* Main content */}
-      <main className="flex-1 ml-[var(--sidebar-width)]">
-        {children}
-      </main>
+      <main className="flex-1 ml-[var(--sidebar-width)]">{children}</main>
     </div>
-  )
+  );
 }

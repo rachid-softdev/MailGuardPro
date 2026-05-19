@@ -1,28 +1,28 @@
 // Validation Cache Service
 // Cache les résultats de validation pour améliorer les performances
 
-import { redis } from '@/lib/redis'
-import { ValidationResult } from './types'
+import { redis } from "@/lib/redis";
+import { ValidationResult } from "./types";
 
 // TTL: 24 heures pour les résultats de validation
-const CACHE_TTL_SECONDS = 60 * 60 * 24
+const CACHE_TTL_SECONDS = 60 * 60 * 24;
 
 // TTL plus court pour les domaines (les MX peuvent changer)
-const DOMAIN_CACHE_TTL_SECONDS = 60 * 60 * 2 // 2 heures
+const DOMAIN_CACHE_TTL_SECONDS = 60 * 60 * 2; // 2 heures
 
 /**
  * Get cached validation result for an email
  */
 export async function getCachedValidation(email: string): Promise<ValidationResult | null> {
   try {
-    const cached = await redis.get(`validation:${email.toLowerCase()}`)
+    const cached = await redis.get(`validation:${email.toLowerCase()}`);
     if (cached) {
-      return JSON.parse(cached) as ValidationResult
+      return JSON.parse(cached) as ValidationResult;
     }
   } catch (error) {
-    console.error('[ValidationCache] Get error:', error)
+    console.error("[ValidationCache] Get error:", error);
   }
-  return null
+  return null;
 }
 
 /**
@@ -33,10 +33,10 @@ export async function setCachedValidation(email: string, result: ValidationResul
     await redis.setex(
       `validation:${email.toLowerCase()}`,
       CACHE_TTL_SECONDS,
-      JSON.stringify(result)
-    )
+      JSON.stringify(result),
+    );
   } catch (error) {
-    console.error('[ValidationCache] Set error:', error)
+    console.error("[ValidationCache] Set error:", error);
   }
 }
 
@@ -45,9 +45,9 @@ export async function setCachedValidation(email: string, result: ValidationResul
  */
 export async function invalidateValidationCache(email: string): Promise<void> {
   try {
-    await redis.del(`validation:${email.toLowerCase()}`)
+    await redis.del(`validation:${email.toLowerCase()}`);
   } catch (error) {
-    console.error('[ValidationCache] Invalidate error:', error)
+    console.error("[ValidationCache] Invalidate error:", error);
   }
 }
 
@@ -55,23 +55,21 @@ export async function invalidateValidationCache(email: string): Promise<void> {
  * Get cached domain checks (MX, SPF, DMARC, etc.)
  * These can be shared across multiple emails from the same domain
  */
-export async function getCachedDomainChecks(
-  domain: string
-): Promise<{
-  mx?: any
-  spf?: any
-  dmarc?: any
-  dnsbl?: any
+export async function getCachedDomainChecks(domain: string): Promise<{
+  mx?: any;
+  spf?: any;
+  dmarc?: any;
+  dnsbl?: any;
 } | null> {
   try {
-    const cached = await redis.get(`domain-checks:${domain}`)
+    const cached = await redis.get(`domain-checks:${domain}`);
     if (cached) {
-      return JSON.parse(cached)
+      return JSON.parse(cached);
     }
   } catch (error) {
-    console.error('[ValidationCache] Get domain checks error:', error)
+    console.error("[ValidationCache] Get domain checks error:", error);
   }
-  return null
+  return null;
 }
 
 /**
@@ -80,20 +78,16 @@ export async function getCachedDomainChecks(
 export async function setCachedDomainChecks(
   domain: string,
   checks: {
-    mx?: any
-    spf?: any
-    dmarc?: any
-    dnsbl?: any
-  }
+    mx?: any;
+    spf?: any;
+    dmarc?: any;
+    dnsbl?: any;
+  },
 ): Promise<void> {
   try {
-    await redis.setex(
-      `domain-checks:${domain}`,
-      DOMAIN_CACHE_TTL_SECONDS,
-      JSON.stringify(checks)
-    )
+    await redis.setex(`domain-checks:${domain}`, DOMAIN_CACHE_TTL_SECONDS, JSON.stringify(checks));
   } catch (error) {
-    console.error('[ValidationCache] Set domain checks error:', error)
+    console.error("[ValidationCache] Set domain checks error:", error);
   }
 }
 
@@ -103,12 +97,12 @@ export async function setCachedDomainChecks(
  */
 export async function getRecentValidationCount(email: string): Promise<number> {
   try {
-    const key = `recent-validation:${email.toLowerCase()}`
-    const count = await redis.get(key)
-    return count ? parseInt(count, 10) : 0
+    const key = `recent-validation:${email.toLowerCase()}`;
+    const count = await redis.get(key);
+    return count ? parseInt(count, 10) : 0;
   } catch (error) {
-    console.error('[ValidationCache] Recent count error:', error)
-    return 0
+    console.error("[ValidationCache] Recent count error:", error);
+    return 0;
   }
 }
 
@@ -117,13 +111,13 @@ export async function getRecentValidationCount(email: string): Promise<number> {
  */
 export async function incrementRecentValidation(email: string): Promise<void> {
   try {
-    const key = `recent-validation:${email.toLowerCase()}`
-    const count = await redis.incr(key)
+    const key = `recent-validation:${email.toLowerCase()}`;
+    const count = await redis.incr(key);
     if (count === 1) {
-      await redis.expire(key, 60 * 60) // 1 hour TTL
+      await redis.expire(key, 60 * 60); // 1 hour TTL
     }
   } catch (error) {
-    console.error('[ValidationCache] Increment error:', error)
+    console.error("[ValidationCache] Increment error:", error);
   }
 }
 
@@ -131,32 +125,32 @@ export async function incrementRecentValidation(email: string): Promise<void> {
  * Clear all validation caches (for admin/maintenance)
  */
 export async function clearAllValidationCaches(): Promise<number> {
-  let cleared = 0
+  let cleared = 0;
 
   try {
     // Clear email validations
-    const validationKeys = await redis.keys('validation:*')
+    const validationKeys = await redis.keys("validation:*");
     if (validationKeys.length > 0) {
-      await redis.del(...validationKeys)
-      cleared += validationKeys.length
+      await redis.del(...validationKeys);
+      cleared += validationKeys.length;
     }
 
     // Clear domain checks
-    const domainKeys = await redis.keys('domain-checks:*')
+    const domainKeys = await redis.keys("domain-checks:*");
     if (domainKeys.length > 0) {
-      await redis.del(...domainKeys)
-      cleared += domainKeys.length
+      await redis.del(...domainKeys);
+      cleared += domainKeys.length;
     }
 
     // Clear recent validations
-    const recentKeys = await redis.keys('recent-validation:*')
+    const recentKeys = await redis.keys("recent-validation:*");
     if (recentKeys.length > 0) {
-      await redis.del(...recentKeys)
-      cleared += recentKeys.length
+      await redis.del(...recentKeys);
+      cleared += recentKeys.length;
     }
   } catch (error) {
-    console.error('[ValidationCache] Clear all error:', error)
+    console.error("[ValidationCache] Clear all error:", error);
   }
 
-  return cleared
+  return cleared;
 }

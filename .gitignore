@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+.pnpm-debug.log*
+
+# Build
+.next/
+out/
+dist/
+build/
+
+# Environment
+.env
+.env*.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Biome
+.biome/
+
+# Husky
+.husky/

@@ -2,31 +2,31 @@
 // GET /api/v1/webhooks - Lister les webhooks
 // POST /api/v1/webhooks - Créer un webhook
 
-import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
-import { z } from 'zod'
-import { logAudit, AuditAction, AuditResource } from '@/services/auditLogger'
+import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { AuditAction, AuditResource, logAudit } from "@/services/auditLogger";
+import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 
 const createWebhookSchema = z.object({
   url: z.string().url(),
   name: z.string().min(1).max(100),
   events: z.array(z.string()).min(1),
-})
+});
 
 export async function GET(req: NextRequest) {
   try {
-    const session = await auth()
+    const session = await auth();
     if (!session?.user?.id) {
       return NextResponse.json(
-        { success: false, error: 'Authentication required' },
-        { status: 401 }
-      )
+        { success: false, error: "Authentication required" },
+        { status: 401 },
+      );
     }
 
     const webhooks = await prisma.webhook.findMany({
       where: { userId: session.user.id },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: "desc" },
       select: {
         id: true,
         url: true,
@@ -35,66 +35,67 @@ export async function GET(req: NextRequest) {
         isActive: true,
         createdAt: true,
       },
-    })
+    });
 
     return NextResponse.json({
       success: true,
       data: webhooks,
-    })
+    });
   } catch (error) {
-    console.error('[API] Webhooks list error:', error)
-    return NextResponse.json(
-      { success: false, error: 'Internal server error' },
-      { status: 500 }
-    )
+    console.error("[API] Webhooks list error:", error);
+    return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 });
   }
 }
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await auth()
+    const session = await auth();
     if (!session?.user?.id) {
       return NextResponse.json(
-        { success: false, error: 'Authentication required' },
-        { status: 401 }
-      )
+        { success: false, error: "Authentication required" },
+        { status: 401 },
+      );
     }
 
-    const body = await req.json()
-    const validation = createWebhookSchema.safeParse(body)
+    const body = await req.json();
+    const validation = createWebhookSchema.safeParse(body);
 
     if (!validation.success) {
       return NextResponse.json(
-        { success: false, error: 'Invalid input', details: validation.error.errors },
-        { status: 400 }
-      )
+        {
+          success: false,
+          error: "Invalid input",
+          details: validation.error.errors,
+        },
+        { status: 400 },
+      );
     }
 
-    const { url, name, events } = validation.data
+    const { url, name, events } = validation.data;
 
     // Vérifier HTTPS en production
-    if (process.env.NODE_ENV === 'production' && !url.startsWith('https://')) {
+    if (process.env.NODE_ENV === "production" && !url.startsWith("https://")) {
       return NextResponse.json(
-        { success: false, error: 'Webhooks must use HTTPS in production' },
-        { status: 400 }
-      )
+        { success: false, error: "Webhooks must use HTTPS in production" },
+        { status: 400 },
+      );
     }
 
     // Vérifier le nombre de webhooks existants
     const existingWebhooksCount = await prisma.webhook.count({
       where: { userId: session.user.id },
-    })
+    });
 
     if (existingWebhooksCount >= 10) {
       return NextResponse.json(
-        { success: false, error: 'Maximum 10 webhooks allowed' },
-        { status: 400 }
-      )
+        { success: false, error: "Maximum 10 webhooks allowed" },
+        { status: 400 },
+      );
     }
 
     // Générer un secret pour le webhook
-    const crypto = await import('crypto')
-    const secret = crypto.randomBytes(32).toString('hex')
+    const crypto = await import("crypto");
+    const secret = crypto.randomBytes(32).toString("hex");
 
     const webhook = await prisma.webhook.create({
       data: {
@@ -104,7 +105,7 @@ export async function POST(req: NextRequest) {
         secret,
         userId: session.user.id,
       },
-    })
+    });
 
     // Audit log
     logAudit({
@@ -112,9 +113,9 @@ export async function POST(req: NextRequest) {
       action: AuditAction.WEBHOOK_CREATED,
       resource: AuditResource.WEBHOOK,
       resourceId: webhook.id,
-      ipAddress: req.headers.get('x-forwarded-for') || undefined,
+      ipAddress: req.headers.get("x-forwarded-for") || undefined,
       metadata: { webhookName: name, url, events },
-    })
+    });
 
     return NextResponse.json({
       success: true,
@@ -126,12 +127,9 @@ export async function POST(req: NextRequest) {
         isActive: webhook.isActive,
         createdAt: webhook.createdAt,
       },
-    })
+    });
   } catch (error) {
-    console.error('[API] Webhook create error:', error)
-    return NextResponse.json(
-      { success: false, error: 'Internal server error' },
-      { status: 500 }
-    )
+    console.error("[API] Webhook create error:", error);
+    return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 });
   }
 }

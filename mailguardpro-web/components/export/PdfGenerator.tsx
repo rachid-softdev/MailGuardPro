@@ -1,72 +1,72 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
+import { useState } from "react";
 
 interface ValidationResult {
-  email: string
-  score: number
-  status: string
+  email: string;
+  score: number;
+  status: string;
 }
 
 interface ExportData {
   meta: {
-    jobId: string
-    filename: string
-    generatedAt: string
-    totalEmails: number
-  }
+    jobId: string;
+    filename: string;
+    generatedAt: string;
+    totalEmails: number;
+  };
   stats: {
-    valid: number
-    invalid: number
-    risky: number
-    unknown: number
-    avgScore: number
-    deliverabilityRate: number
-  }
-  recommendations: string[]
-  highRiskEmails: { email: string; score: number; issue: string }[]
-  results: ValidationResult[]
+    valid: number;
+    invalid: number;
+    risky: number;
+    unknown: number;
+    avgScore: number;
+    deliverabilityRate: number;
+  };
+  recommendations: string[];
+  highRiskEmails: { email: string; score: number; issue: string }[];
+  results: ValidationResult[];
 }
 
 interface Props {
-  jobId: string
-  children?: React.ReactNode
+  jobId: string;
+  children?: React.ReactNode;
 }
 
 export function PdfGenerator({ jobId, children }: Props) {
-  const [generating, setGenerating] = useState(false)
+  const [generating, setGenerating] = useState(false);
 
   const generatePdf = async () => {
-    setGenerating(true)
+    setGenerating(true);
     try {
       // Fetch data
-      const response = await fetch(`/api/v1/bulk/${jobId}/export-data`)
-      const { data }: { data: ExportData } = await response.json()
+      const response = await fetch(`/api/v1/bulk/${jobId}/export-data`);
+      const { data }: { data: ExportData } = await response.json();
 
       // Generate PDF using browser print (simple approach)
       // For full PDF, jspdf needs to be installed: npm install jspdf
-      generatePdfWithBrowser(data)
+      generatePdfWithBrowser(data);
     } catch (error) {
-      console.error('PDF generation failed:', error)
-      alert('Failed to generate PDF')
+      console.error("PDF generation failed:", error);
+      alert("Failed to generate PDF");
     } finally {
-      setGenerating(false)
+      setGenerating(false);
     }
-  }
+  };
 
   return (
     <button onClick={generatePdf} disabled={generating} className="btn btn-primary">
-      {generating ? 'Generating...' : 'Export PDF'}
+      {generating ? "Generating..." : "Export PDF"}
     </button>
-  )
+  );
 }
 
 // Simple PDF generation using browser print to PDF
 function generatePdfWithBrowser(data: ExportData) {
-  const printWindow = window.open('', '_blank')
+  const printWindow = window.open("", "_blank");
   if (!printWindow) {
-    alert('Please allow popups to export PDF')
-    return
+    alert("Please allow popups to export PDF");
+    return;
   }
 
   const html = `
@@ -138,11 +138,11 @@ function generatePdfWithBrowser(data: ExportData) {
   <div class="recommendations">
     <h3>Recommendations</h3>
     <ul>
-      ${data.recommendations.map((r) => `<li>${r}</li>`).join('')}
+      ${data.recommendations.map((r) => `<li>${r}</li>`).join("")}
     </ul>
   </div>
   `
-      : ''
+      : ""
   }
 
   ${
@@ -166,13 +166,13 @@ function generatePdfWithBrowser(data: ExportData) {
           <td>${r.score}</td>
           <td>${r.issue}</td>
         </tr>
-      `
+      `,
         )
-        .join('')}
+        .join("")}
     </tbody>
   </table>
   `
-      : ''
+      : ""
   }
 
   <div class="no-print" style="margin-top: 30px; text-align: center;">
@@ -182,26 +182,26 @@ function generatePdfWithBrowser(data: ExportData) {
   </div>
 </body>
 </html>
-  `
+  `;
 
-  printWindow.document.write(html)
-  printWindow.document.close()
+  printWindow.document.write(html);
+  printWindow.document.close();
 }
 
 // Also export as simple hook for more control
 export function usePdfExport(jobId: string) {
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(false);
 
   const exportPdf = async () => {
-    setLoading(true)
+    setLoading(true);
     try {
-      const response = await fetch(`/api/v1/bulk/${jobId}/export-data`)
-      const { data } = await response.json()
-      generatePdfWithBrowser(data)
+      const response = await fetch(`/api/v1/bulk/${jobId}/export-data`);
+      const { data } = await response.json();
+      generatePdfWithBrowser(data);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
-  return { exportPdf, loading }
+  return { exportPdf, loading };
 }

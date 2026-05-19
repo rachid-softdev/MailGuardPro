@@ -1,10 +1,10 @@
-import { Resend } from 'resend'
+import { Resend } from "resend";
 
 if (!process.env.RESEND_API_KEY) {
-  console.warn('RESEND_API_KEY is not defined')
+  console.warn("RESEND_API_KEY is not defined");
 }
 
-export const resend = new Resend(process.env.RESEND_API_KEY || 're_placeholder')
+export const resend = new Resend(process.env.RESEND_API_KEY || "re_placeholder");
 
 export async function sendEmail({
   to,
@@ -12,30 +12,30 @@ export async function sendEmail({
   html,
   text,
 }: {
-  to: string
-  subject: string
-  html?: string
-  text?: string
+  to: string;
+  subject: string;
+  html?: string;
+  text?: string;
 }) {
   try {
     const data = await resend.emails.send({
-      from: process.env.EMAIL_FROM || 'noreply@mailguard.pro',
+      from: process.env.EMAIL_FROM || "noreply@mailguard.pro",
       to,
       subject,
       html,
       text,
-    })
-    return { success: true, data }
+    });
+    return { success: true, data };
   } catch (error) {
-    console.error('Failed to send email:', error)
-    return { success: false, error }
+    console.error("Failed to send email:", error);
+    return { success: false, error };
   }
 }
 
 // Templates d'email
 export const EMAIL_TEMPLATES = {
   welcome: (name?: string) => ({
-    subject: 'Bienvenue sur MailGuard Pro',
+    subject: "Bienvenue sur MailGuard Pro",
     html: `
       <!DOCTYPE html>
       <html>
@@ -47,7 +47,7 @@ export const EMAIL_TEMPLATES = {
           <div style="text-align: center; margin-bottom: 30px;">
             <h1 style="color: #00A36C; margin: 0;">MailGuard Pro</h1>
           </div>
-          <p>Bonjour${name ? ` ${name}` : ''},</p>
+          <p>Bonjour${name ? ` ${name}` : ""},</p>
           <p>Merci d'avoir rejoint MailGuard Pro !</p>
           <p>Vous disposez de <strong>100 crédits gratuits</strong> pour commencer à valider vos adresses email.</p>
           <div style="text-align: center; margin: 30px 0;">
@@ -71,7 +71,7 @@ export const EMAIL_TEMPLATES = {
       </html>
     `,
   }),
-  
+
   bulkCompleted: (filename: string, total: number, valid: number) => ({
     subject: `Traitement terminé : ${filename}`,
     html: `
@@ -90,6 +90,6 @@ export const EMAIL_TEMPLATES = {
       </html>
     `,
   }),
-}
+};
 
-export default resend
+export default resend;

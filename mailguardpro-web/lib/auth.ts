@@ -1,8 +1,8 @@
-import NextAuth from 'next-auth'
-import Google from 'next-auth/providers/google'
-import Resend from 'next-auth/providers/resend'
-import { PrismaAdapter } from '@auth/prisma-adapter'
-import { prisma } from './prisma'
+import { PrismaAdapter } from "@auth/prisma-adapter";
+import NextAuth from "next-auth";
+import Google from "next-auth/providers/google";
+import Resend from "next-auth/providers/resend";
+import { prisma } from "./prisma";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: PrismaAdapter(prisma) as any,
@@ -13,7 +13,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     }),
     Resend({
       apiKey: process.env.RESEND_API_KEY!,
-      from: process.env.EMAIL_FROM || 'noreply@mailguard.pro',
+      from: process.env.EMAIL_FROM || "noreply@mailguard.pro",
     }),
   ],
   callbacks: {
@@ -22,30 +22,30 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const dbUser = await prisma.user.findUnique({
           where: { email: session.user.email },
           select: { id: true, plan: true, credits: true },
-        })
-        
+        });
+
         if (dbUser) {
-          session.user.id = dbUser.id
-          session.user.plan = dbUser.plan
-          session.user.credits = dbUser.credits
+          session.user.id = dbUser.id;
+          session.user.plan = dbUser.plan;
+          session.user.credits = dbUser.credits;
         }
       }
-      return session
+      return session;
     },
     async jwt({ token, user }: any) {
       if (user) {
-        token.id = user.id
+        token.id = user.id;
       }
-      return token
+      return token;
     },
   },
   pages: {
-    signIn: '/login',
-    verifyRequest: '/verify',
-    error: '/error',
+    signIn: "/login",
+    verifyRequest: "/verify",
+    error: "/error",
   },
   session: {
-    strategy: 'database',
+    strategy: "database",
     maxAge: 30 * 24 * 60 * 60, // 30 days
   },
   events: {
@@ -55,8 +55,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         await prisma.user.update({
           where: { email: user.email },
           data: { credits: 100 },
-        })
+        });
       }
     },
   },
-})
+});

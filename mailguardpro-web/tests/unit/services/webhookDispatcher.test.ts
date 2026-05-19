@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // Use vi.hoisted for proper hoisting
 const { mockPrisma, mockFetch } = vi.hoisted(() => ({
@@ -8,266 +8,277 @@ const { mockPrisma, mockFetch } = vi.hoisted(() => ({
     },
   },
   mockFetch: vi.fn(),
-}))
+}));
 
 // Setup global fetch mock
-global.fetch = mockFetch
+global.fetch = mockFetch;
 
-vi.mock('@/lib/prisma', () => ({
+vi.mock("@/lib/prisma", () => ({
   prisma: mockPrisma,
-}))
+}));
 
-import { WebhookDispatcher, WEBHOOK_EVENTS, createBulkJobCompletedPayload } from '@/services/webhookDispatcher'
+import {
+  WEBHOOK_EVENTS,
+  WebhookDispatcher,
+  createBulkJobCompletedPayload,
+} from "@/services/webhookDispatcher";
 
-describe('webhookDispatcher', () => {
+describe("webhookDispatcher", () => {
   const mockWebhook = {
-    id: 'webhook-123',
-    url: 'https://example.com/webhook',
-    secret: 'test-secret',
-    events: ['bulk_job_completed'],
+    id: "webhook-123",
+    url: "https://example.com/webhook",
+    secret: "test-secret",
+    events: ["bulk_job_completed"],
     isActive: true,
-  }
+  };
 
   beforeEach(() => {
-    vi.clearAllMocks()
-    mockFetch.mockClear()
-  })
+    vi.clearAllMocks();
+    mockFetch.mockClear();
+  });
 
-  describe('dispatch', () => {
-    it('should return false when webhook is inactive', async () => {
+  describe("dispatch", () => {
+    it("should return false when webhook is inactive", async () => {
       const result = await WebhookDispatcher.dispatch(
         { ...mockWebhook, isActive: false },
-        'bulk_job_completed',
-        { test: 'data' }
-      )
-      
-      expect(result).toBe(false)
-      expect(mockFetch).not.toHaveBeenCalled()
-    })
+        "bulk_job_completed",
+        { test: "data" },
+      );
 
-    it('should return false when event is not in webhook events', async () => {
+      expect(result).toBe(false);
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+
+    it("should return false when event is not in webhook events", async () => {
       const result = await WebhookDispatcher.dispatch(
-        { ...mockWebhook, events: ['other_event'] },
-        'bulk_job_completed',
-        { test: 'data' }
-      )
-      
-      expect(result).toBe(false)
-      expect(mockFetch).not.toHaveBeenCalled()
-    })
+        { ...mockWebhook, events: ["other_event"] },
+        "bulk_job_completed",
+        { test: "data" },
+      );
 
-    it('should return true on successful dispatch', async () => {
+      expect(result).toBe(false);
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+
+    it("should return true on successful dispatch", async () => {
       mockFetch.mockResolvedValue({
         ok: true,
         status: 200,
-        statusText: 'OK',
-      } as any)
-      
-      const result = await WebhookDispatcher.dispatch(
-        mockWebhook,
-        'bulk_job_completed',
-        { jobId: '123', total: 100 }
-      )
-      
-      expect(result).toBe(true)
-      expect(mockFetch).toHaveBeenCalledTimes(1)
-    })
+        statusText: "OK",
+      } as any);
 
-    it('should include proper headers in request', async () => {
+      const result = await WebhookDispatcher.dispatch(mockWebhook, "bulk_job_completed", {
+        jobId: "123",
+        total: 100,
+      });
+
+      expect(result).toBe(true);
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+    });
+
+    it("should include proper headers in request", async () => {
       mockFetch.mockResolvedValue({
         ok: true,
         status: 200,
-        statusText: 'OK',
-      } as any)
-      
-      await WebhookDispatcher.dispatch(
-        mockWebhook,
-        'bulk_job_completed',
-        { jobId: '123' }
-      )
-      
+        statusText: "OK",
+      } as any);
+
+      await WebhookDispatcher.dispatch(mockWebhook, "bulk_job_completed", {
+        jobId: "123",
+      });
+
       expect(mockFetch).toHaveBeenCalledWith(
-        'https://example.com/webhook',
+        "https://example.com/webhook",
         expect.objectContaining({
-          method: 'POST',
+          method: "POST",
           headers: expect.objectContaining({
-            'Content-Type': 'application/json',
-            'X-MailGuard-Event': 'bulk_job_completed',
+            "Content-Type": "application/json",
+            "X-MailGuard-Event": "bulk_job_completed",
           }),
-        })
-      )
-    })
+        }),
+      );
+    });
 
-    it('should retry on failure and eventually succeed', async () => {
+    it("should retry on failure and eventually succeed", async () => {
       mockFetch
-        .mockRejectedValueOnce(new Error('Network error'))
-        .mockRejectedValueOnce(new Error('Network error'))
+        .mockRejectedValueOnce(new Error("Network error"))
+        .mockRejectedValueOnce(new Error("Network error"))
         .mockResolvedValueOnce({
           ok: true,
           status: 200,
-          statusText: 'OK',
-        } as any)
-      
-      const result = await WebhookDispatcher.dispatch(
-        mockWebhook,
-        'bulk_job_completed',
-        { test: 'data' }
-      )
-      
-      expect(result).toBe(true)
-      expect(mockFetch).toHaveBeenCalledTimes(3)
-    })
+          statusText: "OK",
+        } as any);
 
-    it('should return false after all retries exhausted', async () => {
-      mockFetch.mockRejectedValue(new Error('Network error'))
-      
-      const result = await WebhookDispatcher.dispatch(
-        mockWebhook,
-        'bulk_job_completed',
-        { test: 'data' }
-      )
-      
-      expect(result).toBe(false)
-      expect(mockFetch).toHaveBeenCalledTimes(3) // MAX_RETRIES = 3
-    })
+      const result = await WebhookDispatcher.dispatch(mockWebhook, "bulk_job_completed", {
+        test: "data",
+      });
 
-    it('should log warning for non-ok responses', async () => {
+      expect(result).toBe(true);
+      expect(mockFetch).toHaveBeenCalledTimes(3);
+    });
+
+    it("should return false after all retries exhausted", async () => {
+      mockFetch.mockRejectedValue(new Error("Network error"));
+
+      const result = await WebhookDispatcher.dispatch(mockWebhook, "bulk_job_completed", {
+        test: "data",
+      });
+
+      expect(result).toBe(false);
+      expect(mockFetch).toHaveBeenCalledTimes(3); // MAX_RETRIES = 3
+    });
+
+    it("should log warning for non-ok responses", async () => {
       mockFetch.mockResolvedValue({
         ok: false,
         status: 500,
-        statusText: 'Internal Server Error',
-      } as any)
-      
-      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
-      
-      const result = await WebhookDispatcher.dispatch(
-        mockWebhook,
-        'bulk_job_completed',
-        { test: 'data' }
-      )
-      
-      expect(result).toBe(false)
-      expect(warnSpy).toHaveBeenCalled()
-      warnSpy.mockRestore()
-    })
-  })
+        statusText: "Internal Server Error",
+      } as any);
 
-  describe('dispatchToUser', () => {
-    it('should fetch active webhooks for user', async () => {
-      mockPrisma.webhook.findMany.mockResolvedValue([])
-      
-      await WebhookDispatcher.dispatchToUser('user-123', 'bulk_job_completed', { test: 'data' })
-      
+      const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+      const result = await WebhookDispatcher.dispatch(mockWebhook, "bulk_job_completed", {
+        test: "data",
+      });
+
+      expect(result).toBe(false);
+      expect(warnSpy).toHaveBeenCalled();
+      warnSpy.mockRestore();
+    });
+  });
+
+  describe("dispatchToUser", () => {
+    it("should fetch active webhooks for user", async () => {
+      mockPrisma.webhook.findMany.mockResolvedValue([]);
+
+      await WebhookDispatcher.dispatchToUser("user-123", "bulk_job_completed", {
+        test: "data",
+      });
+
       expect(mockPrisma.webhook.findMany).toHaveBeenCalledWith({
         where: {
-          userId: 'user-123',
+          userId: "user-123",
           isActive: true,
-          events: { has: 'bulk_job_completed' },
+          events: { has: "bulk_job_completed" },
         },
-      })
-    })
+      });
+    });
 
-    it('should dispatch to all matching webhooks', async () => {
+    it("should dispatch to all matching webhooks", async () => {
       mockPrisma.webhook.findMany.mockResolvedValue([
-        { ...mockWebhook, id: 'webhook-1', userId: 'user-123' },
-        { ...mockWebhook, id: 'webhook-2', userId: 'user-123' },
-      ])
-      
+        { ...mockWebhook, id: "webhook-1", userId: "user-123" },
+        { ...mockWebhook, id: "webhook-2", userId: "user-123" },
+      ]);
+
       mockFetch.mockResolvedValue({
         ok: true,
         status: 200,
-        statusText: 'OK',
-      } as any)
-      
-      const result = await WebhookDispatcher.dispatchToUser('user-123', 'bulk_job_completed', { test: 'data' })
-      
-      expect(result.total).toBe(2)
-      expect(result.successful).toBe(2)
-      expect(result.failed).toBe(0)
-    })
+        statusText: "OK",
+      } as any);
 
-    it('should handle partial failures', async () => {
+      const result = await WebhookDispatcher.dispatchToUser("user-123", "bulk_job_completed", {
+        test: "data",
+      });
+
+      expect(result.total).toBe(2);
+      expect(result.successful).toBe(2);
+      expect(result.failed).toBe(0);
+    });
+
+    it("should handle partial failures", async () => {
       mockPrisma.webhook.findMany.mockResolvedValue([
-        { ...mockWebhook, id: 'webhook-1', userId: 'user-123' },
-        { ...mockWebhook, id: 'webhook-2', userId: 'user-123' },
-      ])
-      
+        { ...mockWebhook, id: "webhook-1", userId: "user-123" },
+        { ...mockWebhook, id: "webhook-2", userId: "user-123" },
+      ]);
+
       // Mock fetch to return success, failure
-      let callCount = 0
+      let callCount = 0;
       mockFetch.mockImplementation(() => {
-        callCount++
+        callCount++;
         if (callCount === 1) {
-          return Promise.resolve({ ok: true, status: 200, statusText: 'OK' } as any)
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            statusText: "OK",
+          } as any);
         }
-        return Promise.resolve({ ok: false, status: 500, statusText: 'Error' } as any)
-      })
-      
-      const result = await WebhookDispatcher.dispatchToUser('user-123', 'bulk_job_completed', { test: 'data' })
-      
-      expect(result.total).toBe(2)
-      expect(result.successful).toBe(1)
-      expect(result.failed).toBe(1)
-    })
+        return Promise.resolve({
+          ok: false,
+          status: 500,
+          statusText: "Error",
+        } as any);
+      });
 
-    it('should return zero counts when no webhooks exist', async () => {
-      mockPrisma.webhook.findMany.mockResolvedValue([])
-      
-      const result = await WebhookDispatcher.dispatchToUser('user-123', 'bulk_job_completed', { test: 'data' })
-      
-      expect(result.total).toBe(0)
-      expect(result.successful).toBe(0)
-      expect(result.failed).toBe(0)
-    })
-  })
+      const result = await WebhookDispatcher.dispatchToUser("user-123", "bulk_job_completed", {
+        test: "data",
+      });
 
-  describe('verifyIncomingSignature', () => {
-    it('should return true for valid signature', () => {
+      expect(result.total).toBe(2);
+      expect(result.successful).toBe(1);
+      expect(result.failed).toBe(1);
+    });
+
+    it("should return zero counts when no webhooks exist", async () => {
+      mockPrisma.webhook.findMany.mockResolvedValue([]);
+
+      const result = await WebhookDispatcher.dispatchToUser("user-123", "bulk_job_completed", {
+        test: "data",
+      });
+
+      expect(result.total).toBe(0);
+      expect(result.successful).toBe(0);
+      expect(result.failed).toBe(0);
+    });
+  });
+
+  describe("verifyIncomingSignature", () => {
+    it("should return true for valid signature", () => {
       const result = WebhookDispatcher.verifyIncomingSignature(
         '{"test":"data"}',
-        'valid-signature',
-        'secret'
-      )
-      
-      expect(result).toBe(true)
-    })
-  })
+        "valid-signature",
+        "secret",
+      );
 
-  describe('WEBHOOK_EVENTS', () => {
-    it('should have all required events defined', () => {
-      expect(WEBHOOK_EVENTS.BULK_JOB_COMPLETED).toBe('bulk_job_completed')
-      expect(WEBHOOK_EVENTS.BULK_JOB_FAILED).toBe('bulk_job_failed')
-      expect(WEBHOOK_EVENTS.DAILY_REPORT).toBe('daily_report')
-      expect(WEBHOOK_EVENTS.CREDIT_LOW).toBe('credit_low')
-      expect(WEBHOOK_EVENTS.PLAN_UPGRADED).toBe('plan_upgraded')
-      expect(WEBHOOK_EVENTS.PLAN_EXPIRED).toBe('plan_expired')
-    })
-  })
+      expect(result).toBe(true);
+    });
+  });
 
-  describe('createBulkJobCompletedPayload', () => {
-    it('should create payload with correct structure', () => {
-      const payload = createBulkJobCompletedPayload('job-123', 100, {
+  describe("WEBHOOK_EVENTS", () => {
+    it("should have all required events defined", () => {
+      expect(WEBHOOK_EVENTS.BULK_JOB_COMPLETED).toBe("bulk_job_completed");
+      expect(WEBHOOK_EVENTS.BULK_JOB_FAILED).toBe("bulk_job_failed");
+      expect(WEBHOOK_EVENTS.DAILY_REPORT).toBe("daily_report");
+      expect(WEBHOOK_EVENTS.CREDIT_LOW).toBe("credit_low");
+      expect(WEBHOOK_EVENTS.PLAN_UPGRADED).toBe("plan_upgraded");
+      expect(WEBHOOK_EVENTS.PLAN_EXPIRED).toBe("plan_expired");
+    });
+  });
+
+  describe("createBulkJobCompletedPayload", () => {
+    it("should create payload with correct structure", () => {
+      const payload = createBulkJobCompletedPayload("job-123", 100, {
         valid: 80,
         invalid: 15,
         risky: 5,
-      })
-      
-      expect(payload.jobId).toBe('job-123')
-      expect(payload.totalEmails).toBe(100)
-      expect(payload.results.valid).toBe(80)
-      expect(payload.results.invalid).toBe(15)
-      expect(payload.results.risky).toBe(5)
-      expect(payload.deliveredRate).toBe(80)
-      expect(payload.timestamp).toBeDefined()
-    })
+      });
 
-    it('should calculate delivered rate correctly', () => {
-      const payload = createBulkJobCompletedPayload('job-123', 50, {
+      expect(payload.jobId).toBe("job-123");
+      expect(payload.totalEmails).toBe(100);
+      expect(payload.results.valid).toBe(80);
+      expect(payload.results.invalid).toBe(15);
+      expect(payload.results.risky).toBe(5);
+      expect(payload.deliveredRate).toBe(80);
+      expect(payload.timestamp).toBeDefined();
+    });
+
+    it("should calculate delivered rate correctly", () => {
+      const payload = createBulkJobCompletedPayload("job-123", 50, {
         valid: 25,
         invalid: 15,
         risky: 10,
-      })
-      
-      expect(payload.deliveredRate).toBe(50)
-    })
-  })
-})
+      });
+
+      expect(payload.deliveredRate).toBe(50);
+    });
+  });
+});
