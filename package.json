@@ -14,7 +14,12 @@
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "check": "pnpm run format:check && pnpm run lint && pnpm run typecheck",
-    "prepare": "husky"
+    "prepare": "husky",
+    "web:dev": "pnpm --filter mailguardpro-web dev",
+    "web:build": "pnpm --filter mailguardpro-web build",
+    "web:start": "pnpm --filter mailguardpro-web start",
+    "web:lint": "pnpm --filter mailguardpro-web lint",
+    "web:typecheck": "pnpm --filter mailguardpro-web typecheck"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.0",
