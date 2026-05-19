@@ -19,7 +19,8 @@
     "web:build": "pnpm --filter mailguardpro-web build",
     "web:start": "pnpm --filter mailguardpro-web start",
     "web:lint": "pnpm --filter mailguardpro-web lint",
-    "web:typecheck": "pnpm --filter mailguardpro-web typecheck"
+    "web:typecheck": "pnpm --filter mailguardpro-web typecheck",
+    "check-env": "pnpm --filter mailguardpro-web check-env"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.0",
