@@ -46,24 +46,39 @@ pnpm dev
 
 | Commande | Description |
 |----------|-------------|
-| `pnpm dev` | Lancer toutes les apps en développement |
+| `pnpm dev` | Lancer toutes les apps en développement (parallel) |
 | `pnpm build` | Build de toutes les apps |
-| `pnpm lint` | Linter le code |
-| `pnpm typecheck` | Vérifier les types |
+| `pnpm lint` | Linter le code de toutes les apps |
+| `pnpm typecheck` | Vérifier les types de toutes les apps |
 | `pnpm check` | Vérification complète (format + lint + types) |
+| `pnpm format` | Formater le code avec Biome |
+| `pnpm format:check` | Vérifier le format sans modifier |
 
 ### Commandes préfixées (application web)
 
 ```bash
+# Développement
 pnpm web:dev       # Lancer le serveur de développement
-pnpm web:build     # Build de production
 pnpm web:start     # Démarrer en production
+
+# Build
+pnpm web:build     # Build de production
+
+# Qualité de code
 pnpm web:lint      # Linter le code
 pnpm web:typecheck # Vérifier les types
 
 # Environment
 pnpm check-env     # Valider les variables d'environnement
 ```
+
+### Alias disponibles
+
+| Alias | Équivalent |
+|-------|------------|
+| `pnpm dev:web` | `pnpm web:dev` |
+| `pnpm build:web` | `pnpm web:build` |
+| `pnpm start:web` | `pnpm web:start` |
 
 ---
 
