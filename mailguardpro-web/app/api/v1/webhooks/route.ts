@@ -4,6 +4,7 @@
 
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { validateWebhookUrl } from "@/lib/ssrf";
 import { AuditAction, AuditResource, logAudit } from "@/services/auditLogger";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
@@ -73,10 +74,11 @@ export async function POST(req: NextRequest) {
 
     const { url, name, events } = validation.data;
 
-    // Vérifier HTTPS en production
-    if (process.env.NODE_ENV === "production" && !url.startsWith("https://")) {
+    // SSRF validation + HTTPS enforcement
+    const ssrfCheck = validateWebhookUrl(url);
+    if (!ssrfCheck.valid) {
       return NextResponse.json(
-        { success: false, error: "Webhooks must use HTTPS in production" },
+        { success: false, error: `Webhook URL rejected: ${ssrfCheck.error}` },
         { status: 400 },
       );
     }

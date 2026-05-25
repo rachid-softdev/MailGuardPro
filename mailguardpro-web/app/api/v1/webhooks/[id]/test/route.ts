@@ -1,8 +1,10 @@
 // API Route: Tester un webhook
 // POST /api/v1/webhooks/[id]/test
 
+import crypto from "crypto";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { validateWebhookUrl } from "@/lib/ssrf";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -29,6 +31,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       return NextResponse.json({ success: false, error: "Webhook not found" }, { status: 404 });
     }
 
+    // SSRF check before sending test request
+    const ssrfCheck = validateWebhookUrl(webhook.url);
+    if (!ssrfCheck.valid) {
+      return NextResponse.json(
+        { success: false, error: `Webhook URL blocked: ${ssrfCheck.error}` },
+        { status: 400 },
+      );
+    }
+
     // Envoyer un payload de test
     const testPayload = {
       event: "test",
@@ -40,7 +51,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     };
 
     // Signer le payload avec le secret
-    const crypto = await import("crypto");
     const signature = crypto
       .createHmac("sha256", webhook.secret)
       .update(JSON.stringify(testPayload))
@@ -56,6 +66,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         },
         body: JSON.stringify(testPayload),
         signal: AbortSignal.timeout(10000), // 10s timeout
+        redirect: "manual", // Prevent SSRF via redirect chains
       });
 
       return NextResponse.json({

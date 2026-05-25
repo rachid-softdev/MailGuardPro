@@ -7,6 +7,11 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum Role {
+  USER
+  ADMIN
+}
+
 enum Plan {
   FREE
   STARTER
@@ -30,6 +35,7 @@ model User {
   plan              Plan      @default(FREE)
   credits           Int       @default(100)
   createdAt         DateTime  @default(now())
+  role              Role      @default(USER)
   stripeCustomerId  String?   @unique
   stripeSubscriptionId String?
 
@@ -79,7 +85,6 @@ model VerificationToken {
 
 model ApiKey {
   id          String   @id @default(cuid())
-  key         String   @unique // mg_live_xxx ou mg_test_xxx
   keyHash     String   @unique // Hash de la clé pour sécurité
   keyPrefix   String   // Prefixe pour affichage (ex: mg_live_abc1...)
   name        String

@@ -2,7 +2,7 @@
 // Returns the health status of all services
 
 import { prisma } from "@/lib/prisma";
-import Redis from "ioredis";
+import { redis } from "@/lib/redis";
 import { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
@@ -48,15 +48,10 @@ export async function GET() {
     };
   }
 
-  // Check Redis
+  // Check Redis (using singleton)
   try {
     const redisStart = Date.now();
-    const redis = new Redis(process.env.REDIS_URL || "redis://localhost:6379", {
-      lazyConnect: true,
-    });
-    await redis.connect();
     await redis.ping();
-    await redis.disconnect();
     services.redis = {
       status: "healthy",
       latencyMs: Date.now() - redisStart,

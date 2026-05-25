@@ -13,45 +13,6 @@ import { checkSMTP } from "./smtpChecker";
 import { ValidationChecks, ValidationResult } from "./types";
 import { checkTypo } from "./typoChecker";
 
-// Catch-all detection (simplifié)
-async function checkCatchAll(domain: string): Promise<{
-  passed: boolean;
-  weight: number;
-  message: string;
-  detail?: string;
-}> {
-  // Pour simplifier, on utilise une heuristique: si MX a plusieurs records, possible catch-all
-  // La détection complète nécessiterait des tests SMTP réels
-  try {
-    const dns = await import("dns/promises");
-    const mxRecords = await dns.resolveMx(domain);
-
-    // Si plus de 3 MX records, possible catch-all
-    if (mxRecords && mxRecords.length > 3) {
-      return {
-        passed: false,
-        weight: 10,
-        message: "Domaine potentiellement catch-all",
-        detail: "Plusieurs MX records detected - comportement catch-all possible",
-      };
-    }
-
-    return {
-      passed: true,
-      weight: 10,
-      message: "Non catch-all",
-      detail: undefined,
-    };
-  } catch {
-    return {
-      passed: true,
-      weight: 10,
-      message: "Vérification impossible",
-      detail: undefined,
-    };
-  }
-}
-
 export async function validateEmail(email: string): Promise<ValidationResult> {
   const startTime = Date.now();
   const domain = email.split("@")[1] || "";

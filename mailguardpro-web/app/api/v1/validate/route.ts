@@ -1,6 +1,7 @@
 // API Route: Validation email unitaire
 // GET /api/v1/validate?email=xxx
 
+import crypto from "crypto";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { checkRateLimit } from "@/lib/redis";
@@ -26,7 +27,7 @@ async function getAuthenticatedUser(req: NextRequest) {
   // 2. Essayer avec l'API key
   const apiKey = req.headers.get("X-API-Key");
   if (apiKey) {
-    const keyHash = require("crypto").createHash("sha256").update(apiKey).digest("hex");
+    const keyHash = crypto.createHash("sha256").update(apiKey).digest("hex");
     const keyRecord = await prisma.apiKey.findUnique({
       where: { keyHash },
       include: { user: true },
@@ -74,15 +75,31 @@ export async function GET(req: NextRequest) {
     const authResult = await getAuthenticatedUser(req);
     const user = authResult?.user;
 
-    // Récupérer les infos utilisateur pour le cache et les credits
-    let dbUser: { credits: number; plan: string | null } | null = null;
+    // Récupérer les infos utilisateur pour le plan et rate limiting
+    let userPlan: string | null = null;
     if (user) {
-      dbUser = await prisma.user.findUnique({
+      const dbUser = await prisma.user.findUnique({
         where: { id: user.id },
-        select: { credits: true, plan: true },
+        select: { plan: true },
+      });
+      userPlan = dbUser?.plan ?? null;
+
+      // Rate limiting par utilisateur (doit être AVANT la déduction de crédits)
+      const userRateLimit = await checkRateLimit(`user:${user.id}`, 50, 60);
+      if (!userRateLimit.success) {
+        return NextResponse.json({ success: false, error: "Rate limit exceeded" }, { status: 429 });
+      }
+
+      // Puis déduire les crédits atomiquement
+      const deduction = await prisma.user.updateMany({
+        where: {
+          id: user.id,
+          credits: { gte: 1 },
+        },
+        data: { credits: { decrement: 1 } },
       });
 
-      if (dbUser && dbUser.credits < 1) {
+      if (deduction.count === 0) {
         return NextResponse.json(
           {
             success: false,
@@ -91,12 +108,6 @@ export async function GET(req: NextRequest) {
           },
           { status: 402 },
         );
-      }
-
-      // Rate limiting par utilisateur (plus permissif)
-      const userRateLimit = await checkRateLimit(`user:${user.id}`, 50, 60);
-      if (!userRateLimit.success) {
-        return NextResponse.json({ success: false, error: "Rate limit exceeded" }, { status: 429 });
       }
     }
 
@@ -116,12 +127,16 @@ export async function GET(req: NextRequest) {
           userId: user.id,
         },
       });
+    }
 
-      // Déduire un crédit
-      await prisma.user.update({
+    // Récupérer les crédits restants après déduction atomique
+    let creditsRemaining: number | null = null;
+    if (user) {
+      const updatedUser = await prisma.user.findUnique({
         where: { id: user.id },
-        data: { credits: { decrement: 1 } },
+        select: { credits: true },
       });
+      creditsRemaining = updatedUser?.credits ?? null;
     }
 
     // Réponse
@@ -135,14 +150,14 @@ export async function GET(req: NextRequest) {
         requestId,
         processingTimeMs,
         creditsUsed: user ? 1 : 0,
-        creditsRemaining: user?.credits ?? null,
+        creditsRemaining,
       },
     });
 
     // Cache HTTP - différent selon le plan utilisateur
     // Pour les utilisateurs gratuits ou anonymes: pas de cache (données potentiellement dynamiques)
     // Pour les utilisateurs premium: cache court (5 min) avec revalidation en arrière-plan
-    if (user && dbUser?.plan && ["PRO", "BUSINESS"].includes(dbUser.plan)) {
+    if (user && userPlan && ["PRO", "BUSINESS"].includes(userPlan)) {
       // Premium: cache de 5 minutes avec stale-while-revalidate de 10 minutes
       response.headers.set("Cache-Control", "s-maxage=300, stale-while-revalidate=600");
     } else {

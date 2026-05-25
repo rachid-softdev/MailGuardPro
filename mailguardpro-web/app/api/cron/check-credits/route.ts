@@ -2,6 +2,7 @@
 // Runs daily to check users with low credits and potentially notify them
 
 import { prisma } from "@/lib/prisma";
+import { timingSafeEqual } from "@/lib/timingSafe";
 import { AuditAction, AuditResource, logAudit } from "@/services/auditLogger";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -11,7 +12,8 @@ const LOW_CREDITS_THRESHOLD = 10;
 export async function GET(req: NextRequest) {
   // Verify cron authorization
   const authHeader = req.headers.get("authorization");
-  if (authHeader !== `Bearer ${CRON_SECRET}` && process.env.NODE_ENV === "production") {
+  const expected = `Bearer ${CRON_SECRET ?? ""}`;
+  if (!timingSafeEqual(authHeader ?? "", expected) && process.env.NODE_ENV === "production") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

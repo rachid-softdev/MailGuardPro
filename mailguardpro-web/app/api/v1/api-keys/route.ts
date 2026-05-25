@@ -98,7 +98,6 @@ export async function POST(req: NextRequest) {
     // Sauvegarder en base
     const newKey = await prisma.apiKey.create({
       data: {
-        key: apiKey,
         keyHash,
         keyPrefix,
         name: name.trim(),

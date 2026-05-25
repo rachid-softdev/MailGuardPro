@@ -27,3 +27,7 @@ Thumbs.db
 
 # Husky
 .husky/
+
+# Environment variants (prevent accidental commits)
+.env.development
+.env.production
