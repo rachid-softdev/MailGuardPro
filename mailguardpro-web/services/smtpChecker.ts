@@ -4,6 +4,7 @@ import net from "net";
 import dns from "dns/promises";
 import { CheckResult } from "./types";
 import { redis } from "@/lib/redis";
+import { validateResolvedIp } from "@/lib/ssrf";
 
 interface SMTPResult extends CheckResult {
   code?: string;
@@ -104,13 +105,44 @@ export async function checkSMTP(email: string, timeoutMs = 5000): Promise<SMTPRe
     mxRecords.sort((a, b) => a.priority - b.priority);
     const mxHost = mxRecords[0].exchange;
 
+    // --- Resolve MX hostname to IPs and validate (SSRF protection) ---
+    let resolvedIps: string[];
+    try {
+      resolvedIps = await dns.resolve4(mxHost);
+    } catch {
+      // IPv4 resolution failed — try IPv6 as fallback
+      try {
+        resolvedIps = await dns.resolve6(mxHost);
+      } catch {
+        return {
+          passed: false,
+          weight: 30,
+          message: "SMTP: MX resolution failed",
+          detail: `Impossible de résoudre l'adresse IP de ${mxHost}`,
+        };
+      }
+    }
+
+    // Validate each resolved IP
+    for (const ip of resolvedIps) {
+      const ipCheck = validateResolvedIp(ip);
+      if (!ipCheck.valid) {
+        return {
+          passed: false,
+          weight: 30,
+          message: "SMTP: serveur non autorisé",
+          detail: ipCheck.error,
+        };
+      }
+    }
+
     // 2. Tenter connexion sur port 25 (et fallback 587)
     let socket: net.Socket | null = null;
     let lastError: Error | null = null;
 
     for (const port of [25, 587]) {
       try {
-        socket = await connectWithTimeout(mxHost, port, timeoutMs);
+        socket = await connectWithTimeout(resolvedIps[0], port, timeoutMs);
         break;
       } catch (error) {
         lastError = error as Error;

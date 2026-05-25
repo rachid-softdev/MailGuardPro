@@ -1,9 +1,9 @@
 // API Route: Validation email unitaire
 // GET /api/v1/validate?email=xxx
 
-import crypto from "crypto";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { hashApiKey, hashApiKeyLegacy } from "@/lib/crypto";
 import { checkRateLimit } from "@/lib/redis";
 import { AuditAction, AuditResource, logAudit } from "@/services/auditLogger";
 import { validateEmail } from "@/services/emailValidator";
@@ -27,11 +27,27 @@ async function getAuthenticatedUser(req: NextRequest) {
   // 2. Essayer avec l'API key
   const apiKey = req.headers.get("X-API-Key");
   if (apiKey) {
-    const keyHash = crypto.createHash("sha256").update(apiKey).digest("hex");
-    const keyRecord = await prisma.apiKey.findUnique({
+    // Try new HMAC-peppered hash first, then fall back to legacy SHA256
+    const keyHash = hashApiKey(apiKey);
+    let keyRecord = await prisma.apiKey.findUnique({
       where: { keyHash },
       include: { user: true },
     });
+
+    if (!keyRecord) {
+      const legacyHash = hashApiKeyLegacy(apiKey);
+      keyRecord = await prisma.apiKey.findUnique({
+        where: { keyHash: legacyHash },
+        include: { user: true },
+      });
+      // Migrate to new hash on access
+      if (keyRecord) {
+        await prisma.apiKey.update({
+          where: { id: keyRecord.id },
+          data: { keyHash },
+        });
+      }
+    }
 
     if (keyRecord?.isActive) {
       await prisma.apiKey.update({

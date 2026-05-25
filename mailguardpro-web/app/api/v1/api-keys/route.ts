@@ -2,9 +2,9 @@
 // GET /api/v1/api-keys - Lister les clés
 // POST /api/v1/api-keys - Créer une clé
 
-import crypto from "crypto";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { hashApiKey } from "@/lib/crypto";
 import { AuditAction, AuditResource, logAudit } from "@/services/auditLogger";
 import { NextRequest, NextResponse } from "next/server";
 import { v4 as uuidv4 } from "uuid";
@@ -13,11 +13,6 @@ import { v4 as uuidv4 } from "uuid";
 function generateApiKey(prefix: string = "mg_live"): string {
   const uuid = uuidv4().replace(/-/g, "");
   return `${prefix}_${uuid.substring(0, 32)}`;
-}
-
-// Helper pour hasher la clé pour stockage
-function hashApiKey(key: string): string {
-  return crypto.createHash("sha256").update(key).digest("hex");
 }
 
 export async function GET(req: NextRequest) {

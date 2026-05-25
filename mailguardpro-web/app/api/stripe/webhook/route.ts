@@ -2,20 +2,25 @@
 // POST /api/stripe/webhook
 
 import { prisma } from "@/lib/prisma";
+import { redis } from "@/lib/redis";
+import { stripe, getPlanFromPriceId } from "@/lib/stripe";
 import { AuditAction, AuditResource, logAudit } from "@/services/auditLogger";
 import { headers } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2024-11-20.acacia",
-});
-
-const WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET!;
+const WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET;
+if (!WEBHOOK_SECRET) {
+  throw new Error("STRIPE_WEBHOOK_SECRET is not defined");
+}
 
 export async function POST(req: NextRequest) {
   const body = await req.text();
-  const signature = (await headers()).get("stripe-signature")!;
+  const signature = (await headers()).get("stripe-signature");
+  if (!signature) {
+    console.error("[Stripe] Missing stripe-signature header");
+    return NextResponse.json({ error: "Missing signature header" }, { status: 400 });
+  }
 
   let event: Stripe.Event;
 
@@ -26,48 +31,25 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
   }
 
+  // === IDEMPOTENCY CHECK ===
+  const eventId = event.id;
+  const eventIdKey = `stripe:event:${eventId}`;
+
+  try {
+    const alreadyProcessed = await redis.get(eventIdKey);
+    if (alreadyProcessed) {
+      console.log(`[Stripe] Skipping duplicate event ${eventId}`);
+      return NextResponse.json({ received: true, deduplicated: true });
+    }
+    await redis.setex(eventIdKey, 86400, "1");
+  } catch {
+    console.warn(`[Stripe] Redis unavailable, skipping deduplication for event ${eventId}`);
+  }
+
   switch (event.type) {
     case "checkout.session.completed": {
       const sessionData = event.data.object as Stripe.Checkout.Session;
-      const userId = sessionData.metadata?.userId;
-
-      if (userId) {
-        try {
-          // Retrieve the session with expanded line_items to get price IDs
-          const session = await stripe.checkout.sessions.retrieve(
-            sessionData.id,
-            { expand: ["line_items.data.price"] }
-          );
-
-          const priceId = session.line_items?.data[0]?.price?.id;
-          let plan: "STARTER" | "PRO" | "BUSINESS" = "STARTER";
-
-          if (priceId === process.env.STRIPE_PRO_PRICE_ID) plan = "PRO";
-          if (priceId === process.env.STRIPE_BUSINESS_PRICE_ID) plan = "BUSINESS";
-
-          // Credit addition per plan (BUSINESS gets unlimited, no credits added on purchase)
-          const creditMap: Record<string, number> = {
-            BUSINESS: 0,
-            PRO: 50000,
-            STARTER: 5000,
-          };
-
-          await prisma.user.update({
-            where: { id: userId },
-            data: {
-              plan,
-              credits: {
-                increment: creditMap[plan] ?? 5000,
-              },
-            },
-          });
-
-          console.log(`[Stripe] User ${userId} upgraded to ${plan} with ${creditMap[plan] ?? 5000} additional credits`);
-        } catch (error) {
-          console.error(`[Stripe] Failed to process checkout.session.completed for user ${userId}:`, error);
-          // Don't throw — Stripe webhooks should always return 200
-        }
-      }
+      console.log(`[Stripe] Checkout session completed: ${sessionData.id}`);
       break;
     }
 
@@ -79,15 +61,10 @@ export async function POST(req: NextRequest) {
       });
 
       if (user) {
-        // Determine new plan from subscription
+        // Determine new plan from subscription (using shared mapping)
+        const priceId = subscription.items.data[0]?.price.id ?? "";
         const newPlan =
-          subscription.status === "active"
-            ? subscription.items.data[0]?.price.id === process.env.STRIPE_PRO_PRICE_ID
-              ? "PRO"
-              : subscription.items.data[0]?.price.id === process.env.STRIPE_BUSINESS_PRICE_ID
-                ? "BUSINESS"
-                : "STARTER"
-            : "FREE";
+          subscription.status === "active" ? getPlanFromPriceId(priceId) : "FREE";
 
         await prisma.user.update({
           where: { id: user.id },
@@ -130,8 +107,42 @@ export async function POST(req: NextRequest) {
 
     case "invoice.payment_succeeded": {
       const invoice = event.data.object as Stripe.Invoice;
-      // Confirmer le paiement et potentiellement ajouter des credits
-      console.log("[Stripe] Invoice paid:", invoice.id);
+      const subscriptionId = invoice.subscription as string;
+      const customerId = invoice.customer as string;
+
+      if (customerId && subscriptionId) {
+        try {
+          const user = await prisma.user.findFirst({
+            where: { stripeCustomerId: customerId },
+          });
+
+          if (user) {
+            const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+            const priceId = subscription.items.data[0]?.price.id;
+            const plan = getPlanFromPriceId(priceId ?? "");
+
+            if (plan !== "FREE") {
+              const creditMap: Record<string, number> = {
+                BUSINESS: 0,
+                PRO: 50000,
+                STARTER: 5000,
+              };
+
+              await prisma.user.update({
+                where: { id: user.id },
+                data: {
+                  plan: plan as any,
+                  credits: { increment: creditMap[plan] ?? 5000 },
+                },
+              });
+
+              console.log(`[Stripe] Plan activated for user ${user.id}: ${plan}`);
+            }
+          }
+        } catch (error) {
+          console.error("[Stripe] Failed to process invoice.payment_succeeded:", error);
+        }
+      }
       break;
     }
 
