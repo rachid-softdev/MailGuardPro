@@ -3,6 +3,7 @@
 import net from "net";
 import dns from "dns/promises";
 import { CheckResult } from "./types";
+import { redis } from "@/lib/redis";
 
 interface SMTPResult extends CheckResult {
   code?: string;
@@ -53,8 +54,28 @@ function readResponse(socket: net.Socket, timeout = 5000): Promise<string> {
   });
 }
 
+// Anti-enumeration: random delay before SMTP check
+function randomDelay(): Promise<void> {
+  const ms = Math.floor(Math.random() * 400) + 100; // 100-500ms
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export async function checkSMTP(email: string, timeoutMs = 5000): Promise<SMTPResult> {
   const domain = email.split("@")[1];
+
+  // Check Redis cache first (anti-enumeration)
+  try {
+    const cacheKey = `smtp:domain:${domain}`;
+    const cached = await redis.get(cacheKey);
+    if (cached) {
+      return JSON.parse(cached) as SMTPResult;
+    }
+  } catch {
+    // Redis unavailable — proceed without cache
+  }
+
+  // Anti-enumeration: random delay
+  await randomDelay();
 
   try {
     // 1. Résoudre les MX records

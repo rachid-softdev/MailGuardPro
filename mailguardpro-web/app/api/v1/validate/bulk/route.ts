@@ -5,6 +5,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { processBulkUpload } from "@/services/bulkProcessor";
 import { NextRequest, NextResponse } from "next/server";
+import { checkRateLimitByPlan, Plan } from "@/lib/rateLimits";
 
 export async function POST(req: NextRequest) {
   try {
@@ -25,6 +26,21 @@ export async function POST(req: NextRequest) {
 
     // Limite selon le plan
     const maxBatchSize = user?.plan === "PRO" || user?.plan === "BUSINESS" ? 100000 : 10000;
+
+    // Rate limiting par plan
+    const rateCheck = await checkRateLimitByPlan(
+      session.user.id,
+      (user?.plan as Plan) || "FREE",
+      "bulk",
+    );
+
+    if (!rateCheck.success) {
+      return NextResponse.json({
+        success: false,
+        error: `Rate limit exceeded. Max ${rateCheck.limit} bulk jobs per hour.`,
+        retryAfter: rateCheck.resetAt,
+      }, { status: 429 });
+    }
 
     // Parser le multipart form
     const formData = await req.formData();

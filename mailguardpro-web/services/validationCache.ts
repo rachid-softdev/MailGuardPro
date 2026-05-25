@@ -123,30 +123,27 @@ export async function incrementRecentValidation(email: string): Promise<void> {
 
 /**
  * Clear all validation caches (for admin/maintenance)
+ * Uses SCAN with cursor-based iteration and UNLINK (non-blocking) instead of KEYS + DEL.
  */
 export async function clearAllValidationCaches(): Promise<number> {
   let cleared = 0;
+  const patterns = ["validation:*", "domain-checks:*", "recent-validation:*"];
 
   try {
-    // Clear email validations
-    const validationKeys = await redis.keys("validation:*");
-    if (validationKeys.length > 0) {
-      await redis.del(...validationKeys);
-      cleared += validationKeys.length;
-    }
+    for (const pattern of patterns) {
+      let cursor = 0;
+      do {
+        const [nextCursor, keys] = await redis.scan(cursor, {
+          match: pattern,
+          count: 100,
+        });
+        cursor = parseInt(nextCursor, 10);
 
-    // Clear domain checks
-    const domainKeys = await redis.keys("domain-checks:*");
-    if (domainKeys.length > 0) {
-      await redis.del(...domainKeys);
-      cleared += domainKeys.length;
-    }
-
-    // Clear recent validations
-    const recentKeys = await redis.keys("recent-validation:*");
-    if (recentKeys.length > 0) {
-      await redis.del(...recentKeys);
-      cleared += recentKeys.length;
+        if (keys.length > 0) {
+          await redis.unlink(...keys);
+          cleared += keys.length;
+        }
+      } while (cursor !== 0);
     }
   } catch (error) {
     console.error("[ValidationCache] Clear all error:", error);

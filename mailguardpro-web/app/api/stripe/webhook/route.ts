@@ -28,30 +28,45 @@ export async function POST(req: NextRequest) {
 
   switch (event.type) {
     case "checkout.session.completed": {
-      const session = event.data.object as Stripe.Checkout.Session;
-      const userId = session.metadata?.userId;
+      const sessionData = event.data.object as Stripe.Checkout.Session;
+      const userId = sessionData.metadata?.userId;
 
       if (userId) {
-        // Déterminer le plan basé sur le price ID
-        const priceId = session.line_items?.data[0]?.price?.id;
-        let plan: "STARTER" | "PRO" | "BUSINESS" = "STARTER";
+        try {
+          // Retrieve the session with expanded line_items to get price IDs
+          const session = await stripe.checkout.sessions.retrieve(
+            sessionData.id,
+            { expand: ["line_items.data.price"] }
+          );
 
-        if (priceId === process.env.STRIPE_PRO_PRICE_ID) plan = "PRO";
-        if (priceId === process.env.STRIPE_BUSINESS_PRICE_ID) plan = "BUSINESS";
+          const priceId = session.line_items?.data[0]?.price?.id;
+          let plan: "STARTER" | "PRO" | "BUSINESS" = "STARTER";
 
-        // Mettre à jour l'utilisateur
-        await prisma.user.update({
-          where: { id: userId },
-          data: {
-            plan,
-            // Ajouter des crédits selon le plan
-            credits: {
-              increment: plan === "BUSINESS" ? -1 : plan === "PRO" ? 50000 : 5000,
+          if (priceId === process.env.STRIPE_PRO_PRICE_ID) plan = "PRO";
+          if (priceId === process.env.STRIPE_BUSINESS_PRICE_ID) plan = "BUSINESS";
+
+          // Credit addition per plan (BUSINESS gets unlimited, no credits added on purchase)
+          const creditMap: Record<string, number> = {
+            BUSINESS: 0,
+            PRO: 50000,
+            STARTER: 5000,
+          };
+
+          await prisma.user.update({
+            where: { id: userId },
+            data: {
+              plan,
+              credits: {
+                increment: creditMap[plan] ?? 5000,
+              },
             },
-          },
-        });
+          });
 
-        console.log(`[Stripe] User ${userId} upgraded to ${plan}`);
+          console.log(`[Stripe] User ${userId} upgraded to ${plan} with ${creditMap[plan] ?? 5000} additional credits`);
+        } catch (error) {
+          console.error(`[Stripe] Failed to process checkout.session.completed for user ${userId}:`, error);
+          // Don't throw — Stripe webhooks should always return 200
+        }
       }
       break;
     }

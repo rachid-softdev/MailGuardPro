@@ -6,6 +6,18 @@ import { Queue } from "bullmq";
 import { parse } from "csv-parse/sync";
 import { v4 as uuidv4 } from "uuid";
 
+// BullMQ queue singleton (reused across all uploads)
+const bulkQueue = new Queue("bulk-validation", {
+  connection: redis.duplicate(),
+  defaultJobOptions: {
+    attempts: 3,
+    backoff: {
+      type: "exponential",
+      delay: 2000,
+    },
+  },
+});
+
 // Constantes
 const MAX_BULK_ROWS = 100000; // Limite max
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
@@ -123,26 +135,12 @@ export async function processBulkUpload(
     // Stocker les données du job dans Redis pour le worker
     await redis.setex(`bulk:job:${jobId}:data`, 3600, JSON.stringify(emails));
 
-    // Ajouter à la queue BullMQ
-    const bulkQueue = new Queue("bulk-validation", {
-      connection: redis.duplicate(),
+    // Ajouter à la queue BullMQ (singleton)
+    await bulkQueue.add("process", {
+      jobId,
+      totalEmails: emails.length,
+      userId,
     });
-
-    await bulkQueue.add(
-      "process",
-      {
-        jobId,
-        totalEmails: emails.length,
-        userId,
-      },
-      {
-        attempts: 3,
-        backoff: {
-          type: "exponential",
-          delay: 2000,
-        },
-      },
-    );
 
     return {
       success: true,

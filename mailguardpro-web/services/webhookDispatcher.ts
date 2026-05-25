@@ -2,6 +2,7 @@
 
 import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
+import { validateWebhookUrl } from "@/lib/ssrf";
 
 export interface WebhookPayload {
   event: string;
@@ -32,6 +33,13 @@ export class WebhookDispatcher {
       return false;
     }
 
+    // SSRF check
+    const ssrfCheck = validateWebhookUrl(webhook.url);
+    if (!ssrfCheck.valid) {
+      console.error(`[Webhook] SSRF blocked: ${webhook.url} - ${ssrfCheck.error}`);
+      return false;
+    }
+
     const payload: WebhookPayload = {
       event,
       timestamp: new Date().toISOString(),
@@ -54,6 +62,7 @@ export class WebhookDispatcher {
           },
           body: JSON.stringify(payload),
           signal: AbortSignal.timeout(10000), // 10s timeout
+          redirect: "manual", // Prevent SSRF via redirect chains
         });
 
         if (response.ok) {

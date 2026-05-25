@@ -32,9 +32,9 @@ const worker = new Worker<BulkJobData>(
 
     // Récupérer les données des emails depuis Redis
     const jobDataKey = `bulk:job:${jobId}:data`;
-    const redis = new Redis(process.env.REDIS_URL || "redis://localhost:6379");
+    // Using 'connection' from outer scope
 
-    const dataStr = await redis.get(jobDataKey);
+    const dataStr = await connection.get(jobDataKey);
     if (!dataStr) {
       throw new Error(`No data found for job ${jobId}`);
     }
@@ -90,7 +90,7 @@ const worker = new Worker<BulkJobData>(
           });
 
           // Publier la progression via Redis pub/sub
-          await redis.publish(
+          await connection.publish(
             `job:${jobId}:progress`,
             JSON.stringify({
               processed,
@@ -129,7 +129,7 @@ const worker = new Worker<BulkJobData>(
     });
 
     // Nettoyer Redis
-    await redis.del(jobDataKey);
+    await connection.del(jobDataKey);
 
     // Dispatcher les webhooks
     try {

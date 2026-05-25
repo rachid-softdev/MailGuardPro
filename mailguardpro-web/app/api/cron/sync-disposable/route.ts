@@ -3,6 +3,7 @@
 
 import { AuditAction, AuditResource, logAudit } from "@/services/auditLogger";
 import { syncDisposableDomains } from "@/services/disposableChecker";
+import { timingSafeEqual } from "@/lib/timingSafe";
 import { NextRequest, NextResponse } from "next/server";
 
 const CRON_SECRET = process.env.CRON_SECRET;
@@ -10,7 +11,8 @@ const CRON_SECRET = process.env.CRON_SECRET;
 export async function GET(req: NextRequest) {
   // Verify cron authorization
   const authHeader = req.headers.get("authorization");
-  if (authHeader !== `Bearer ${CRON_SECRET}` && process.env.NODE_ENV === "production") {
+  const expected = `Bearer ${CRON_SECRET ?? ""}`;
+  if (!timingSafeEqual(authHeader ?? "", expected) && process.env.NODE_ENV === "production") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
