@@ -6,12 +6,15 @@ const CRON_SECRET = process.env.CRON_SECRET;
 const AUDIT_RETENTION_DAYS = 90;
 
 export async function GET(req: NextRequest) {
+  // Verify cron authorization
+  if (!CRON_SECRET) {
+    console.error("[Cron] CRON_SECRET is not configured");
+    return NextResponse.json({ error: "Server configuration error" }, { status: 500 });
+  }
+
   const authHeader = req.headers.get("authorization");
-  const expected = `Bearer ${CRON_SECRET ?? ""}`;
-  if (
-    !timingSafeEqual(authHeader ?? "", expected) &&
-    process.env.NODE_ENV === "production"
-  ) {
+  const expected = `Bearer ${CRON_SECRET}`;
+  if (!timingSafeEqual(authHeader ?? "", expected)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

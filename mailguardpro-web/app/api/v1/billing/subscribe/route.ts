@@ -3,21 +3,15 @@
 
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { PRICES, stripe } from "@/lib/stripe";
+import { stripe } from "@/lib/stripe";
 import { AuditAction, AuditResource, logAudit } from "@/services/auditLogger";
 import { NextRequest, NextResponse } from "next/server";
 
-const SUBSCRIPTION_PRICES = {
-  starter: PRICES.STARTER,
-  pro: PRICES.PRO,
-  business: PRICES.BUSINESS,
-} as const;
-
-const PLAN_MAP = {
-  starter: "STARTER",
-  pro: "PRO",
-  business: "BUSINESS",
-} as const;
+const PLAN_BY_PRICE_ID: Record<string, string> = {
+  [process.env.STRIPE_STARTER_PRICE_ID || ""]: "STARTER",
+  [process.env.STRIPE_PRO_PRICE_ID || ""]: "PRO",
+  [process.env.STRIPE_BUSINESS_PRICE_ID || ""]: "BUSINESS",
+};
 
 export async function POST(req: NextRequest) {
   try {
@@ -39,7 +33,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (!SUBSCRIPTION_PRICES[priceId as keyof typeof SUBSCRIPTION_PRICES]) {
+    if (!priceId || !PLAN_BY_PRICE_ID[priceId]) {
       return NextResponse.json({ success: false, error: "Invalid price ID" }, { status: 400 });
     }
 
@@ -52,9 +46,16 @@ export async function POST(req: NextRequest) {
     let customerId = user?.stripeCustomerId;
 
     if (!customerId) {
+      if (!user?.email) {
+        return NextResponse.json(
+          { success: false, error: "User email is required for billing" },
+          { status: 400 },
+        );
+      }
+
       const customer = await stripe.customers.create({
-        email: user!.email!,
-        name: user!.name || undefined,
+        email: user.email,
+        name: user.name || undefined,
         metadata: { userId: session.user.id },
       });
       customerId = customer.id;
@@ -80,7 +81,7 @@ export async function POST(req: NextRequest) {
       customer: customerId,
       items: [
         {
-          price: SUBSCRIPTION_PRICES[priceId as keyof typeof SUBSCRIPTION_PRICES],
+          price: priceId,
         },
       ],
       payment_behavior: "default_incomplete",
@@ -88,13 +89,10 @@ export async function POST(req: NextRequest) {
       expand: ["latest_invoice.payment_intent"],
     });
 
-    // Update user plan
+    // Only store subscription reference — plan activation happens in webhook
     await prisma.user.update({
       where: { id: session.user.id },
-      data: {
-        plan: PLAN_MAP[priceId as keyof typeof PLAN_MAP] as any,
-        stripeSubscriptionId: subscription.id,
-      },
+      data: { stripeSubscriptionId: subscription.id },
     });
 
     // Audit log

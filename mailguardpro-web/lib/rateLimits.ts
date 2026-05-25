@@ -1,6 +1,6 @@
 // Rate limiting par plan - Configuration et helper
 
-import { redis } from "./redis";
+import { redis, checkRateLimit } from "./redis";
 
 export type Plan = "FREE" | "STARTER" | "PRO" | "BUSINESS";
 
@@ -62,46 +62,20 @@ export async function checkRateLimitByPlan(
     return checkRateLimit(`user:${userId}:${action}`, 10, 60);
   }
 
-  // Si illimité (BUSINESS)
+  // Si illimité (BUSINESS) — still hit Redis with a very high limit for observability
   if (actionLimits.requests >= 999999) {
-    return {
-      success: true,
-      remaining: 999999,
-      resetAt: Date.now() + 60000,
-      limit: 999999,
-    };
+    // Use a high but finite limit to keep Redis tracking active
+    // BUSINESS: 100K/min for validate, 5K/hour for bulk/apiKeys/webhooks
+    const effectiveLimit = action === "validate" ? 100000 : 5000;
+    return checkRateLimit(
+      `user:${userId}:${action}:business`,
+      effectiveLimit,
+      actionLimits.window,
+    );
   }
 
   // Vérifier le rate limit
   return checkRateLimit(`user:${userId}:${action}`, actionLimits.requests, actionLimits.window);
-}
-
-// Wrapper around redis checkRateLimit with better typing
-export async function checkRateLimit(
-  key: string,
-  limit: number,
-  windowSeconds: number,
-): Promise<{
-  success: boolean;
-  remaining: number;
-  resetAt: number;
-  limit: number;
-}> {
-  const current = await redis.incr(`ratelimit:${key}`);
-
-  if (current === 1) {
-    await redis.expire(`ratelimit:${key}`, windowSeconds);
-  }
-
-  const ttl = await redis.ttl(`ratelimit:${key}`);
-  const resetAt = Date.now() + (ttl > 0 ? ttl * 1000 : windowSeconds * 1000);
-
-  return {
-    success: current <= limit,
-    remaining: Math.max(0, limit - current),
-    resetAt,
-    limit,
-  };
 }
 
 // Rate limit exceeded error helper

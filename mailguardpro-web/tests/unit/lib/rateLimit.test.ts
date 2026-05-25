@@ -150,20 +150,26 @@ describe("rateLimits", () => {
       expect(result.limit).toBe(500);
     });
 
-    it("should return unlimited success for BUSINESS plan", async () => {
+    it("should return unlimited for BUSINESS validate", async () => {
+      mockRedisInstance.incr.mockResolvedValue(1);
       const result = await checkRateLimitByPlan("user-123", "BUSINESS", "validate");
-
       expect(result.success).toBe(true);
-      expect(result.remaining).toBe(999999);
-      expect(result.limit).toBe(999999);
+      expect(result.limit).toBe(100000); // Was 999999
+      expect(result.remaining).toBe(99999); // 100000 - 1
     });
 
-    it("should return unlimited success for BUSINESS bulk action", async () => {
+    it("should return unlimited for BUSINESS bulk action", async () => {
+      mockRedisInstance.incr.mockResolvedValue(1);
       const result = await checkRateLimitByPlan("user-123", "BUSINESS", "bulk");
-
       expect(result.success).toBe(true);
-      expect(result.remaining).toBe(999999);
-      expect(result.limit).toBe(999999);
+      expect(result.limit).toBe(5000);
+      expect(result.remaining).toBe(4999);
+    });
+
+    it("should block BUSINESS user when effective limit is exceeded", async () => {
+      mockRedisInstance.incr.mockResolvedValue(100001);
+      const result = await checkRateLimitByPlan("user-123", "BUSINESS", "validate");
+      expect(result.success).toBe(false);
     });
 
     it("should use correct limit values for each action type", async () => {

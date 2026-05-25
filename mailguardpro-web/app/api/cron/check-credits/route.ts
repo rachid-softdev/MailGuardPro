@@ -11,9 +11,14 @@ const LOW_CREDITS_THRESHOLD = 10;
 
 export async function GET(req: NextRequest) {
   // Verify cron authorization
+  if (!CRON_SECRET) {
+    console.error("[Cron] CRON_SECRET is not configured");
+    return NextResponse.json({ error: "Server configuration error" }, { status: 500 });
+  }
+
   const authHeader = req.headers.get("authorization");
-  const expected = `Bearer ${CRON_SECRET ?? ""}`;
-  if (!timingSafeEqual(authHeader ?? "", expected) && process.env.NODE_ENV === "production") {
+  const expected = `Bearer ${CRON_SECRET}`;
+  if (!timingSafeEqual(authHeader ?? "", expected)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -41,7 +46,7 @@ export async function GET(req: NextRequest) {
     if (process.env.NODE_ENV === "production") {
       for (const user of usersWithLowCredits) {
         console.log(
-          `[Cron] User ${user.id} (${user.email}) has ${user.credits} credits left on ${user.plan} plan`,
+          `[Cron] User ${user.id} has ${user.credits} credits left (plan: ${user.plan})`,
         );
 
         // Log for potential email sending
@@ -61,12 +66,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       success: true,
       usersNotified: usersWithLowCredits.length,
-      users: usersWithLowCredits.map((u) => ({
-        id: u.id,
-        email: u.email,
-        credits: u.credits,
-        plan: u.plan,
-      })),
       timestamp: new Date().toISOString(),
     });
   } catch (error) {

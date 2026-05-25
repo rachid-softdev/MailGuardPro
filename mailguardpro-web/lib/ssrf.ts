@@ -24,6 +24,19 @@ const PRIVATE_IP_PATTERNS = [
   /^fe80:/,
 ];
 
+/**
+ * Validates a resolved IP address before making a TCP connection.
+ * Blocks private, loopback, link-local addresses.
+ */
+export function validateResolvedIp(ip: string): { valid: boolean; error?: string } {
+  for (const pattern of PRIVATE_IP_PATTERNS) {
+    if (pattern.test(ip)) {
+      return { valid: false, error: `Blocked private IP range: ${ip}` };
+    }
+  }
+  return { valid: true };
+}
+
 export function validateWebhookUrl(urlString: string): {
   valid: boolean;
   error?: string;
