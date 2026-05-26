@@ -61,6 +61,17 @@ function randomDelay(): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+// Cache SMTP result to Redis with TTL
+async function cacheSmtpResult(domain: string, result: SMTPResult): Promise<SMTPResult> {
+  try {
+    const cacheKey = `smtp:domain:${domain}`;
+    await redis.setex(cacheKey, 3600, JSON.stringify(result));
+  } catch (err) {
+    console.warn("[SMTP] Failed to cache result:", err);
+  }
+  return result;
+}
+
 export async function checkSMTP(email: string, timeoutMs = 5000): Promise<SMTPResult> {
   const domain = email.split("@")[1];
 
@@ -84,21 +95,21 @@ export async function checkSMTP(email: string, timeoutMs = 5000): Promise<SMTPRe
     try {
       mxRecords = await dns.resolveMx(domain);
     } catch {
-      return {
+      return await cacheSmtpResult(domain, {
         passed: false,
         weight: 30,
         message: "SMTP: domaine non résolu",
         detail: "Impossible de résoudre les MX records",
-      };
+      });
     }
 
     if (!mxRecords || mxRecords.length === 0) {
-      return {
+      return await cacheSmtpResult(domain, {
         passed: false,
         weight: 30,
         message: "SMTP: aucun MX",
         detail: "Aucun serveur MX trouvé pour ce domaine",
-      };
+      });
     }
 
     // Trier par priorité
@@ -114,34 +125,34 @@ export async function checkSMTP(email: string, timeoutMs = 5000): Promise<SMTPRe
       try {
         resolvedIps = await dns.resolve6(mxHost);
       } catch {
-        return {
+        return await cacheSmtpResult(domain, {
           passed: false,
           weight: 30,
           message: "SMTP: MX resolution failed",
           detail: `Impossible de résoudre l'adresse IP de ${mxHost}`,
-        };
+        });
       }
     }
 
     if (resolvedIps.length === 0) {
-      return {
+      return await cacheSmtpResult(domain, {
         passed: false,
         weight: 30,
         message: "SMTP: aucune IP résolue",
         detail: `Aucune adresse IP trouvée pour ${mxHost}`,
-      };
+      });
     }
 
     // Validate each resolved IP
     for (const ip of resolvedIps) {
       const ipCheck = validateResolvedIp(ip);
       if (!ipCheck.valid) {
-        return {
+        return await cacheSmtpResult(domain, {
           passed: false,
           weight: 30,
           message: "SMTP: serveur non autorisé",
           detail: ipCheck.error,
-        };
+        });
       }
     }
 
@@ -164,12 +175,12 @@ export async function checkSMTP(email: string, timeoutMs = 5000): Promise<SMTPRe
     }
 
     if (!socket) {
-      return {
+      return await cacheSmtpResult(domain, {
         passed: false,
         weight: 30,
         message: "SMTP: connexion impossible",
         detail: `Impossible de se connecter au serveur mail: ${lastError?.message}`,
-      };
+      });
     }
 
     try {
@@ -183,12 +194,12 @@ export async function checkSMTP(email: string, timeoutMs = 5000): Promise<SMTPRe
 
       // Vérifier que le serveur accepte l'expéditeur
       if (!mailResponse.startsWith("250")) {
-        return {
+        return await cacheSmtpResult(domain, {
           passed: false,
           weight: 30,
           message: "SMTP: expéditeur refusé",
           detail: mailResponse,
-        };
+        });
       }
 
       // 5. RCPT TO (tester l'email)
@@ -202,59 +213,59 @@ export async function checkSMTP(email: string, timeoutMs = 5000): Promise<SMTPRe
       // Analyser la réponse
       if (rcptResponse.startsWith("250")) {
         // Le serveur a accepté l'email
-        return {
+        return await cacheSmtpResult(domain, {
           passed: true,
           weight: 30,
           message: "Email délivrable",
           detail: "Le serveur a accepté l'email pour livraison",
           code: "250",
-        };
+        });
       } else if (rcptResponse.startsWith("550")) {
         // BoîteMail inexistante
-        return {
+        return await cacheSmtpResult(domain, {
           passed: false,
           weight: 30,
           message: "Boîte mail inexistante",
           detail: rcptResponse,
           code: "550",
-        };
+        });
       } else if (rcptResponse.startsWith("553")) {
         // Adresse non valide
-        return {
+        return await cacheSmtpResult(domain, {
           passed: false,
           weight: 30,
           message: "Adresse non valide",
           detail: rcptResponse,
           code: "553",
-        };
+        });
       } else if (rcptResponse.startsWith("452") || rcptResponse.startsWith("451")) {
         // Serveur temporairement indisponible
-        return {
+        return await cacheSmtpResult(domain, {
           passed: false,
           weight: 30,
           message: "Serveur temporairement indisponible",
           detail: rcptResponse,
           code: "452",
-        };
+        });
       } else {
         // Statut incertain
-        return {
+        return await cacheSmtpResult(domain, {
           passed: false,
           weight: 30,
           message: "Statut incertain",
           detail: rcptResponse,
-        };
+        });
       }
     } catch (error) {
       socket?.destroy();
       throw error;
     }
   } catch (error) {
-    return {
+    return await cacheSmtpResult(domain, {
       passed: false,
       weight: 30,
       message: "Erreur SMTP",
       detail: error instanceof Error ? error.message : "Erreur de connexion SMTP",
-    };
+    });
   }
 }

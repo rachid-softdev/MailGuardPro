@@ -7,19 +7,23 @@ import { getPlanFromPriceId, stripe } from "@/lib/stripe";
 import { AuditAction, AuditResource, logAudit } from "@/services/auditLogger";
 import { NextRequest, NextResponse } from "next/server";
 
-// Startup validation : toutes les variables Stripe doivent être définies
-if (
-  !process.env.STRIPE_STARTER_PRICE_ID ||
-  !process.env.STRIPE_PRO_PRICE_ID ||
-  !process.env.STRIPE_BUSINESS_PRICE_ID
-) {
-  throw new Error(
-    "STRIPE_STARTER_PRICE_ID, STRIPE_PRO_PRICE_ID, STRIPE_BUSINESS_PRICE_ID must all be defined",
-  );
-}
-
 export async function POST(req: NextRequest) {
   try {
+    // Validate Stripe configuration
+    if (
+      !process.env.STRIPE_STARTER_PRICE_ID ||
+      !process.env.STRIPE_PRO_PRICE_ID ||
+      !process.env.STRIPE_BUSINESS_PRICE_ID
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Server configuration error: payment plans not configured",
+        },
+        { status: 500 },
+      );
+    }
+
     const session = await auth();
     if (!session?.user?.id) {
       return NextResponse.json(
@@ -34,6 +38,18 @@ export async function POST(req: NextRequest) {
     if (!priceId || !paymentMethodId) {
       return NextResponse.json(
         { success: false, error: "priceId and paymentMethodId are required" },
+        { status: 400 },
+      );
+    }
+
+    // Validate priceId against known pricing plans
+    const plan = getPlanFromPriceId(priceId);
+    if (plan === "FREE") {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Invalid priceId: unrecognized pricing plan",
+        },
         { status: 400 },
       );
     }
@@ -90,18 +106,16 @@ export async function POST(req: NextRequest) {
       expand: ["latest_invoice.payment_intent"],
     });
 
-    // Set plan optimistiquement + référence subscription
-    // Le webhook confirmera et ajoutera les crédits
+    // Store subscription reference; plan will be set by webhook after payment confirmation
     await prisma.user.update({
       where: { id: session.user.id },
       data: {
-        plan: getPlanFromPriceId(priceId),
         stripeSubscriptionId: subscription.id,
       },
     });
 
     // Audit log
-    logAudit({
+    await logAudit({
       userId: session.user.id,
       action: AuditAction.SUBSCRIPTION_CREATED,
       resource: AuditResource.SUBSCRIPTION,

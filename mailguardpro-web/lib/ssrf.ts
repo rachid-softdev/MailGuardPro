@@ -23,6 +23,7 @@ const PRIVATE_IP_PATTERNS = [
   /^f[cd][0-9a-f][0-9a-f]:/i,
   /^ff00:/i,
   /^fe80:/i,
+  /^::$/,
 ];
 
 /**
@@ -31,8 +32,15 @@ const PRIVATE_IP_PATTERNS = [
  */
 export function validateResolvedIp(ip: string): { valid: boolean; error?: string } {
   const normalizedIp = ip.toLowerCase();
+  if (isIP(normalizedIp) === 0) {
+    return { valid: false, error: `Invalid IP address: ${ip}` };
+  }
+
+  // Normalize IPv4-mapped IPv6 (::ffff:x.x.x.x → x.x.x.x) for pattern matching
+  const v4MappedMatch = normalizedIp.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
+  const ipToCheck = v4MappedMatch ? v4MappedMatch[1] : normalizedIp;
   for (const pattern of PRIVATE_IP_PATTERNS) {
-    if (pattern.test(normalizedIp)) {
+    if (pattern.test(ipToCheck)) {
       return { valid: false, error: `Blocked private IP range: ${ip}` };
     }
   }
@@ -61,8 +69,11 @@ export function validateWebhookUrl(urlString: string): {
   }
 
   if (isIP(hostname)) {
+    // Normalize IPv4-mapped IPv6 (::ffff:x.x.x.x → x.x.x.x) for pattern matching
+    const v4MappedMatch = hostname.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
+    const ipToCheck = v4MappedMatch ? v4MappedMatch[1] : hostname;
     for (const pattern of PRIVATE_IP_PATTERNS) {
-      if (pattern.test(hostname)) {
+      if (pattern.test(ipToCheck)) {
         return { valid: false, error: "Private IP ranges are not allowed" };
       }
     }

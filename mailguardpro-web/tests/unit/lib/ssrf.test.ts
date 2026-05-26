@@ -86,3 +86,45 @@ describe("validateResolvedIp", () => {
     });
   });
 });
+
+describe("IPv4-mapped IPv6 addresses", () => {
+  it("should block ::ffff:127.0.0.1 (loopback)", () => {
+    expect(validateResolvedIp("::ffff:127.0.0.1").valid).toBe(false);
+  });
+
+  it("should block ::ffff:10.0.0.1 (private)", () => {
+    expect(validateResolvedIp("::ffff:10.0.0.1").valid).toBe(false);
+  });
+
+  it("should block ::ffff:192.168.1.1 (private)", () => {
+    expect(validateResolvedIp("::ffff:192.168.1.1").valid).toBe(false);
+  });
+
+  it("should block ::ffff:172.16.0.1 (private)", () => {
+    expect(validateResolvedIp("::ffff:172.16.0.1").valid).toBe(false);
+  });
+
+  it("should allow ::ffff:93.184.216.34 (public)", () => {
+    expect(validateResolvedIp("::ffff:93.184.216.34").valid).toBe(true);
+  });
+});
+
+describe("IPv6 unspecified address", () => {
+  it("should block :: (unspecified)", () => {
+    expect(validateResolvedIp("::").valid).toBe(false);
+  });
+});
+
+describe("input validation", () => {
+  it("should reject empty string", () => {
+    expect(validateResolvedIp("").valid).toBe(false);
+  });
+
+  it("should reject non-IP string", () => {
+    expect(validateResolvedIp("not-an-ip").valid).toBe(false);
+  });
+
+  it("should reject hostname", () => {
+    expect(validateResolvedIp("example.com").valid).toBe(false);
+  });
+});

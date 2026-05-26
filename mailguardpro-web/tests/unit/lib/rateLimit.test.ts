@@ -219,4 +219,25 @@ describe("rateLimits", () => {
       expect(error.message).toMatch(/\d+ seconds/);
     });
   });
+
+  describe("defence-in-depth", () => {
+    it("should re-set TTL when key exists without TTL", async () => {
+      // Simulate a key that already exists (current > 1) but has no TTL
+      mockRedisInstance.incr.mockResolvedValue(5);
+      // First ttl call (inside else branch) returns -1 → triggers expire
+      // Second ttl call (for resetAt) returns a normal TTL
+      mockRedisInstance.ttl
+        .mockResolvedValueOnce(-1) // else branch: key has no TTL
+        .mockResolvedValueOnce(30); // resetAt calculation
+
+      const result = await checkRateLimitByPlan("test-user-w4", "FREE", "validate");
+
+      expect(mockRedisInstance.expire).toHaveBeenCalledWith(
+        "ratelimit:user:test-user-w4:validate",
+        60,
+      );
+      expect(result.success).toBe(true);
+      expect(result.remaining).toBe(15);
+    });
+  });
 });
