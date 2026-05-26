@@ -12,6 +12,7 @@ declare module "next-auth" {
       plan: "FREE" | "STARTER" | "PRO" | "BUSINESS";
       credits: number;
       role: "USER" | "ADMIN";
+      roles: ("USER" | "ADMIN")[];
     };
   }
 
@@ -20,6 +21,7 @@ declare module "next-auth" {
     plan?: "FREE" | "STARTER" | "PRO" | "BUSINESS";
     credits?: number;
     role?: "USER" | "ADMIN";
+    roles?: ("USER" | "ADMIN")[];
   }
 }
 
@@ -29,5 +31,6 @@ declare module "next-auth/jwt" {
     plan?: "FREE" | "STARTER" | "PRO" | "BUSINESS";
     credits?: number;
     role?: "USER" | "ADMIN";
+    roles?: ("USER" | "ADMIN")[];
   }
 }
