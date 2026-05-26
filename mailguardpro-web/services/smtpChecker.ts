@@ -1,10 +1,10 @@
 // Vérification SMTP - Connexion réelle au serveur mail
 
 import net from "net";
-import dns from "dns/promises";
-import { CheckResult } from "./types";
 import { redis } from "@/lib/redis";
 import { validateResolvedIp } from "@/lib/ssrf";
+import dns from "dns/promises";
+import { CheckResult } from "./types";
 
 interface SMTPResult extends CheckResult {
   code?: string;
@@ -71,8 +71,8 @@ export async function checkSMTP(email: string, timeoutMs = 5000): Promise<SMTPRe
     if (cached) {
       return JSON.parse(cached) as SMTPResult;
     }
-  } catch {
-    // Redis unavailable — proceed without cache
+  } catch (err) {
+    console.warn("[SMTP] Redis unavailable, proceeding without cache:", err);
   }
 
   // Anti-enumeration: random delay
@@ -123,6 +123,15 @@ export async function checkSMTP(email: string, timeoutMs = 5000): Promise<SMTPRe
       }
     }
 
+    if (resolvedIps.length === 0) {
+      return {
+        passed: false,
+        weight: 30,
+        message: "SMTP: aucune IP résolue",
+        detail: `Aucune adresse IP trouvée pour ${mxHost}`,
+      };
+    }
+
     // Validate each resolved IP
     for (const ip of resolvedIps) {
       const ipCheck = validateResolvedIp(ip);
@@ -136,18 +145,22 @@ export async function checkSMTP(email: string, timeoutMs = 5000): Promise<SMTPRe
       }
     }
 
-    // 2. Tenter connexion sur port 25 (et fallback 587)
+    // 2. Tenter connexion sur port 25 (et fallback 587), itérer IPs
     let socket: net.Socket | null = null;
     let lastError: Error | null = null;
 
-    for (const port of [25, 587]) {
-      try {
-        socket = await connectWithTimeout(resolvedIps[0], port, timeoutMs);
-        break;
-      } catch (error) {
-        lastError = error as Error;
-        continue;
+    const ipsToTry = resolvedIps.slice(0, 2); // Limiter à 2 IPs max pour éviter timeout
+    for (const ip of ipsToTry) {
+      for (const port of [25, 587]) {
+        try {
+          socket = await connectWithTimeout(ip, port, timeoutMs);
+          break;
+        } catch (error) {
+          lastError = error as Error;
+          continue;
+        }
       }
+      if (socket) break;
     }
 
     if (!socket) {
