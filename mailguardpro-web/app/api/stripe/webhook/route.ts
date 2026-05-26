@@ -3,7 +3,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { redis } from "@/lib/redis";
-import { stripe, getPlanFromPriceId } from "@/lib/stripe";
+import { getPlanFromPriceId, stripe } from "@/lib/stripe";
 import { AuditAction, AuditResource, logAudit } from "@/services/auditLogger";
 import { headers } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
@@ -31,19 +31,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
   }
 
-  // === IDEMPOTENCY CHECK ===
+  // === IDEMPOTENCY CHECK (atomique) ===
   const eventId = event.id;
   const eventIdKey = `stripe:event:${eventId}`;
 
   try {
-    const alreadyProcessed = await redis.get(eventIdKey);
-    if (alreadyProcessed) {
-      console.log(`[Stripe] Skipping duplicate event ${eventId}`);
+    // SET NX = atomique : crée la clé seulement si elle n'existe pas
+    const acquired = await redis.set(eventIdKey, "1", "NX", "EX", 86400);
+    if (acquired === null) {
+      console.log(`[Stripe] Duplicate event skipped: ${eventId}`);
       return NextResponse.json({ received: true, deduplicated: true });
     }
-    await redis.setex(eventIdKey, 86400, "1");
-  } catch {
-    console.warn(`[Stripe] Redis unavailable, skipping deduplication for event ${eventId}`);
+  } catch (err) {
+    console.warn(`[Stripe] Redis unavailable, skipping deduplication:`, err);
   }
 
   switch (event.type) {
@@ -63,12 +63,11 @@ export async function POST(req: NextRequest) {
       if (user) {
         // Determine new plan from subscription (using shared mapping)
         const priceId = subscription.items.data[0]?.price.id ?? "";
-        const newPlan =
-          subscription.status === "active" ? getPlanFromPriceId(priceId) : "FREE";
+        const newPlan = subscription.status === "active" ? getPlanFromPriceId(priceId) : "FREE";
 
         await prisma.user.update({
           where: { id: user.id },
-          data: { plan: newPlan as any },
+          data: { plan: newPlan },
         });
 
         console.log(`[Stripe] User ${user.id} plan updated to ${newPlan}`);
@@ -93,12 +92,16 @@ export async function POST(req: NextRequest) {
         });
 
         // Audit log
-        logAudit({
-          userId: user.id,
-          action: AuditAction.SUBSCRIPTION_CANCELLED,
-          resource: AuditResource.SUBSCRIPTION,
-          metadata: { subscriptionId: subscription.id },
-        });
+        try {
+          await logAudit({
+            userId: user.id,
+            action: AuditAction.SUBSCRIPTION_CANCELLED,
+            resource: AuditResource.SUBSCRIPTION,
+            metadata: { subscriptionId: subscription.id },
+          });
+        } catch (err) {
+          console.error("[Stripe] Audit log failed (non-fatal):", err);
+        }
 
         console.log(`[Stripe] User ${user.id} subscription cancelled, reverted to FREE`);
       }
@@ -122,21 +125,45 @@ export async function POST(req: NextRequest) {
             const plan = getPlanFromPriceId(priceId ?? "");
 
             if (plan !== "FREE") {
-              const creditMap: Record<string, number> = {
-                BUSINESS: 0,
-                PRO: 50000,
-                STARTER: 5000,
-              };
+              // Vérifier si c'est le premier paiement (crédits initiaux)
+              const firstPaymentKey = `stripe:first_payment:${subscriptionId}`;
+              let isFirstPayment = false;
 
-              await prisma.user.update({
-                where: { id: user.id },
-                data: {
-                  plan: plan as any,
-                  credits: { increment: creditMap[plan] ?? 5000 },
-                },
-              });
+              try {
+                const acquired = await redis.set(firstPaymentKey, "1", "NX", "EX", 31536000); // 1 an
+                isFirstPayment = acquired === "OK";
+              } catch (err) {
+                console.warn(`[Stripe] Redis check failed, assuming first payment:`, err);
+                isFirstPayment = true;
+              }
 
-              console.log(`[Stripe] Plan activated for user ${user.id}: ${plan}`);
+              if (isFirstPayment) {
+                const creditMap: Record<string, number> = {
+                  BUSINESS: 0,
+                  PRO: 50000,
+                  STARTER: 5000,
+                };
+
+                await prisma.user.update({
+                  where: { id: user.id },
+                  data: {
+                    plan,
+                    credits: { increment: creditMap[plan] ?? 5000 },
+                  },
+                });
+
+                console.log(
+                  `[Stripe] Plan activated with initial credits for user ${user.id}: ${plan}`,
+                );
+              } else {
+                // Paiement récurrent : simplement maintenir le plan actif
+                await prisma.user.update({
+                  where: { id: user.id },
+                  data: { plan },
+                });
+
+                console.log(`[Stripe] Recurring payment confirmed for user ${user.id}: ${plan}`);
+              }
             }
           }
         } catch (error) {
@@ -148,8 +175,25 @@ export async function POST(req: NextRequest) {
 
     case "invoice.payment_failed": {
       const invoice = event.data.object as Stripe.Invoice;
-      //Notifier l'utilisateur du problème de paiement
-      console.error("[Stripe] Invoice payment failed:", invoice.id);
+      const customerId = invoice.customer as string;
+      console.error(`[Stripe] Invoice payment failed: ${invoice.id}`);
+
+      if (customerId) {
+        try {
+          const user = await prisma.user.findFirst({
+            where: { stripeCustomerId: customerId },
+          });
+          if (user) {
+            await prisma.user.update({
+              where: { id: user.id },
+              data: { plan: "FREE", stripeSubscriptionId: null },
+            });
+            console.log(`[Stripe] User ${user.id} reverted to FREE due to payment failure`);
+          }
+        } catch (error) {
+          console.error("[Stripe] Failed to process payment failure:", error);
+        }
+      }
       break;
     }
   }

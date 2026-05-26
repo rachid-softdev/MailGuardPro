@@ -20,8 +20,9 @@ const PRIVATE_IP_PATTERNS = [
   /^169\.254\./,
   /^0\./,
   /^::1$/,
-  /^fc00:/,
-  /^fe80:/,
+  /^f[cd][0-9a-f][0-9a-f]:/i,
+  /^ff00:/i,
+  /^fe80:/i,
 ];
 
 /**
@@ -29,8 +30,9 @@ const PRIVATE_IP_PATTERNS = [
  * Blocks private, loopback, link-local addresses.
  */
 export function validateResolvedIp(ip: string): { valid: boolean; error?: string } {
+  const normalizedIp = ip.toLowerCase();
   for (const pattern of PRIVATE_IP_PATTERNS) {
-    if (pattern.test(ip)) {
+    if (pattern.test(normalizedIp)) {
       return { valid: false, error: `Blocked private IP range: ${ip}` };
     }
   }

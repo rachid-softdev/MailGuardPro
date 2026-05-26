@@ -34,6 +34,7 @@ export enum AuditAction {
   CREDITS_PURCHASED = "CREDITS_PURCHASED",
   CREDITS_CONSUMED = "CREDITS_CONSUMED",
   CREDITS_ADJUSTED = "CREDITS_ADJUSTED",
+  CREDITS_LOW_WARNING = "CREDITS_LOW_WARNING",
 
   // Subscription actions
   SUBSCRIPTION_CREATED = "SUBSCRIPTION_CREATED",
@@ -93,9 +94,8 @@ export async function logAuditEvent(params: AuditLogParams): Promise<void> {
  * Log audit event synchronously (for use in API routes)
  * Wraps the async function
  */
-export function logAudit(params: AuditLogParams): void {
-  // Fire and forget - don't await
-  logAuditEvent(params).catch(console.error);
+export function logAudit(params: AuditLogParams): Promise<void> {
+  return logAuditEvent(params).catch(console.error);
 }
 
 /**

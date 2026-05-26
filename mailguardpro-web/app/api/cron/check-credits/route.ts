@@ -45,14 +45,12 @@ export async function GET(req: NextRequest) {
     // For now, just log and return the list
     if (process.env.NODE_ENV === "production") {
       for (const user of usersWithLowCredits) {
-        console.log(
-          `[Cron] User ${user.id} has ${user.credits} credits left (plan: ${user.plan})`,
-        );
+        console.log(`[Cron] User ${user.id} has ${user.credits} credits left (plan: ${user.plan})`);
 
         // Log for potential email sending
         await logAudit({
           userId: user.id,
-          action: AuditAction.CREDITS_CONSUMED,
+          action: AuditAction.CREDITS_LOW_WARNING,
           resource: AuditResource.USER,
           metadata: {
             event: "LOW_CREDITS_WARNING",
