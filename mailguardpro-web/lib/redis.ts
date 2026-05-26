@@ -41,11 +41,18 @@ export async function checkRateLimit(
   success: boolean;
   remaining: number;
   resetAt: number;
+  limit: number;
 }> {
   const current = await redis.incr(`ratelimit:${key}`);
 
   if (current === 1) {
     await redis.expire(`ratelimit:${key}`, windowSeconds);
+  } else {
+    // Defence-in-depth: re-set TTL if key lacks one (e.g., Redis crash between INCR and EXPIRE)
+    const ttlCheck = await redis.ttl(`ratelimit:${key}`);
+    if (ttlCheck === -1) {
+      await redis.expire(`ratelimit:${key}`, windowSeconds);
+    }
   }
 
   const ttl = await redis.ttl(`ratelimit:${key}`);
@@ -55,6 +62,7 @@ export async function checkRateLimit(
     success: current <= limit,
     remaining: Math.max(0, limit - current),
     resetAt,
+    limit,
   };
 }
 

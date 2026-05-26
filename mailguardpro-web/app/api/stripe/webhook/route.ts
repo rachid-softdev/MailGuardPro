@@ -130,7 +130,7 @@ export async function POST(req: NextRequest) {
               let isFirstPayment = false;
 
               try {
-                const acquired = await redis.set(firstPaymentKey, "1", "NX", "EX", 31536000); // 1 an
+                const acquired = await redis.set(firstPaymentKey, "1", "NX", "EX", 2592000); // 30 jours
                 isFirstPayment = acquired === "OK";
               } catch (err) {
                 console.warn(`[Stripe] Redis check failed, assuming first payment:`, err);
