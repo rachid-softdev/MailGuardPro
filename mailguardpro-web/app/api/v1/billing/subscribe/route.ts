@@ -115,16 +115,20 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // Audit log
-    await logAudit({
-      userId: session.user.id,
-      action: AuditAction.SUBSCRIPTION_CREATED,
-      resource: AuditResource.SUBSCRIPTION,
-      metadata: {
-        plan: priceId,
-        subscriptionId: subscription.id,
-      },
-    });
+    // Audit log — non-fatal
+    try {
+      await logAudit({
+        userId: session.user.id,
+        action: AuditAction.SUBSCRIPTION_CREATED,
+        resource: AuditResource.SUBSCRIPTION,
+        metadata: {
+          plan: priceId,
+          subscriptionId: subscription.id,
+        },
+      });
+    } catch (err) {
+      console.error("[API] Audit log failed (non-fatal):", err);
+    }
 
     const latestInvoice = subscription.latest_invoice;
     const clientSecret =
