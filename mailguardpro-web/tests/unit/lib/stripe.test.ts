@@ -64,9 +64,9 @@ describe("stripe", () => {
       expect(getPlanFromPriceId(PRICES.BUSINESS)).toBe("BUSINESS");
     });
 
-    it("should return FREE for unknown price", async () => {
+    it("should return null for unknown price", async () => {
       const { getPlanFromPriceId } = await import("@/lib/stripe");
-      expect(getPlanFromPriceId("unknown_price")).toBe("FREE");
+      expect(getPlanFromPriceId("unknown_price")).toBeNull();
     });
   });
 

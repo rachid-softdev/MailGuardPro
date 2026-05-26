@@ -49,9 +49,13 @@ export async function checkRateLimit(
     await redis.expire(`ratelimit:${key}`, windowSeconds);
   } else {
     // Defence-in-depth: re-set TTL if key lacks one (e.g., Redis crash between INCR and EXPIRE)
-    const ttlCheck = await redis.ttl(`ratelimit:${key}`);
-    if (ttlCheck === -1) {
-      await redis.expire(`ratelimit:${key}`, windowSeconds);
+    try {
+      const ttlCheck = await redis.ttl(`ratelimit:${key}`);
+      if (ttlCheck === -1) {
+        await redis.expire(`ratelimit:${key}`, windowSeconds);
+      }
+    } catch (err) {
+      console.warn("[RateLimit] Failed to check/re-set TTL:", err);
     }
   }
 

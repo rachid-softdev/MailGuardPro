@@ -1,4 +1,4 @@
-import { validateResolvedIp } from "@/lib/ssrf";
+import { validateResolvedIp, validateWebhookUrl } from "@/lib/ssrf";
 import { describe, expect, it } from "vitest";
 
 describe("validateResolvedIp", () => {
@@ -126,5 +126,76 @@ describe("input validation", () => {
 
   it("should reject hostname", () => {
     expect(validateResolvedIp("example.com").valid).toBe(false);
+  });
+});
+
+describe("validateWebhookUrl", () => {
+  it("should allow valid HTTPS domain URL", () => {
+    expect(validateWebhookUrl("https://example.com/webhook").valid).toBe(true);
+  });
+
+  it("should allow HTTPS URL with path", () => {
+    const result = validateWebhookUrl("https://hooks.example.com/callback");
+    expect(result.valid).toBe(true);
+  });
+
+  it("should allow HTTPS URL with port", () => {
+    const result = validateWebhookUrl("https://hooks.example.com:8443/webhook");
+    expect(result.valid).toBe(true);
+  });
+
+  it("should allow HTTPS URL with trailing slash", () => {
+    const result = validateWebhookUrl("https://hooks.example.com/");
+    expect(result.valid).toBe(true);
+  });
+
+  it("should reject HTTP URL", () => {
+    const result = validateWebhookUrl("http://example.com/webhook");
+    expect(result.valid).toBe(false);
+    expect(result.error).toContain("HTTPS");
+  });
+
+  it("should reject private IP URL (127.0.0.1)", () => {
+    const result = validateWebhookUrl("https://127.0.0.1/webhook");
+    expect(result.valid).toBe(false);
+    expect(result.error).toMatch(/private IP|not allowed/i);
+  });
+
+  it("should reject public IP URL (domain names only)", () => {
+    const result = validateWebhookUrl("https://93.184.216.34/webhook");
+    expect(result.valid).toBe(false);
+    expect(result.error).toContain("Domain names only");
+  });
+
+  it("should reject IPv4-mapped IPv6 URL", () => {
+    const result = validateWebhookUrl("https://[::ffff:127.0.0.1]/webhook");
+    expect(result.valid).toBe(false);
+  });
+
+  it("should reject blocked hostname (localhost)", () => {
+    const result = validateWebhookUrl("https://localhost/webhook");
+    expect(result.valid).toBe(false);
+    expect(result.error).toContain("Internal hostnames");
+  });
+
+  it("should reject metadata.google.internal", () => {
+    const result = validateWebhookUrl("https://metadata.google.internal/");
+    expect(result.valid).toBe(false);
+  });
+
+  it("should reject 169.254.169.254 IP", () => {
+    const result = validateWebhookUrl("https://169.254.169.254/");
+    expect(result.valid).toBe(false);
+  });
+
+  it("should reject invalid URL format", () => {
+    const result = validateWebhookUrl("not-a-url");
+    expect(result.valid).toBe(false);
+    expect(result.error).toContain("Invalid URL format");
+  });
+
+  it("should reject IPv6 loopback URL [::1]", () => {
+    const result = validateWebhookUrl("https://[::1]/webhook");
+    expect(result.valid).toBe(false);
   });
 });

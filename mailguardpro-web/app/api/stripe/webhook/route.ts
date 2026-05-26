@@ -63,7 +63,8 @@ export async function POST(req: NextRequest) {
       if (user) {
         // Determine new plan from subscription (using shared mapping)
         const priceId = subscription.items.data[0]?.price.id ?? "";
-        const newPlan = subscription.status === "active" ? getPlanFromPriceId(priceId) : "FREE";
+        const mappedPlan = getPlanFromPriceId(priceId);
+        const newPlan = subscription.status === "active" && mappedPlan ? mappedPlan : "FREE";
 
         await prisma.user.update({
           where: { id: user.id },
@@ -124,7 +125,7 @@ export async function POST(req: NextRequest) {
             const priceId = subscription.items.data[0]?.price.id;
             const plan = getPlanFromPriceId(priceId ?? "");
 
-            if (plan !== "FREE") {
+            if (plan) {
               // Vérifier si c'est le premier paiement (crédits initiaux)
               const firstPaymentKey = `stripe:first_payment:${subscriptionId}`;
               let isFirstPayment = false;

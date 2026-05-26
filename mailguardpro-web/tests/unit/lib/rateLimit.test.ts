@@ -230,14 +230,13 @@ describe("rateLimits", () => {
         .mockResolvedValueOnce(-1) // else branch: key has no TTL
         .mockResolvedValueOnce(30); // resetAt calculation
 
-      const result = await checkRateLimitByPlan("test-user-w4", "FREE", "validate");
+      const result = await checkRateLimitByPlan("user-123", "FREE", "validate");
 
-      expect(mockRedisInstance.expire).toHaveBeenCalledWith(
-        "ratelimit:user:test-user-w4:validate",
-        60,
-      );
+      expect(mockRedisInstance.expire).toHaveBeenCalledWith("ratelimit:user:user-123:validate", 60);
       expect(result.success).toBe(true);
       expect(result.remaining).toBe(15);
+      // Verify resetAt is computed from the second TTL mock (30s)
+      expect(result.resetAt).toBeGreaterThan(Date.now());
     });
   });
 });

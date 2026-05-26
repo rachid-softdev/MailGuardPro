@@ -18,7 +18,7 @@ export const PRICES = {
 
 export type Plan = "FREE" | "STARTER" | "PRO" | "BUSINESS";
 
-export function getPlanFromPriceId(priceId: string): Plan {
+export function getPlanFromPriceId(priceId: string): Plan | null {
   switch (priceId) {
     case PRICES.STARTER:
       return "STARTER";
@@ -27,7 +27,7 @@ export function getPlanFromPriceId(priceId: string): Plan {
     case PRICES.BUSINESS:
       return "BUSINESS";
     default:
-      return "FREE";
+      return null;
   }
 }
 
