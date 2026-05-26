@@ -4,9 +4,9 @@ const BLOCKED_HOSTNAMES = [
   "localhost",
   "127.0.0.1",
   "0.0.0.0",
-  "[::1]",
-  "[::]",
-  "[0:0:0:0:0:0:0:1]",
+  "::1",
+  "::",
+  "0:0:0:0:0:0:0:1",
   "metadata.google.internal",
   "169.254.169.254",
   "metadata.internal",
@@ -63,15 +63,17 @@ export function validateWebhookUrl(urlString: string): {
   }
 
   const hostname = url.hostname.toLowerCase();
+  // new URL() retains brackets for IPv6 on some Node.js versions, strip them for matching
+  const normalizedHostname = hostname.replace(/^\[|\]$/g, "");
 
-  if (BLOCKED_HOSTNAMES.includes(hostname)) {
+  if (BLOCKED_HOSTNAMES.includes(normalizedHostname)) {
     return { valid: false, error: "Internal hostnames are not allowed" };
   }
 
-  if (isIP(hostname)) {
+  if (isIP(normalizedHostname)) {
     // Normalize IPv4-mapped IPv6 (::ffff:x.x.x.x → x.x.x.x) for pattern matching
-    const v4MappedMatch = hostname.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
-    const ipToCheck = v4MappedMatch ? v4MappedMatch[1] : hostname;
+    const v4MappedMatch = normalizedHostname.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
+    const ipToCheck = v4MappedMatch ? v4MappedMatch[1] : normalizedHostname;
     for (const pattern of PRIVATE_IP_PATTERNS) {
       if (pattern.test(ipToCheck)) {
         return { valid: false, error: "Private IP ranges are not allowed" };

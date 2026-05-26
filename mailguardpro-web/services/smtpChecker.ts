@@ -1,4 +1,4 @@
-// Vérification SMTP - Connexion réelle au serveur mail
+// SMTP check - actual connection to mail server
 
 import net from "net";
 import { redis } from "@/lib/redis";
@@ -45,7 +45,7 @@ function readResponse(socket: net.Socket, timeout = 5000): Promise<string> {
 
     socket.on("data", (chunk) => {
       data += chunk.toString();
-      // Fin de réponse SMTP (code + espace + message)
+      // End of SMTP response (code + space + message)
       if (data.match(/^\d{3}\s/)) {
         clearTimeout(timer);
         socket.removeAllListeners("data");
@@ -62,9 +62,9 @@ function randomDelay(): Promise<void> {
 }
 
 // Cache SMTP result to Redis with TTL
-async function cacheSmtpResult(domain: string, result: SMTPResult): Promise<SMTPResult> {
+async function cacheSmtpResult(email: string, result: SMTPResult): Promise<SMTPResult> {
   try {
-    const cacheKey = `smtp:domain:${domain}`;
+    const cacheKey = `smtp:email:${email}`;
     await redis.setex(cacheKey, 3600, JSON.stringify(result));
   } catch (err) {
     console.warn("[SMTP] Failed to cache result:", err);
@@ -77,7 +77,7 @@ export async function checkSMTP(email: string, timeoutMs = 5000): Promise<SMTPRe
 
   // Check Redis cache first (anti-enumeration)
   try {
-    const cacheKey = `smtp:domain:${domain}`;
+    const cacheKey = `smtp:email:${email}`;
     const cached = await redis.get(cacheKey);
     if (cached) {
       return JSON.parse(cached) as SMTPResult;
@@ -90,12 +90,12 @@ export async function checkSMTP(email: string, timeoutMs = 5000): Promise<SMTPRe
   await randomDelay();
 
   try {
-    // 1. Résoudre les MX records
+    // 1. Resolve MX records
     let mxRecords: dns.MxRecord[] = [];
     try {
       mxRecords = await dns.resolveMx(domain);
     } catch {
-      return await cacheSmtpResult(domain, {
+      return await cacheSmtpResult(email, {
         passed: false,
         weight: 30,
         message: "SMTP: domaine non résolu",
@@ -104,7 +104,7 @@ export async function checkSMTP(email: string, timeoutMs = 5000): Promise<SMTPRe
     }
 
     if (!mxRecords || mxRecords.length === 0) {
-      return await cacheSmtpResult(domain, {
+      return await cacheSmtpResult(email, {
         passed: false,
         weight: 30,
         message: "SMTP: aucun MX",
@@ -112,7 +112,7 @@ export async function checkSMTP(email: string, timeoutMs = 5000): Promise<SMTPRe
       });
     }
 
-    // Trier par priorité
+    // Sort by priority
     mxRecords.sort((a, b) => a.priority - b.priority);
     const mxHost = mxRecords[0].exchange;
 
@@ -125,7 +125,7 @@ export async function checkSMTP(email: string, timeoutMs = 5000): Promise<SMTPRe
       try {
         resolvedIps = await dns.resolve6(mxHost);
       } catch {
-        return await cacheSmtpResult(domain, {
+        return await cacheSmtpResult(email, {
           passed: false,
           weight: 30,
           message: "SMTP: MX resolution failed",
@@ -135,7 +135,7 @@ export async function checkSMTP(email: string, timeoutMs = 5000): Promise<SMTPRe
     }
 
     if (resolvedIps.length === 0) {
-      return await cacheSmtpResult(domain, {
+      return await cacheSmtpResult(email, {
         passed: false,
         weight: 30,
         message: "SMTP: aucune IP résolue",
@@ -147,7 +147,7 @@ export async function checkSMTP(email: string, timeoutMs = 5000): Promise<SMTPRe
     for (const ip of resolvedIps) {
       const ipCheck = validateResolvedIp(ip);
       if (!ipCheck.valid) {
-        return await cacheSmtpResult(domain, {
+        return await cacheSmtpResult(email, {
           passed: false,
           weight: 30,
           message: "SMTP: serveur non autorisé",
@@ -156,11 +156,11 @@ export async function checkSMTP(email: string, timeoutMs = 5000): Promise<SMTPRe
       }
     }
 
-    // 2. Tenter connexion sur port 25 (et fallback 587), itérer IPs
+    // 2. Try connecting on port 25 (and fallback 587), iterate IPs
     let socket: net.Socket | null = null;
     let lastError: Error | null = null;
 
-    const ipsToTry = resolvedIps.slice(0, 2); // Limiter à 2 IPs max pour éviter timeout
+    const ipsToTry = resolvedIps.slice(0, 2); // Limit to 2 IPs max to avoid timeout
     for (const ip of ipsToTry) {
       for (const port of [25, 587]) {
         try {
@@ -175,7 +175,7 @@ export async function checkSMTP(email: string, timeoutMs = 5000): Promise<SMTPRe
     }
 
     if (!socket) {
-      return await cacheSmtpResult(domain, {
+      return await cacheSmtpResult(email, {
         passed: false,
         weight: 30,
         message: "SMTP: connexion impossible",
@@ -192,9 +192,9 @@ export async function checkSMTP(email: string, timeoutMs = 5000): Promise<SMTPRe
       await sendCommand(socket, "MAIL FROM:<verify@mailguard.pro>");
       const mailResponse = await readResponse(socket, timeoutMs);
 
-      // Vérifier que le serveur accepte l'expéditeur
+      // Verify sender is accepted by server
       if (!mailResponse.startsWith("250")) {
-        return await cacheSmtpResult(domain, {
+        return await cacheSmtpResult(email, {
           passed: false,
           weight: 30,
           message: "SMTP: expéditeur refusé",
@@ -202,18 +202,18 @@ export async function checkSMTP(email: string, timeoutMs = 5000): Promise<SMTPRe
         });
       }
 
-      // 5. RCPT TO (tester l'email)
+      // 5. RCPT TO (test the email)
       await sendCommand(socket, `RCPT TO:<${email}>`);
       const rcptResponse = await readResponse(socket, timeoutMs);
 
-      // 6. QUIT propre
+      // 6. Send QUIT
       await sendCommand(socket, "QUIT");
       socket.destroy();
 
-      // Analyser la réponse
+      // Analyze the response
       if (rcptResponse.startsWith("250")) {
-        // Le serveur a accepté l'email
-        return await cacheSmtpResult(domain, {
+        // Server accepted the email
+        return await cacheSmtpResult(email, {
           passed: true,
           weight: 30,
           message: "Email délivrable",
@@ -221,8 +221,8 @@ export async function checkSMTP(email: string, timeoutMs = 5000): Promise<SMTPRe
           code: "250",
         });
       } else if (rcptResponse.startsWith("550")) {
-        // BoîteMail inexistante
-        return await cacheSmtpResult(domain, {
+        // Mailbox does not exist
+        return await cacheSmtpResult(email, {
           passed: false,
           weight: 30,
           message: "Boîte mail inexistante",
@@ -230,8 +230,8 @@ export async function checkSMTP(email: string, timeoutMs = 5000): Promise<SMTPRe
           code: "550",
         });
       } else if (rcptResponse.startsWith("553")) {
-        // Adresse non valide
-        return await cacheSmtpResult(domain, {
+        // Invalid address
+        return await cacheSmtpResult(email, {
           passed: false,
           weight: 30,
           message: "Adresse non valide",
@@ -239,8 +239,8 @@ export async function checkSMTP(email: string, timeoutMs = 5000): Promise<SMTPRe
           code: "553",
         });
       } else if (rcptResponse.startsWith("452") || rcptResponse.startsWith("451")) {
-        // Serveur temporairement indisponible
-        return await cacheSmtpResult(domain, {
+        // Temporarily unavailable
+        return await cacheSmtpResult(email, {
           passed: false,
           weight: 30,
           message: "Serveur temporairement indisponible",
@@ -248,8 +248,8 @@ export async function checkSMTP(email: string, timeoutMs = 5000): Promise<SMTPRe
           code: "452",
         });
       } else {
-        // Statut incertain
-        return await cacheSmtpResult(domain, {
+        // Uncertain status
+        return await cacheSmtpResult(email, {
           passed: false,
           weight: 30,
           message: "Statut incertain",
@@ -261,7 +261,7 @@ export async function checkSMTP(email: string, timeoutMs = 5000): Promise<SMTPRe
       throw error;
     }
   } catch (error) {
-    return await cacheSmtpResult(domain, {
+    return await cacheSmtpResult(email, {
       passed: false,
       weight: 30,
       message: "Erreur SMTP",

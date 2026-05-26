@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { getPlanFromPriceId, stripe } from "@/lib/stripe";
 import { AuditAction, AuditResource, logAudit } from "@/services/auditLogger";
 import { NextRequest, NextResponse } from "next/server";
+import Stripe from "stripe";
 
 export async function POST(req: NextRequest) {
   try {
@@ -44,7 +45,7 @@ export async function POST(req: NextRequest) {
 
     // Validate priceId against known pricing plans
     const plan = getPlanFromPriceId(priceId);
-    if (plan === "FREE") {
+    if (!plan) {
       return NextResponse.json(
         {
           success: false,
@@ -125,14 +126,18 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    const invoice = subscription.latest_invoice as any;
+    const latestInvoice = subscription.latest_invoice;
+    const clientSecret =
+      typeof latestInvoice === "object" && latestInvoice !== null
+        ? (latestInvoice as Stripe.Invoice).payment_intent?.client_secret
+        : undefined;
 
     return NextResponse.json({
       success: true,
       data: {
         subscriptionId: subscription.id,
         status: subscription.status,
-        clientSecret: invoice?.payment_intent?.client_secret,
+        clientSecret,
       },
     });
   } catch (error) {
