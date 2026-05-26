@@ -184,6 +184,18 @@ export async function checkSMTP(email: string, timeoutMs = 5000): Promise<SMTPRe
     }
 
     try {
+      // 2.5 Consommer la bannière du serveur SMTP (RFC 5321 §3.1)
+      const banner = await readResponse(socket, timeoutMs);
+      if (!banner.startsWith("220")) {
+        socket.destroy();
+        return await cacheSmtpResult(email, {
+          passed: false,
+          weight: 30,
+          message: "SMTP: serveur refuse la connexion",
+          detail: `Bannière non-220 reçue: ${banner}`,
+        });
+      }
+
       // 3. EHLO
       await sendCommand(socket, "EHLO mailguard.pro");
       const _ehloResponse = await readResponse(socket, timeoutMs);

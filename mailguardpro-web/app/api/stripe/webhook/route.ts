@@ -125,6 +125,14 @@ export async function POST(req: NextRequest) {
             const priceId = subscription.items.data[0]?.price.id;
             const plan = getPlanFromPriceId(priceId ?? "");
 
+            if (!plan) {
+              console.error(
+                `[Stripe] invoice.payment_succeeded: unknown priceId "${priceId}" ` +
+                  `for customer ${customerId}, subscription ${subscriptionId}. ` +
+                  `Plan not updated. Check STRIPE_PRICE_ID env vars.`,
+              );
+            }
+
             if (plan) {
               // Vérifier si c'est le premier paiement (crédits initiaux)
               const firstPaymentKey = `stripe:first_payment:${subscriptionId}`;
@@ -177,19 +185,27 @@ export async function POST(req: NextRequest) {
     case "invoice.payment_failed": {
       const invoice = event.data.object as Stripe.Invoice;
       const customerId = invoice.customer as string;
-      console.error(`[Stripe] Invoice payment failed: ${invoice.id}`);
+      const attemptCount = invoice.attempt_count ?? 1;
+      const threshold = Number(process.env.STRIPE_DOWNGRADE_ATTEMPT_THRESHOLD) || 3;
 
-      if (customerId) {
+      console.warn(
+        `[Stripe] Invoice ${invoice.id} payment failed (attempt ${attemptCount}/${threshold})`,
+      );
+
+      if (customerId && attemptCount >= threshold) {
         try {
           const user = await prisma.user.findFirst({
             where: { stripeCustomerId: customerId },
           });
           if (user) {
+            // TODO: envoyer email d'avertissement avant downgrade
             await prisma.user.update({
               where: { id: user.id },
               data: { plan: "FREE", stripeSubscriptionId: null },
             });
-            console.log(`[Stripe] User ${user.id} reverted to FREE due to payment failure`);
+            console.log(
+              `[Stripe] User ${user.id} reverted to FREE after ${attemptCount} failed attempts`,
+            );
           }
         } catch (error) {
           console.error("[Stripe] Failed to process payment failure:", error);

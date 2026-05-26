@@ -1,5 +1,7 @@
 import { isIP } from "net";
 
+const IPV4_MAPPED_IPV6_RE = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/;
+
 const BLOCKED_HOSTNAMES = [
   "localhost",
   "127.0.0.1",
@@ -37,7 +39,7 @@ export function validateResolvedIp(ip: string): { valid: boolean; error?: string
   }
 
   // Normalize IPv4-mapped IPv6 (::ffff:x.x.x.x → x.x.x.x) for pattern matching
-  const v4MappedMatch = normalizedIp.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
+  const v4MappedMatch = normalizedIp.match(IPV4_MAPPED_IPV6_RE);
   const ipToCheck = v4MappedMatch ? v4MappedMatch[1] : normalizedIp;
   for (const pattern of PRIVATE_IP_PATTERNS) {
     if (pattern.test(ipToCheck)) {
@@ -72,7 +74,7 @@ export function validateWebhookUrl(urlString: string): {
 
   if (isIP(normalizedHostname)) {
     // Normalize IPv4-mapped IPv6 (::ffff:x.x.x.x → x.x.x.x) for pattern matching
-    const v4MappedMatch = normalizedHostname.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
+    const v4MappedMatch = normalizedHostname.match(IPV4_MAPPED_IPV6_RE);
     const ipToCheck = v4MappedMatch ? v4MappedMatch[1] : normalizedHostname;
     for (const pattern of PRIVATE_IP_PATTERNS) {
       if (pattern.test(ipToCheck)) {

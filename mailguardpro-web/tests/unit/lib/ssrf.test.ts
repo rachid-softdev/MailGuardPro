@@ -198,4 +198,9 @@ describe("validateWebhookUrl", () => {
     const result = validateWebhookUrl("https://[::1]/webhook");
     expect(result.valid).toBe(false);
   });
+
+  it("should reject IPv6 loopback URL [::1] with non-default port", () => {
+    const result = validateWebhookUrl("https://[::1]:8443/webhook");
+    expect(result.valid).toBe(false);
+  });
 });

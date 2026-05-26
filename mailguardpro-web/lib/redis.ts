@@ -81,7 +81,11 @@ export function subscribeToProgress(jobId: string, callback: (data: unknown) => 
   subscriber.subscribe(`job:${jobId}:progress`);
 
   subscriber.on("message", (_channel, message) => {
-    callback(JSON.parse(message));
+    try {
+      callback(JSON.parse(message));
+    } catch (err) {
+      console.warn("[Redis] Failed to parse progress message:", err);
+    }
   });
 
   return () => {

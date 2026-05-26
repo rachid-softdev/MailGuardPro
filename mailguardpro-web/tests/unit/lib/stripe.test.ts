@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // Mock stripe
 vi.mock("stripe", () => ({
@@ -70,44 +70,17 @@ describe("stripe", () => {
     });
   });
 
-  describe("Plan type", () => {
-    it("should allow FREE plan", async () => {
-      const { getPlanFromPriceId, Plan } = await import("@/lib/stripe");
-
-      // Type checking
-      const plan: Plan = "FREE";
-      expect(plan).toBe("FREE");
-    });
-
-    it("should allow STARTER plan", async () => {
-      const { Plan } = await import("@/lib/stripe");
-      const plan: Plan = "STARTER";
-      expect(plan).toBe("STARTER");
-    });
-
-    it("should allow PRO plan", async () => {
-      const { Plan } = await import("@/lib/stripe");
-      const plan: Plan = "PRO";
-      expect(plan).toBe("PRO");
-    });
-
-    it("should allow BUSINESS plan", async () => {
-      const { Plan } = await import("@/lib/stripe");
-      const plan: Plan = "BUSINESS";
-      expect(plan).toBe("BUSINESS");
-    });
-  });
-
   describe("default price IDs", () => {
     it("should use default if env vars not set", async () => {
+      vi.resetModules();
       delete process.env.STRIPE_STARTER_PRICE_ID;
       delete process.env.STRIPE_PRO_PRICE_ID;
       delete process.env.STRIPE_BUSINESS_PRICE_ID;
 
-      // Re-import would fail because stripe is already imported
-      // This test just confirms the structure
       const { PRICES } = await import("@/lib/stripe");
-      expect(PRICES.STARTER).toBeDefined();
+      expect(PRICES.STARTER).toBe("price_starter_monthly");
+      expect(PRICES.PRO).toBe("price_pro_monthly");
+      expect(PRICES.BUSINESS).toBe("price_business_monthly");
     });
   });
 });
