@@ -1,9 +1,15 @@
-// API Route: Liste des jobs bulk pour l'utilisateur
+// API Route: List bulk jobs for the user
 // GET /api/v1/bulk
 
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
+
+const bulkQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(100).default(10),
+  offset: z.coerce.number().int().min(0).default(0),
+});
 
 export async function GET(req: NextRequest) {
   try {
@@ -17,8 +23,23 @@ export async function GET(req: NextRequest) {
     }
 
     const { searchParams } = new URL(req.url);
-    const limit = parseInt(searchParams.get("limit") || "10");
-    const offset = parseInt(searchParams.get("offset") || "0");
+    const queryValidation = bulkQuerySchema.safeParse({
+      limit: searchParams.get("limit") || undefined,
+      offset: searchParams.get("offset") || undefined,
+    });
+
+    if (!queryValidation.success) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Invalid query parameters",
+          details: queryValidation.error.errors,
+        },
+        { status: 400 },
+      );
+    }
+
+    const { limit, offset } = queryValidation.data;
 
     // Récupérer les jobs
     const [jobs, total] = await Promise.all([

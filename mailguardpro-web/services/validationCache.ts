@@ -4,8 +4,8 @@
 import { redis } from "@/lib/redis";
 import { ValidationResult } from "./types";
 
-// TTL: 24 heures pour les résultats de validation
-const CACHE_TTL_SECONDS = 60 * 60 * 24;
+// TTL: 4 hours for validation results
+const CACHE_TTL_SECONDS = 60 * 60 * 4;
 
 // TTL plus court pour les domaines (les MX peuvent changer)
 const DOMAIN_CACHE_TTL_SECONDS = 60 * 60 * 2; // 2 heures

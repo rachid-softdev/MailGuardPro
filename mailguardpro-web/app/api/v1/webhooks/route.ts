@@ -1,6 +1,6 @@
-// API Route: Gestion des webhooks
-// GET /api/v1/webhooks - Lister les webhooks
-// POST /api/v1/webhooks - Créer un webhook
+// API Route: Webhook management
+// GET /api/v1/webhooks - List webhooks
+// POST /api/v1/webhooks - Create a webhook
 
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -110,7 +110,7 @@ export async function POST(req: NextRequest) {
     });
 
     // Audit log
-    logAudit({
+    void logAudit({
       userId: session.user.id,
       action: AuditAction.WEBHOOK_CREATED,
       resource: AuditResource.WEBHOOK,
@@ -126,6 +126,7 @@ export async function POST(req: NextRequest) {
         url: webhook.url,
         name: webhook.name,
         events: webhook.events,
+        secret: webhook.secret,
         isActive: webhook.isActive,
         createdAt: webhook.createdAt,
       },
