@@ -108,20 +108,23 @@ export async function POST(req: NextRequest) {
       resource: AuditResource.API_KEY,
       resourceId: newKey.id,
       ipAddress: getClientIp(req) !== "unknown" ? getClientIp(req) : undefined,
-      metadata: { keyName: name.trim(), keyPrefix },
+      metadata: { keyName: name.trim() },
     });
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        id: newKey.id,
-        key: apiKey, // Retourner seulement une fois!
-        keyPrefix: newKey.keyPrefix,
-        name: newKey.name,
-        isActive: newKey.isActive,
-        createdAt: newKey.createdAt,
+    return NextResponse.json(
+      {
+        success: true,
+        data: {
+          id: newKey.id,
+          key: apiKey, // Retourner seulement une fois!
+          keyPrefix: newKey.keyPrefix,
+          name: newKey.name,
+          isActive: newKey.isActive,
+          createdAt: newKey.createdAt,
+        },
       },
-    });
+      { status: 201 },
+    );
   } catch (error) {
     console.error("[API] API key create error:", error);
     return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 });

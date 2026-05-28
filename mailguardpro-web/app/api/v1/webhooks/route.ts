@@ -121,18 +121,21 @@ export async function POST(req: NextRequest) {
       metadata: { webhookName: name, url, events },
     });
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        id: webhook.id,
-        url: webhook.url,
-        name: webhook.name,
-        events: webhook.events,
-        rawSecret,
-        isActive: webhook.isActive,
-        createdAt: webhook.createdAt,
+    return NextResponse.json(
+      {
+        success: true,
+        data: {
+          id: webhook.id,
+          url: webhook.url,
+          name: webhook.name,
+          events: webhook.events,
+          rawSecret,
+          isActive: webhook.isActive,
+          createdAt: webhook.createdAt,
+        },
       },
-    });
+      { status: 201 },
+    );
   } catch (error) {
     console.error("[API] Webhook create error:", error);
     return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 });

@@ -158,15 +158,35 @@ export async function validateWebhookUrlWithDns(urlString: string): Promise<{
  * Parses X-Forwarded-For chain and takes the first valid IP.
  */
 export function getClientIp(req: { headers: Headers | Map<string, string> }): string {
+  // 1. X-Real-IP (set by Nginx/Cloudflare, more trustworthy)
+  const realIp =
+    typeof req.headers.get === "function"
+      ? req.headers.get("x-real-ip")
+      : (req.headers as Map<string, string>).get("x-real-ip");
+  if (realIp && isIP(realIp) !== 0) return realIp;
+
+  // 2. CF-Connecting-IP (Cloudflare)
+  const cfIp =
+    typeof req.headers.get === "function"
+      ? req.headers.get("cf-connecting-ip")
+      : (req.headers as Map<string, string>).get("cf-connecting-ip");
+  if (cfIp && isIP(cfIp) !== 0) return cfIp;
+
+  // 3. X-Forwarded-For — take the LAST IP (closest to server)
   const xff =
     typeof req.headers.get === "function"
       ? req.headers.get("x-forwarded-for")
       : (req.headers as Map<string, string>).get("x-forwarded-for");
   if (xff) {
-    const ips = xff.split(",").map((s: string) => s.trim());
-    for (const ip of ips) {
-      if (isIP(ip) !== 0) return ip;
+    const ips = xff
+      .split(",")
+      .map((s: string) => s.trim())
+      .filter(Boolean);
+    // Take the last valid IP (after proxies)
+    for (let i = ips.length - 1; i >= 0; i--) {
+      if (isIP(ips[i]) !== 0) return ips[i];
     }
   }
+
   return "unknown";
 }

@@ -29,36 +29,35 @@ export default auth((req) => {
   requestHeaders.set("x-csp-nonce", nonce);
 
   const isLoggedIn = !!req.auth;
-  const isOnDashboard = req.nextUrl.pathname.startsWith("/dashboard");
-  const isOnValidate = req.nextUrl.pathname.startsWith("/validate");
-  const isOnBulk = req.nextUrl.pathname.startsWith("/bulk");
-  const isOnApiKeys = req.nextUrl.pathname.startsWith("/api-keys");
-  const isOnWebhooks = req.nextUrl.pathname.startsWith("/webhooks");
-  const isOnSettings = req.nextUrl.pathname.startsWith("/settings");
 
-  // Routes publiques qui ne nécessitent pas d'auth
+  const PROTECTED_ROUTES = [
+    "/dashboard",
+    "/validate",
+    "/bulk",
+    "/api-keys",
+    "/webhooks",
+    "/settings",
+  ];
+
+  const PUBLIC_ROUTES = ["/", "/login", "/verify"];
+
+  const PUBLIC_API_PREFIXES = ["/docs", "/pricing", "/api/v1/tools", "/api/auth"];
+
+  const isProtectedRoute = PROTECTED_ROUTES.some(
+    (route) => req.nextUrl.pathname === route || req.nextUrl.pathname.startsWith(route + "/"),
+  );
+
   const isPublicRoute =
-    req.nextUrl.pathname === "/" ||
-    req.nextUrl.pathname === "/login" ||
-    req.nextUrl.pathname === "/verify" ||
-    req.nextUrl.pathname.startsWith("/docs") ||
-    req.nextUrl.pathname.startsWith("/pricing") ||
-    req.nextUrl.pathname.startsWith("/api/v1/tools") ||
-    req.nextUrl.pathname.startsWith("/api/auth");
+    PUBLIC_ROUTES.includes(req.nextUrl.pathname) ||
+    PUBLIC_API_PREFIXES.some((prefix) => req.nextUrl.pathname.startsWith(prefix));
 
-  if (
-    !isPublicRoute &&
-    (isOnDashboard || isOnValidate || isOnBulk || isOnApiKeys || isOnWebhooks || isOnSettings)
-  ) {
-    if (!isLoggedIn) {
-      const loginUrl = new URL("/login", req.url);
-      loginUrl.searchParams.set("callbackUrl", req.url);
-      return NextResponse.redirect(loginUrl);
-    }
+  if (!isPublicRoute && isProtectedRoute && !isLoggedIn) {
+    const loginUrl = new URL("/login", req.url);
+    loginUrl.searchParams.set("callbackUrl", req.url);
+    return NextResponse.redirect(loginUrl);
   }
 
-  // Rediriger vers dashboard si déjà connecté et sur login
-  if (isLoggedIn && (req.nextUrl.pathname === "/login" || req.nextUrl.pathname === "/")) {
+  if (isLoggedIn && req.nextUrl.pathname === "/login") {
     return NextResponse.redirect(new URL("/dashboard", req.url));
   }
 

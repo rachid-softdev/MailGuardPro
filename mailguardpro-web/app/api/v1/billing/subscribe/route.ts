@@ -1,6 +1,7 @@
 // API Route: Subscribe to a plan
 // POST /api/v1/billing/subscribe
 
+import crypto from "node:crypto";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getPlanFromPriceId, stripe } from "@/lib/stripe";
@@ -95,17 +96,21 @@ export async function POST(req: NextRequest) {
     });
 
     // Create subscription
-    const subscription = await stripe.subscriptions.create({
-      customer: customerId,
-      items: [
-        {
-          price: priceId,
-        },
-      ],
-      payment_behavior: "default_incomplete",
-      payment_settings: { save_default_payment_method: "on_subscription" },
-      expand: ["latest_invoice.payment_intent"],
-    });
+    const idempotencyKey = crypto.randomUUID();
+    const subscription = await stripe.subscriptions.create(
+      {
+        customer: customerId,
+        items: [
+          {
+            price: priceId,
+          },
+        ],
+        payment_behavior: "default_incomplete",
+        payment_settings: { save_default_payment_method: "on_subscription" },
+        expand: ["latest_invoice.payment_intent"],
+      },
+      { idempotencyKey: `mg-sub-${session.user.id}-${idempotencyKey}` },
+    );
 
     // Store subscription reference; plan will be set by webhook after payment confirmation
     await prisma.user.update({
