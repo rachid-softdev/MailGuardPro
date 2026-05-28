@@ -11,6 +11,7 @@ const { mockRedisInstance } = vi.hoisted(() => {
     expire: vi.fn().mockResolvedValue(1),
     ttl: vi.fn().mockResolvedValue(60),
     publish: vi.fn().mockResolvedValue(1),
+    eval: vi.fn().mockResolvedValue([1, 60]),
     duplicate: vi.fn(),
     disconnect: vi.fn(),
     subscribe: vi.fn(),

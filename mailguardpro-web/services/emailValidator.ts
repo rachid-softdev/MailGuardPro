@@ -11,7 +11,7 @@ import { getDomainReputation } from "./reputationScorer";
 import { checkSMTP } from "./smtpChecker";
 import { ValidationChecks, ValidationResult } from "./types";
 import { checkTypo } from "./typoChecker";
-import { getCachedValidation, setCachedValidation } from "./validationCache";
+import { checkEmailRateLimit, getCachedValidation, setCachedValidation } from "./validationCache";
 
 export async function validateEmail(email: string): Promise<ValidationResult> {
   const startTime = Date.now();
@@ -27,6 +27,35 @@ export async function validateEmail(email: string): Promise<ValidationResult> {
   }
 
   const domain = email.split("@")[1] || "";
+
+  // Rate limit check for anti-enumeration
+  const withinLimit = await checkEmailRateLimit(email);
+  if (!withinLimit) {
+    return {
+      email,
+      score: 0,
+      status: "unknown",
+      checks: {
+        format: {
+          passed: false,
+          weight: 15,
+          message: "Rate limited",
+          detail: "Too many requests for this email",
+        },
+        mx: { passed: false, weight: 25, message: "Not checked", detail: "" },
+        smtp: { passed: false, weight: 30, message: "Not checked", detail: "" },
+        catchAll: { passed: false, weight: 10, message: "Not checked", detail: "" },
+        disposable: { passed: false, weight: 10, message: "Not checked", detail: "" },
+        generic: { passed: false, weight: 5, message: "Not checked", detail: "" },
+        freeProvider: { passed: false, weight: 0, message: "Not checked", detail: "" },
+        dnsbl: { passed: true, weight: 0, message: "Not checked", detail: "" },
+        spf: { passed: false, weight: 0, message: "Not checked", detail: "" },
+        dmarc: { passed: false, weight: 0, message: "Not checked", detail: "" },
+        typo: { passed: true, weight: 0, message: "Not checked", detail: "" },
+      },
+      processingTimeMs: 0,
+    };
+  }
 
   // Run all checks in parallel to optimize total time
   const [

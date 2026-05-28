@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { headers } from "next/headers";
 
 export const metadata: Metadata = {
   title: "MailGuard Pro - Email Intelligence Platform",
@@ -8,11 +9,15 @@ export const metadata: Metadata = {
   keywords: ["email validation", "email verifier", "bulk email validation", "email quality score"],
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const headersList = await headers();
+  const nonce = headersList.get("x-csp-nonce") ?? "";
+
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
         <script
+          nonce={nonce}
           dangerouslySetInnerHTML={{
             __html: `
               (function() {

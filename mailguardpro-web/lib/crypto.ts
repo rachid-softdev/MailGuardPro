@@ -1,5 +1,49 @@
 import crypto from "node:crypto";
 
+// === TOKEN ENCRYPTION ===
+
+const TOKEN_ENCRYPTION_KEY = process.env.TOKEN_ENCRYPTION_KEY;
+if (!TOKEN_ENCRYPTION_KEY || Buffer.from(TOKEN_ENCRYPTION_KEY, "hex").length !== 32) {
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("TOKEN_ENCRYPTION_KEY must be a 64-char hex string (32 bytes) in production");
+  }
+  console.warn("TOKEN_ENCRYPTION_KEY not configured — tokens stored in plaintext");
+}
+
+const ALGORITHM = "aes-256-gcm";
+const IV_LENGTH = 16;
+
+export function encryptToken(plaintext: string): string {
+  if (!TOKEN_ENCRYPTION_KEY) return plaintext; // fallback during dev
+  const iv = crypto.randomBytes(IV_LENGTH);
+  const cipher = crypto.createCipheriv(ALGORITHM, Buffer.from(TOKEN_ENCRYPTION_KEY, "hex"), iv);
+  let encrypted = cipher.update(plaintext, "utf8", "hex");
+  encrypted += cipher.final("hex");
+  const authTag = cipher.getAuthTag().toString("hex");
+  return `${iv.toString("hex")}:${authTag}:${encrypted}`;
+}
+
+export function decryptToken(ciphertext: string): string {
+  if (!TOKEN_ENCRYPTION_KEY) return ciphertext; // fallback during dev
+  try {
+    const parts = ciphertext.split(":");
+    if (parts.length !== 3) return ciphertext; // not encrypted
+    const [ivHex, authTagHex, encrypted] = parts;
+    const decipher = crypto.createDecipheriv(
+      ALGORITHM,
+      Buffer.from(TOKEN_ENCRYPTION_KEY, "hex"),
+      Buffer.from(ivHex, "hex"),
+    );
+    decipher.setAuthTag(Buffer.from(authTagHex, "hex"));
+    let decrypted = decipher.update(encrypted, "hex", "utf8");
+    decrypted += decipher.final("utf8");
+    return decrypted;
+  } catch (error) {
+    console.error("[Crypto] Token decryption failed:", error);
+    throw new Error("Failed to decrypt token — possible key rotation or data corruption");
+  }
+}
+
 /**
  * API key hashing utilities.
  *

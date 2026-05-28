@@ -6,6 +6,7 @@ const { mockPrisma, mockRedis } = vi.hoisted(() => ({
     bulkJob: {
       create: vi.fn(),
       findUnique: vi.fn(),
+      findFirst: vi.fn(),
       findMany: vi.fn(),
       update: vi.fn(),
     },
@@ -16,6 +17,23 @@ const { mockPrisma, mockRedis } = vi.hoisted(() => ({
       aggregate: vi.fn(),
       create: vi.fn(),
     },
+    user: {
+      updateMany: vi.fn(),
+    },
+    $transaction: vi.fn((cb: (tx: any) => Promise<any>) => {
+      // Execute the callback with a mock transactional client
+      return cb({
+        user: {
+          updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+        },
+        bulkJob: {
+          create: vi.fn().mockResolvedValue({ id: "test-uuid-123", userId: "user-123" }),
+        },
+        validation: {
+          create: vi.fn(),
+        },
+      });
+    }),
     $queryRaw: vi.fn().mockResolvedValue([]),
   },
   mockRedis: {
@@ -141,7 +159,7 @@ describe("bulkProcessor", () => {
 
   describe("getBulkJobStatus", () => {
     it("should return null for non-existent job", async () => {
-      mockPrisma.bulkJob.findUnique.mockResolvedValue(null);
+      mockPrisma.bulkJob.findFirst.mockResolvedValue(null);
 
       const result = await getBulkJobStatus("nonexistent-job");
 
@@ -149,7 +167,7 @@ describe("bulkProcessor", () => {
     });
 
     it("should return job status with percentage", async () => {
-      mockPrisma.bulkJob.findUnique.mockResolvedValue({
+      mockPrisma.bulkJob.findFirst.mockResolvedValue({
         id: "job-123",
         status: "PROCESSING",
         totalEmails: 100,
@@ -163,6 +181,69 @@ describe("bulkProcessor", () => {
       expect(result).not.toBeNull();
       expect(result?.percentage).toBe(50);
       expect(result?.status).toBe("PROCESSING");
+    });
+
+    it("should return job when userId matches (authorized access)", async () => {
+      const jobData = {
+        id: "job-123",
+        userId: "user-abc",
+        status: "COMPLETED",
+        totalEmails: 200,
+        processed: 200,
+        filename: "test.csv",
+        createdAt: new Date(),
+      };
+      mockPrisma.bulkJob.findFirst.mockResolvedValue(jobData);
+
+      const result = await getBulkJobStatus("job-123", "user-abc");
+
+      expect(result).not.toBeNull();
+      expect(result?.status).toBe("COMPLETED");
+      // Must pass userId in the where clause
+      expect(mockPrisma.bulkJob.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: "job-123", userId: "user-abc" },
+        }),
+      );
+    });
+
+    it("should return null when userId does not match (unauthorized access)", async () => {
+      mockPrisma.bulkJob.findFirst.mockResolvedValue(null);
+
+      const result = await getBulkJobStatus("job-123", "user-wrong");
+
+      expect(result).toBeNull();
+      expect(mockPrisma.bulkJob.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: "job-123", userId: "user-wrong" },
+        }),
+      );
+    });
+
+    it("should return job without userId filter when called without userId (worker usage)", async () => {
+      const jobData = {
+        id: "job-123",
+        status: "PROCESSING",
+        totalEmails: 100,
+        processed: 50,
+        filename: "test.csv",
+        createdAt: new Date(),
+      };
+      mockPrisma.bulkJob.findFirst.mockResolvedValue(jobData);
+
+      const result = await getBulkJobStatus("job-123");
+
+      expect(result).not.toBeNull();
+      expect(result?.status).toBe("PROCESSING");
+      // Without userId, should only filter by id
+      expect(mockPrisma.bulkJob.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: "job-123" },
+        }),
+      );
+      // userId should NOT be in the where clause
+      const callArgs = mockPrisma.bulkJob.findFirst.mock.calls[0][0];
+      expect(callArgs.where.userId).toBeUndefined();
     });
   });
 

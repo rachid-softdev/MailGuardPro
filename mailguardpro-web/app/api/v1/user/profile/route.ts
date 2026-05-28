@@ -5,6 +5,11 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
+
+const updateProfileSchema = z.object({
+  name: z.string().min(1).max(100).optional(),
+});
 
 export async function GET(req: NextRequest) {
   try {
@@ -53,7 +58,14 @@ export async function PATCH(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { name } = body;
+    const validation = updateProfileSchema.safeParse(body);
+    if (!validation.success) {
+      return NextResponse.json(
+        { success: false, error: "Invalid input", details: validation.error.errors },
+        { status: 400 },
+      );
+    }
+    const { name } = validation.data;
 
     // Update user
     const updated = await prisma.user.update({

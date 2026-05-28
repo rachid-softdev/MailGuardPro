@@ -43,7 +43,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ received: true, deduplicated: true });
     }
   } catch (err) {
-    console.warn(`[Stripe] Redis unavailable, skipping deduplication:`, err);
+    console.error(`[Stripe] Redis unavailable — cannot guarantee idempotency:`, err);
+    return NextResponse.json(
+      { error: "Service temporarily unavailable" },
+      { status: 503, headers: { "Retry-After": "10" } },
+    );
   }
 
   switch (event.type) {

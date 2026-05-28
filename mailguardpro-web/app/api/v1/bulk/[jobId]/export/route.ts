@@ -102,6 +102,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ jobI
       return NextResponse.json({ success: false, error: "Job not found" }, { status: 404 });
     }
 
+    if (job.userId !== session.user.id) {
+      return NextResponse.json({ success: false, error: "Job not found" }, { status: 404 });
+    }
+
     // Préparer les filtres
     const exportFilters = {
       status: validated.data.status?.split(","),

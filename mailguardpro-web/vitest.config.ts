@@ -10,6 +10,10 @@ export default defineConfig({
       reporter: ["text", "json", "html"],
       reportsDirectory: "coverage",
     },
+    env: {
+      API_KEY_PEPPER: "test-pepper-00000000000000000000000000000000",
+      TOKEN_ENCRYPTION_KEY: "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789",
+    },
   },
   resolve: {
     alias: {

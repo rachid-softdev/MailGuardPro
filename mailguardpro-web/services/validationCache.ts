@@ -1,7 +1,7 @@
 // Validation Cache Service
 // Cache les résultats de validation pour améliorer les performances
 
-import { redis } from "@/lib/redis";
+import { checkRateLimit, redis } from "@/lib/redis";
 import { ValidationResult } from "./types";
 
 // TTL: 4 hours for validation results
@@ -150,4 +150,18 @@ export async function clearAllValidationCaches(): Promise<number> {
   }
 
   return cleared;
+}
+
+/**
+ * Per-email rate limiting to prevent enumeration attacks.
+ * Allows 5 validation requests per email per hour.
+ * Fail-open: returns true (allow) if Redis is unavailable.
+ */
+export async function checkEmailRateLimit(email: string): Promise<boolean> {
+  try {
+    const result = await checkRateLimit(`smtp-rate:${email.toLowerCase()}`, 5, 3600);
+    return result.success;
+  } catch {
+    return true; // Fail open
+  }
 }

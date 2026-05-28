@@ -186,9 +186,12 @@ export async function processBulkUpload(
 }
 
 // Function to get job status
-export async function getBulkJobStatus(jobId: string) {
-  const job = await prisma.bulkJob.findUnique({
-    where: { id: jobId },
+export async function getBulkJobStatus(jobId: string, userId?: string) {
+  const where: any = { id: jobId };
+  if (userId) where.userId = userId;
+
+  const job = await prisma.bulkJob.findFirst({
+    where,
     select: {
       id: true,
       status: true,
