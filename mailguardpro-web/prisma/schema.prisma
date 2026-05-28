@@ -140,14 +140,15 @@ model BulkJob {
 }
 
 model Webhook {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  url       String
-  events    String[] // ['bulk_job_completed', 'daily_report']
-  secret    String   // Secret pour HMAC signing
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  url             String
+  name            String?
+  events          String[] // ['bulk_job_completed', 'daily_report']
+  encryptedSecret String   @db.Text // Secret pour HMAC signing (AES-256-GCM encrypted)
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
 }
 
 model RateLimit {

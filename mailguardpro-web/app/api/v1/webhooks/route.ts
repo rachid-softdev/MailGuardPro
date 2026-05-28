@@ -3,8 +3,9 @@
 // POST /api/v1/webhooks - Create a webhook
 
 import { auth } from "@/lib/auth";
+import { encryptToken } from "@/lib/crypto";
 import { prisma } from "@/lib/prisma";
-import { validateWebhookUrl } from "@/lib/ssrf";
+import { validateWebhookUrlWithDns } from "@/lib/ssrf";
 import { AuditAction, AuditResource, logAudit } from "@/services/auditLogger";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
@@ -74,8 +75,8 @@ export async function POST(req: NextRequest) {
 
     const { url, name, events } = validation.data;
 
-    // SSRF validation + HTTPS enforcement
-    const ssrfCheck = validateWebhookUrl(url);
+    // SSRF validation + HTTPS enforcement with DNS resolution
+    const ssrfCheck = await validateWebhookUrlWithDns(url);
     if (!ssrfCheck.valid) {
       return NextResponse.json(
         { success: false, error: `Webhook URL rejected: ${ssrfCheck.error}` },
@@ -95,16 +96,17 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Générer un secret pour le webhook
+    // Générer un secret pour le webhook et le chiffrer avant stockage
     const crypto = await import("crypto");
-    const secret = crypto.randomBytes(32).toString("hex");
+    const rawSecret = crypto.randomBytes(32).toString("hex");
+    const encryptedSecret = encryptToken(rawSecret);
 
     const webhook = await prisma.webhook.create({
       data: {
         url,
         name,
         events,
-        secret,
+        encryptedSecret,
         userId: session.user.id,
       },
     });
@@ -126,7 +128,7 @@ export async function POST(req: NextRequest) {
         url: webhook.url,
         name: webhook.name,
         events: webhook.events,
-        secret: webhook.secret,
+        rawSecret,
         isActive: webhook.isActive,
         createdAt: webhook.createdAt,
       },

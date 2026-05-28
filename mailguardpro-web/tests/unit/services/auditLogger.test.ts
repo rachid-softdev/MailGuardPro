@@ -8,6 +8,19 @@ import {
 } from "@/services/auditLogger";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+// Mock prisma to prevent real PrismaClient instantiation at import time
+vi.mock("@/lib/prisma", () => ({
+  prisma: {
+    auditLog: {
+      create: vi.fn(),
+      findMany: vi.fn(),
+    },
+    user: {
+      findUnique: vi.fn(),
+    },
+  },
+}));
+
 describe("auditLogger", () => {
   beforeEach(() => {
     vi.clearAllMocks();

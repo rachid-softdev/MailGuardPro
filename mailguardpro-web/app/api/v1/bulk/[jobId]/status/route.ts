@@ -19,14 +19,11 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ jobI
     }
 
     // Récupérer le statut
-    const status = await getBulkJobStatus(jobId);
+    const status = await getBulkJobStatus(jobId, session.user.id);
 
     if (!status) {
       return NextResponse.json({ success: false, error: "Job not found" }, { status: 404 });
     }
-
-    // Vérifier que l'utilisateur est propriétaire du job
-    // Note: à implémenter avec une vérification userId
 
     return NextResponse.json({
       success: true,

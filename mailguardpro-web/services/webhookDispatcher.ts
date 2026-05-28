@@ -1,8 +1,9 @@
 // Service de dispatch des webhooks sortants
 
 import crypto from "crypto";
+import { decryptToken } from "@/lib/crypto";
 import { prisma } from "@/lib/prisma";
-import { validateWebhookUrl } from "@/lib/ssrf";
+import { validateWebhookUrlWithDns } from "@/lib/ssrf";
 
 export interface WebhookPayload {
   event: string;
@@ -33,8 +34,8 @@ export class WebhookDispatcher {
       return false;
     }
 
-    // SSRF check
-    const ssrfCheck = validateWebhookUrl(webhook.url);
+    // SSRF check with DNS resolution
+    const ssrfCheck = await validateWebhookUrlWithDns(webhook.url);
     if (!ssrfCheck.valid) {
       console.error(`[Webhook] SSRF blocked: ${webhook.url} - ${ssrfCheck.error}`);
       return false;
@@ -46,7 +47,9 @@ export class WebhookDispatcher {
       data,
     };
 
-    const signature = this.generateSignature(payload, webhook.secret);
+    // Decrypt the stored secret before signing
+    const rawSecret = decryptToken(webhook.secret);
+    const signature = this.generateSignature(payload, rawSecret);
 
     let lastError: Error | null = null;
 
@@ -106,7 +109,7 @@ export class WebhookDispatcher {
           {
             id: webhook.id,
             url: webhook.url,
-            secret: webhook.secret,
+            secret: webhook.encryptedSecret,
             events: webhook.events,
             isActive: webhook.isActive,
           },
