@@ -1,4 +1,5 @@
 import { isIP } from "net";
+import dns from "dns/promises";
 
 const IPV4_MAPPED_IPV6_RE = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/;
 
@@ -86,4 +87,86 @@ export function validateWebhookUrl(urlString: string): {
   }
 
   return { valid: true };
+}
+
+/**
+ * Validates a webhook URL including DNS resolution of the hostname.
+ * Resolves the hostname to IP addresses and validates each one.
+ * This prevents DNS rebinding attacks where a hostname resolves to
+ * a private/internal IP after the initial validation.
+ */
+export async function validateWebhookUrlWithDns(urlString: string): Promise<{
+  valid: boolean;
+  error?: string;
+}> {
+  const baseCheck = validateWebhookUrl(urlString);
+  if (!baseCheck.valid) {
+    return baseCheck;
+  }
+
+  let url: URL;
+  try {
+    url = new URL(urlString);
+  } catch {
+    return { valid: false, error: "Invalid URL format" };
+  }
+
+  const hostname = url.hostname.toLowerCase().replace(/^\[|\]$/g, "");
+
+  // If it's already an IP, validateWebhookUrl already rejected it
+  if (isIP(hostname) !== 0) {
+    return baseCheck;
+  }
+
+  // Resolve the hostname to IPs - try IPv4 with IPv6 fallback
+  let resolvedIps: string[];
+  try {
+    resolvedIps = await dns.resolve4(hostname);
+  } catch {
+    // IPv4 resolution failed — try IPv6 as fallback
+    try {
+      resolvedIps = await dns.resolve6(hostname);
+    } catch (dnsError) {
+      console.warn(`[SSRF] DNS resolution failed for ${hostname}:`, dnsError);
+      return { valid: false, error: `Cannot resolve hostname: ${hostname}` };
+    }
+  }
+
+  // If IPv4 returned empty, try IPv6
+  if (resolvedIps.length === 0) {
+    try {
+      resolvedIps = await dns.resolve6(hostname);
+    } catch (dnsError) {
+      console.warn(`[SSRF] DNS resolution failed for ${hostname}:`, dnsError);
+      return { valid: false, error: `Cannot resolve hostname: ${hostname}` };
+    }
+  }
+
+  // Validate each resolved IP
+  for (const ip of resolvedIps) {
+    const ipCheck = validateResolvedIp(ip);
+    if (!ipCheck.valid) {
+      return { valid: false, error: `Webhook resolves to blocked IP: ${ip} - ${ipCheck.error}` };
+    }
+  }
+
+  return { valid: true };
+}
+
+/**
+ * Extract the client IP from a request, with validation.
+ * Parses X-Forwarded-For chain and takes the first valid IP.
+ */
+export function getClientIp(req: { headers: Headers | Map<string, string> }): string {
+  const xff =
+    typeof req.headers.get === "function"
+      ? req.headers.get("x-forwarded-for")
+      : (req.headers as Map<string, string>).get("x-forwarded-for");
+  if (xff) {
+    const ips = xff.split(",").map((s: string) => s.trim());
+    for (const ip of ips) {
+      if (isIP(ip) !== 0) return ip;
+    }
+  }
+  return "unknown";
 }

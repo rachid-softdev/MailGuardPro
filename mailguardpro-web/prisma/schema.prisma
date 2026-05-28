@@ -89,7 +89,7 @@ model ApiKey {
   keyPrefix   String   // Prefixe pour affichage (ex: mg_live_abc1...)
   name        String
   userId      String
-  user        User     @relation(fields: [userId], references: [id])
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   lastUsedAt  DateTime?
   createdAt   DateTime @default(now())
   isActive    Boolean  @default(true)
@@ -107,20 +107,21 @@ model Validation {
   bulkJobId       String?
   createdAt       DateTime @default(now())
 
-  user            User?    @relation(fields: [userId], references: [id])
+  user            User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
   bulkJob         BulkJob? @relation(fields: [bulkJobId], references: [id])
 
   // Performance indexes
   @@index([email])
   @@index([userId, createdAt])
   @@index([bulkJobId])
+  @@index([bulkJobId, score])
   @@index([status, createdAt])
 }
 
 model BulkJob {
   id            String      @id @default(cuid())
   userId        String
-  user          User        @relation(fields: [userId], references: [id])
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   filename      String
   totalEmails   Int
   processed     Int         @default(0)
@@ -141,7 +142,7 @@ model BulkJob {
 model Webhook {
   id        String   @id @default(cuid())
   userId    String
-  user      User     @relation(fields: [userId], references: [id])
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   url       String
   events    String[] // ['bulk_job_completed', 'daily_report']
   secret    String   // Secret pour HMAC signing

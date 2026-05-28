@@ -32,7 +32,27 @@ export async function deleteCached(key: string): Promise<void> {
   await redis.del(key);
 }
 
-// Rate limiting helper
+// Lua script for atomic rate limiting
+const RATE_LIMIT_SCRIPT = `
+  local key = KEYS[1]
+  local limit = tonumber(ARGV[1])
+  local window = tonumber(ARGV[2])
+  local current = redis.call("INCR", key)
+  if current == 1 then
+    redis.call("EXPIRE", key, window)
+  else
+    local ttl = redis.call("TTL", key)
+    if ttl == -1 then
+      redis.call("EXPIRE", key, window)
+    end
+  end
+  local finalTtl = redis.call("TTL", key)
+  if finalTtl == -1 then
+    finalTtl = window
+  end
+  return {current, finalTtl}
+`;
+
 export async function checkRateLimit(
   key: string,
   limit: number,
@@ -43,23 +63,15 @@ export async function checkRateLimit(
   resetAt: number;
   limit: number;
 }> {
-  const current = await redis.incr(`ratelimit:${key}`);
+  const result = (await redis.eval(
+    RATE_LIMIT_SCRIPT,
+    1,
+    `ratelimit:${key}`,
+    limit.toString(),
+    windowSeconds.toString(),
+  )) as [number, number];
 
-  if (current === 1) {
-    await redis.expire(`ratelimit:${key}`, windowSeconds);
-  } else {
-    // Defence-in-depth: re-set TTL if key lacks one (e.g., Redis crash between INCR and EXPIRE)
-    try {
-      const ttlCheck = await redis.ttl(`ratelimit:${key}`);
-      if (ttlCheck === -1) {
-        await redis.expire(`ratelimit:${key}`, windowSeconds);
-      }
-    } catch (err) {
-      console.warn("[RateLimit] Failed to check/re-set TTL:", err);
-    }
-  }
-
-  const ttl = await redis.ttl(`ratelimit:${key}`);
+  const [current, ttl] = result;
   const resetAt = Date.now() + (ttl > 0 ? ttl * 1000 : windowSeconds * 1000);
 
   return {

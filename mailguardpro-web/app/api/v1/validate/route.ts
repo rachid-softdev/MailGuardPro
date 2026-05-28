@@ -1,10 +1,11 @@
-// API Route: Validation email unitaire
+// API Route: Email validation
 // GET /api/v1/validate?email=xxx
 
 import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
 import { hashApiKey, hashApiKeyLegacy } from "@/lib/crypto";
+import { prisma } from "@/lib/prisma";
 import { checkRateLimit } from "@/lib/redis";
+import { getClientIp } from "@/lib/ssrf";
 import { AuditAction, AuditResource, logAudit } from "@/services/auditLogger";
 import { validateEmail } from "@/services/emailValidator";
 import { NextRequest, NextResponse } from "next/server";
@@ -72,10 +73,50 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ success: false, error: "Invalid email format" }, { status: 400 });
     }
 
-    // Rate limiting par IP
-    const ip = req.headers.get("x-forwarded-for") || "unknown";
-    const rateLimit = await checkRateLimit(`ip:${ip}`, 20, 60); // 20 req/min
+    // Authentification
+    const authResult = await getAuthenticatedUser(req);
+    const user = authResult?.user;
 
+    // Rate limiting: single check based on authentication level
+    let rateLimitKey: string;
+    let rateLimitMax: number;
+    let userPlan: string | null = null;
+
+    if (user && user.plan) {
+      // Plan-based limits
+      const planLimits: Record<string, number> = {
+        FREE: 20,
+        STARTER: 100,
+        PRO: 500,
+        BUSINESS: 2000,
+      };
+      userPlan = user.plan as string;
+      rateLimitKey = `user:${user.id}`;
+      rateLimitMax = planLimits[userPlan] || 20;
+    } else if (user) {
+      // Authenticated but plan not available in session — fetch from DB
+      const dbUser = await prisma.user.findUnique({
+        where: { id: user.id },
+        select: { plan: true },
+      });
+      userPlan = dbUser?.plan ?? "FREE";
+      rateLimitKey = `user:${user.id}`;
+      rateLimitMax =
+        userPlan === "STARTER"
+          ? 100
+          : userPlan === "PRO"
+            ? 500
+            : userPlan === "BUSINESS"
+              ? 2000
+              : 20;
+    } else {
+      // Anonymous: IP-based, strict limit
+      const ip = getClientIp(req);
+      rateLimitKey = `ip:${ip}`;
+      rateLimitMax = 10;
+    }
+
+    const rateLimit = await checkRateLimit(rateLimitKey, rateLimitMax, 60);
     if (!rateLimit.success) {
       return NextResponse.json(
         {
@@ -87,26 +128,8 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // Authentification
-    const authResult = await getAuthenticatedUser(req);
-    const user = authResult?.user;
-
-    // Récupérer les infos utilisateur pour le plan et rate limiting
-    let userPlan: string | null = null;
+    // Deduct credits atomically for authenticated users
     if (user) {
-      const dbUser = await prisma.user.findUnique({
-        where: { id: user.id },
-        select: { plan: true },
-      });
-      userPlan = dbUser?.plan ?? null;
-
-      // Rate limiting par utilisateur (doit être AVANT la déduction de crédits)
-      const userRateLimit = await checkRateLimit(`user:${user.id}`, 50, 60);
-      if (!userRateLimit.success) {
-        return NextResponse.json({ success: false, error: "Rate limit exceeded" }, { status: 429 });
-      }
-
-      // Puis déduire les crédits atomiquement
       const deduction = await prisma.user.updateMany({
         where: {
           id: user.id,
@@ -131,7 +154,7 @@ export async function GET(req: NextRequest) {
     const startTime = Date.now();
     const result = await validateEmail(email!);
 
-    // Sauvegarder en base si utilisateur connecté
+    // Save to DB if user is authenticated
     if (user) {
       await prisma.validation.create({
         data: {
@@ -145,7 +168,7 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    // Récupérer les crédits restants après déduction atomique
+    // Get remaining credits after atomic deduction
     let creditsRemaining: number | null = null;
     if (user) {
       const updatedUser = await prisma.user.findUnique({
@@ -155,7 +178,7 @@ export async function GET(req: NextRequest) {
       creditsRemaining = updatedUser?.credits ?? null;
     }
 
-    // Réponse
+    // Response
     const requestId = uuidv4();
     const processingTimeMs = Date.now() - startTime;
 
@@ -170,18 +193,18 @@ export async function GET(req: NextRequest) {
       },
     });
 
-    // Cache HTTP - différent selon le plan utilisateur
-    // Pour les utilisateurs gratuits ou anonymes: pas de cache (données potentiellement dynamiques)
-    // Pour les utilisateurs premium: cache court (5 min) avec revalidation en arrière-plan
+    // HTTP cache - differs by user plan
+    // Free/anonymous users: no cache (potentially dynamic data)
+    // Premium users: short cache (5 min) with stale-while-revalidate
     if (user && userPlan && ["PRO", "BUSINESS"].includes(userPlan)) {
       // Premium: cache de 5 minutes avec stale-while-revalidate de 10 minutes
       response.headers.set("Cache-Control", "s-maxage=300, stale-while-revalidate=600");
     } else {
-      // Gratuit ou anonyme: cache très court (1 min)
+      // Free or anonymous: very short cache (1 min)
       response.headers.set("Cache-Control", "s-maxage=60, stale-while-revalidate=120");
     }
 
-    // Vary sur l'auth pour differencier les réponses par utilisateur
+    // Vary on auth to differentiate responses by user
     response.headers.set("Vary", "X-API-Key, Cookie, Authorization");
 
     return response;

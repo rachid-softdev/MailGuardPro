@@ -1,10 +1,11 @@
-// API Route: Gestion des clés API
-// GET /api/v1/api-keys - Lister les clés
-// POST /api/v1/api-keys - Créer une clé
+// API Route: API key management
+// GET /api/v1/api-keys - List keys
+// POST /api/v1/api-keys - Create a key
 
 import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
 import { hashApiKey } from "@/lib/crypto";
+import { prisma } from "@/lib/prisma";
+import { getClientIp } from "@/lib/ssrf";
 import { AuditAction, AuditResource, logAudit } from "@/services/auditLogger";
 import { NextRequest, NextResponse } from "next/server";
 import { v4 as uuidv4 } from "uuid";
@@ -101,12 +102,12 @@ export async function POST(req: NextRequest) {
     });
 
     // Audit log
-    logAudit({
+    void logAudit({
       userId: session.user.id,
       action: AuditAction.API_KEY_CREATED,
       resource: AuditResource.API_KEY,
       resourceId: newKey.id,
-      ipAddress: req.headers.get("x-forwarded-for") || undefined,
+      ipAddress: getClientIp(req) !== "unknown" ? getClientIp(req) : undefined,
       metadata: { keyName: name.trim(), keyPrefix },
     });
 

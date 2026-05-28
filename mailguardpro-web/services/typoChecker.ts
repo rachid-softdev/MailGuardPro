@@ -87,7 +87,7 @@ export async function checkTypo(email: string): Promise<CheckResult> {
     gmai: "gmail.com",
     gamil: "gmail.com",
     gmal: "gmail.com",
-    gamil: "gmail.com",
+    gmali: "gmail.com",
     goggle: "googlemail.com",
     yaho: "yahoo.com",
     hotmial: "hotmail.com",

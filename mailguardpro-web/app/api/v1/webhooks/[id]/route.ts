@@ -1,11 +1,20 @@
-// API Route: Modifier/supprimer un webhook
+// API Route: Update/delete a webhook
 // DELETE /api/v1/webhooks/[id]
 // PATCH /api/v1/webhooks/[id]
 
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { validateWebhookUrlWithDns } from "@/lib/ssrf";
 import { AuditAction, AuditResource, logAudit } from "@/services/auditLogger";
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
+
+const updateWebhookSchema = z.object({
+  url: z.string().url().optional(),
+  events: z.array(z.string()).min(1).optional(),
+  name: z.string().min(1).max(100).optional(),
+  isActive: z.boolean().optional(),
+});
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -57,23 +66,43 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const { id } = await params;
     const body = await req.json();
 
-    // Vérifier que le webhook appartient à l'utilisateur
+    // Validate input with Zod
+    const validation = updateWebhookSchema.safeParse(body);
+    if (!validation.success) {
+      return NextResponse.json(
+        { success: false, error: "Invalid input", details: validation.error.errors },
+        { status: 400 },
+      );
+    }
+
+    // Verify webhook ownership
     const webhook = await prisma.webhook.findFirst({
-      where: {
-        id,
-        userId: session.user.id,
-      },
+      where: { id, userId: session.user.id },
     });
 
     if (!webhook) {
       return NextResponse.json({ success: false, error: "Webhook not found" }, { status: 404 });
     }
 
-    // Mettre à jour seulement les champs envoyés
-    const updateData: { isActive?: boolean } = {};
-    if (typeof body.isActive === "boolean") {
-      updateData.isActive = body.isActive;
+    const { url, events, name, isActive } = validation.data;
+
+    // If URL is being updated, perform SSRF validation with DNS
+    if (url) {
+      const ssrfCheck = await validateWebhookUrlWithDns(url);
+      if (!ssrfCheck.valid) {
+        return NextResponse.json(
+          { success: false, error: `Webhook URL rejected: ${ssrfCheck.error}` },
+          { status: 400 },
+        );
+      }
     }
+
+    // Build update payload with only provided fields
+    const updateData: Record<string, unknown> = {};
+    if (url !== undefined) updateData.url = url;
+    if (events !== undefined) updateData.events = events;
+    if (name !== undefined) updateData.name = name;
+    if (isActive !== undefined) updateData.isActive = isActive;
 
     const updated = await prisma.webhook.update({
       where: { id },

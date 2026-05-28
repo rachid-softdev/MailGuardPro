@@ -43,13 +43,21 @@ function readResponse(socket: net.Socket, timeout = 5000): Promise<string> {
       reject(new Error("SMTP response timeout"));
     }, timeout);
 
-    socket.on("data", (chunk) => {
+    socket.on("data", (chunk: Buffer) => {
       data += chunk.toString();
-      // End of SMTP response (code + space + message)
-      if (data.match(/^\d{3}\s/)) {
-        clearTimeout(timer);
-        socket.removeAllListeners("data");
-        resolve(data.trim());
+      // RFC 5321 §4.2 : la réponse se termine quand la dernière ligne complète
+      // commence par un code 3 chiffres suivi d'un ESPACE.
+      // Les lignes intermédiaires utilisent un tiret (250-SIZE...),
+      // la dernière ligne utilise un espace (250 OK).
+      const lines = data.split("\n");
+      // Le dernier élément est la portion incomplète (ou "" si data finit par \n)
+      if (lines.length >= 2) {
+        const lastCompleteLine = lines[lines.length - 2];
+        if (/^\d{3} /.test(lastCompleteLine)) {
+          clearTimeout(timer);
+          socket.removeAllListeners("data");
+          resolve(data.trim());
+        }
       }
     });
   });
@@ -98,8 +106,8 @@ export async function checkSMTP(email: string, timeoutMs = 5000): Promise<SMTPRe
       return await cacheSmtpResult(email, {
         passed: false,
         weight: 30,
-        message: "SMTP: domaine non résolu",
-        detail: "Impossible de résoudre les MX records",
+        message: "SMTP: domain not resolved",
+        detail: "Unable to resolve MX records",
       });
     }
 
@@ -107,8 +115,8 @@ export async function checkSMTP(email: string, timeoutMs = 5000): Promise<SMTPRe
       return await cacheSmtpResult(email, {
         passed: false,
         weight: 30,
-        message: "SMTP: aucun MX",
-        detail: "Aucun serveur MX trouvé pour ce domaine",
+        message: "SMTP: no MX record",
+        detail: "No MX server found for this domain",
       });
     }
 
@@ -129,7 +137,7 @@ export async function checkSMTP(email: string, timeoutMs = 5000): Promise<SMTPRe
           passed: false,
           weight: 30,
           message: "SMTP: MX resolution failed",
-          detail: `Impossible de résoudre l'adresse IP de ${mxHost}`,
+          detail: `Unable to resolve IP address for ${mxHost}`,
         });
       }
     }
@@ -138,8 +146,8 @@ export async function checkSMTP(email: string, timeoutMs = 5000): Promise<SMTPRe
       return await cacheSmtpResult(email, {
         passed: false,
         weight: 30,
-        message: "SMTP: aucune IP résolue",
-        detail: `Aucune adresse IP trouvée pour ${mxHost}`,
+        message: "SMTP: no IP resolved",
+        detail: `No IP address found for ${mxHost}`,
       });
     }
 
@@ -150,7 +158,7 @@ export async function checkSMTP(email: string, timeoutMs = 5000): Promise<SMTPRe
         return await cacheSmtpResult(email, {
           passed: false,
           weight: 30,
-          message: "SMTP: serveur non autorisé",
+          message: "SMTP: server not allowed",
           detail: ipCheck.error,
         });
       }
@@ -178,27 +186,27 @@ export async function checkSMTP(email: string, timeoutMs = 5000): Promise<SMTPRe
       return await cacheSmtpResult(email, {
         passed: false,
         weight: 30,
-        message: "SMTP: connexion impossible",
-        detail: `Impossible de se connecter au serveur mail: ${lastError?.message}`,
+        message: "SMTP: connection failed",
+        detail: `Unable to connect to mail server: ${lastError?.message}`,
       });
     }
 
     try {
-      // 2.5 Consommer la bannière du serveur SMTP (RFC 5321 §3.1)
+      // 2.5 Consume SMTP server banner (RFC 5321 §3.1)
       const banner = await readResponse(socket, timeoutMs);
       if (!banner.startsWith("220")) {
         socket.destroy();
         return await cacheSmtpResult(email, {
           passed: false,
           weight: 30,
-          message: "SMTP: serveur refuse la connexion",
-          detail: `Bannière non-220 reçue: ${banner}`,
+          message: "SMTP: server refused connection",
+          detail: `Non-220 banner received: ${banner}`,
         });
       }
 
       // 3. EHLO
       await sendCommand(socket, "EHLO mailguard.pro");
-      const _ehloResponse = await readResponse(socket, timeoutMs);
+      await readResponse(socket, timeoutMs);
 
       // 4. MAIL FROM
       await sendCommand(socket, "MAIL FROM:<verify@mailguard.pro>");
@@ -209,7 +217,7 @@ export async function checkSMTP(email: string, timeoutMs = 5000): Promise<SMTPRe
         return await cacheSmtpResult(email, {
           passed: false,
           weight: 30,
-          message: "SMTP: expéditeur refusé",
+          message: "SMTP: sender rejected",
           detail: mailResponse,
         });
       }
@@ -228,8 +236,8 @@ export async function checkSMTP(email: string, timeoutMs = 5000): Promise<SMTPRe
         return await cacheSmtpResult(email, {
           passed: true,
           weight: 30,
-          message: "Email délivrable",
-          detail: "Le serveur a accepté l'email pour livraison",
+          message: "Email deliverable",
+          detail: "The server accepted the email for delivery",
           code: "250",
         });
       } else if (rcptResponse.startsWith("550")) {
@@ -237,7 +245,7 @@ export async function checkSMTP(email: string, timeoutMs = 5000): Promise<SMTPRe
         return await cacheSmtpResult(email, {
           passed: false,
           weight: 30,
-          message: "Boîte mail inexistante",
+          message: "Mailbox does not exist",
           detail: rcptResponse,
           code: "550",
         });
@@ -246,7 +254,7 @@ export async function checkSMTP(email: string, timeoutMs = 5000): Promise<SMTPRe
         return await cacheSmtpResult(email, {
           passed: false,
           weight: 30,
-          message: "Adresse non valide",
+          message: "Invalid address",
           detail: rcptResponse,
           code: "553",
         });
@@ -255,7 +263,7 @@ export async function checkSMTP(email: string, timeoutMs = 5000): Promise<SMTPRe
         return await cacheSmtpResult(email, {
           passed: false,
           weight: 30,
-          message: "Serveur temporairement indisponible",
+          message: "Server temporarily unavailable",
           detail: rcptResponse,
           code: "452",
         });
@@ -264,7 +272,7 @@ export async function checkSMTP(email: string, timeoutMs = 5000): Promise<SMTPRe
         return await cacheSmtpResult(email, {
           passed: false,
           weight: 30,
-          message: "Statut incertain",
+          message: "Uncertain status",
           detail: rcptResponse,
         });
       }
@@ -276,8 +284,8 @@ export async function checkSMTP(email: string, timeoutMs = 5000): Promise<SMTPRe
     return await cacheSmtpResult(email, {
       passed: false,
       weight: 30,
-      message: "Erreur SMTP",
-      detail: error instanceof Error ? error.message : "Erreur de connexion SMTP",
+      message: "SMTP error",
+      detail: error instanceof Error ? error.message : "SMTP connection error",
     });
   }
 }

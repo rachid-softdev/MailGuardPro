@@ -1,4 +1,4 @@
-// Détection des emails jetables (disposable email domains)
+// Detection of disposable email domains
 
 import { redis } from "@/lib/redis";
 import { CheckResult } from "./types";
@@ -37,11 +37,9 @@ const KNOWN_DISPOSABLE_DOMAINS = new Set([
   "mohmal.com",
   "temp-mail.io",
   "mail-temporaire.fr",
-  "yandex.com", // Alias jetables possibles
-  "icloud.com", // Relays
 ]);
 
-// URL de la liste blocklist publique (optionnelle, peut être utilisée pour sync hebdo)
+// URL of the public blocklist (optional, can be used for weekly sync)
 const DISPOSABLE_LIST_URL =
   "https://raw.githubusercontent.com/disposable-email-domains/disposable-email-domains/master/disposable_domains.txt";
 
@@ -60,7 +58,7 @@ export async function checkDisposable(email: string): Promise<DisposableResult> 
     };
   }
 
-  // 1. Vérifier le cache Redis
+  // 1. Check Redis cache
   try {
     const cached = await redis.get(`disposable:${domain}`);
     if (cached !== null) {
@@ -74,10 +72,10 @@ export async function checkDisposable(email: string): Promise<DisposableResult> 
       };
     }
   } catch {
-    // Redis non disponible, continuer avec la liste intégrée
+    // Redis unavailable, continue with built-in list
   }
 
-  // 2. Vérifier la liste intégrée
+  // 2. Check built-in list
   if (KNOWN_DISPOSABLE_DOMAINS.has(domain)) {
     // Mettre en cache pour 24h
     try {
@@ -95,8 +93,8 @@ export async function checkDisposable(email: string): Promise<DisposableResult> 
     };
   }
 
-  // 3. Optionnel: vérifier la liste blocklist externe
-  // (désactivé par défaut pour éviter latence, à activer si besoin)
+  // 3. Optional: check external blocklist
+  // (disabled by default to avoid latency, enable if needed)
   try {
     const response = await fetch(DISPOSABLE_LIST_URL, {
       next: { revalidate: 86400 }, // Cache 24h
@@ -116,17 +114,17 @@ export async function checkDisposable(email: string): Promise<DisposableResult> 
           passed: false,
           weight: 10,
           message: "Email jetable",
-          detail: `Domaine trouvé dans la liste des emails jetables`,
+          detail: `Domain found in disposable email list`,
           provider: "blocklist",
         };
       }
     }
   } catch (error) {
-    // Ne pas bloquer si la liste externe échoue
+    // Don't block if external list fails
     console.warn("Failed to fetch disposable domains list:", error);
   }
 
-  // Non trouvé → non jetable
+  // Not found -> not disposable
   try {
     await redis.setex(`disposable:${domain}`, 86400, "0");
   } catch {
@@ -141,7 +139,7 @@ export async function checkDisposable(email: string): Promise<DisposableResult> 
   };
 }
 
-// Fonction pour synchroniser la liste blocklist (appelée par cron)
+// Function to sync the blocklist (called by cron)
 export async function syncDisposableDomains(): Promise<{ added: number }> {
   try {
     const response = await fetch(DISPOSABLE_LIST_URL);
@@ -155,7 +153,7 @@ export async function syncDisposableDomains(): Promise<{ added: number }> {
       .map((d) => d.trim().toLowerCase())
       .filter(Boolean);
 
-    // Ajouter à la liste intégrée
+    // Add to built-in list
     for (const domain of domains) {
       KNOWN_DISPOSABLE_DOMAINS.add(domain);
     }
