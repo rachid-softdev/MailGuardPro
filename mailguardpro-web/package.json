@@ -3,7 +3,6 @@
   "version": "1.0.0",
   "description": "Email Intelligence Platform — Score quality 0-100 + bulk validation + exports",
   "private": true,
-  "workspaces": ["packages/*"],
   "scripts": {
     "dev": "next dev",
     "build": "next build",

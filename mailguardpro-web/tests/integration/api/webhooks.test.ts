@@ -107,7 +107,7 @@ describe("/api/v1/webhooks", () => {
     });
 
     it("should return 400 when url is missing", async () => {
-      const body = { events: ["bulk_job_completed"] };
+      const body = { name: "Test Webhook", events: ["bulk_job_completed"] };
       const req = new NextRequest("http://localhost:3000/api/v1/webhooks", {
         method: "POST",
         body: JSON.stringify(body),
@@ -121,13 +121,7 @@ describe("/api/v1/webhooks", () => {
     });
 
     it("should return 400 when url is invalid", async () => {
-      const { validateWebhookUrlWithDns } = await import("@/lib/ssrf");
-      vi.mocked(validateWebhookUrlWithDns).mockResolvedValueOnce({
-        valid: false,
-        error: "Invalid URL format",
-      });
-
-      const body = { url: "not-a-url", events: ["bulk_job_completed"] };
+      const body = { url: "not-a-url", name: "Test Webhook", events: ["bulk_job_completed"] };
       const req = new NextRequest("http://localhost:3000/api/v1/webhooks", {
         method: "POST",
         body: JSON.stringify(body),
@@ -139,7 +133,7 @@ describe("/api/v1/webhooks", () => {
     });
 
     it("should return 400 when events array is empty", async () => {
-      const body = { url: "https://example.com/hook", events: [] };
+      const body = { url: "https://example.com/hook", name: "Test Webhook", events: [] };
       const req = new NextRequest("http://localhost:3000/api/v1/webhooks", {
         method: "POST",
         body: JSON.stringify(body),

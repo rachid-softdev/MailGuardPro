@@ -37,6 +37,7 @@ vi.mock("crypto", () => {
   const createHash = vi.fn(createHashMock);
   const timingSafeEqual = vi.fn(() => true);
   const randomUUID = vi.fn(() => `test-${Date.now()}`);
+  const randomBytes = vi.fn((size: number) => Buffer.alloc(size, "a"));
 
   return {
     __esModule: true,
@@ -45,11 +46,13 @@ vi.mock("crypto", () => {
       createHmac,
       timingSafeEqual,
       createHash,
+      randomBytes,
     },
     randomUUID,
     createHmac,
     timingSafeEqual,
     createHash,
+    randomBytes,
   };
 });
 

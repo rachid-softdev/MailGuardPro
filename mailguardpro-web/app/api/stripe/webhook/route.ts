@@ -14,6 +14,21 @@ if (!WEBHOOK_SECRET) {
   throw new Error("STRIPE_WEBHOOK_SECRET is not defined");
 }
 
+async function findUserByStripeCustomerId(customerId: string, eventType: string) {
+  const user = await prisma.user.findFirst({
+    where: { stripeCustomerId: customerId },
+  });
+
+  if (!user) {
+    console.error(
+      `[Stripe] ORPHAN EVENT — No user found for customer ${customerId}. ` +
+        `Event: ${eventType}. User may have been deleted.`,
+    );
+  }
+
+  return user;
+}
+
 export async function POST(req: NextRequest) {
   const body = await req.text();
   const signature = (await headers()).get("stripe-signature");
@@ -53,16 +68,33 @@ export async function POST(req: NextRequest) {
   switch (event.type) {
     case "checkout.session.completed": {
       const sessionData = event.data.object as Stripe.Checkout.Session;
-      console.log(`[Stripe] Checkout session completed: ${sessionData.id}`);
+      const customerId = sessionData.customer as string;
+      const subscriptionId = sessionData.subscription as string;
+
+      if (customerId && subscriptionId) {
+        const user = await findUserByStripeCustomerId(customerId, event.type);
+
+        if (user) {
+          const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+          const priceId = subscription.items.data[0]?.price.id ?? "";
+          const plan = getPlanFromPriceId(priceId);
+
+          if (plan) {
+            await prisma.user.update({
+              where: { id: user.id },
+              data: { plan, stripeSubscriptionId: subscriptionId },
+            });
+            console.log(`[Stripe] Checkout.session: User ${user.id} activated plan ${plan}`);
+          }
+        }
+      }
       break;
     }
 
     case "customer.subscription.updated": {
       const subscription = event.data.object as Stripe.Subscription;
       // Find user by stripe customer ID
-      const user = await prisma.user.findFirst({
-        where: { stripeCustomerId: subscription.customer as string },
-      });
+      const user = await findUserByStripeCustomerId(subscription.customer as string, event.type);
 
       if (user) {
         // Determine new plan from subscription (using shared mapping)
@@ -83,9 +115,7 @@ export async function POST(req: NextRequest) {
     case "customer.subscription.deleted": {
       const subscription = event.data.object as Stripe.Subscription;
       // Revenir à FREE en cas d'annulation
-      const user = await prisma.user.findFirst({
-        where: { stripeCustomerId: subscription.customer as string },
-      });
+      const user = await findUserByStripeCustomerId(subscription.customer as string, event.type);
 
       if (user) {
         await prisma.user.update({
@@ -120,9 +150,7 @@ export async function POST(req: NextRequest) {
 
       if (customerId && subscriptionId) {
         try {
-          const user = await prisma.user.findFirst({
-            where: { stripeCustomerId: customerId },
-          });
+          const user = await findUserByStripeCustomerId(customerId, event.type);
 
           if (user) {
             const subscription = await stripe.subscriptions.retrieve(subscriptionId);
@@ -198,9 +226,7 @@ export async function POST(req: NextRequest) {
 
       if (customerId && attemptCount >= threshold) {
         try {
-          const user = await prisma.user.findFirst({
-            where: { stripeCustomerId: customerId },
-          });
+          const user = await findUserByStripeCustomerId(customerId, event.type);
           if (user) {
             // TODO: envoyer email d'avertissement avant downgrade
             await prisma.user.update({

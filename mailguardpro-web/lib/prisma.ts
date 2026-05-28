@@ -16,8 +16,14 @@ function encryptFields(data: any): void {
   }
 }
 
-function decryptFields(result: any): void {
+function decryptFields(result: any, args?: any): void {
   if (!result) return;
+
+  // If select is specified and doesn't include token fields, skip decryption
+  if (args?.select && TOKEN_FIELDS.every((f) => !args.select[f])) {
+    return;
+  }
+
   if (Array.isArray(result)) {
     for (const item of result) {
       for (const field of TOKEN_FIELDS) {
@@ -48,27 +54,27 @@ function createTokenExtension() {
         // Decrypt on read
         async findUnique({ args, query }: { args: any; query: any }) {
           const result = await query(args);
-          decryptFields(result);
+          decryptFields(result, args);
           return result;
         },
         async findFirst({ args, query }: { args: any; query: any }) {
           const result = await query(args);
-          decryptFields(result);
+          decryptFields(result, args);
           return result;
         },
         async findMany({ args, query }: { args: any; query: any }) {
           const result = await query(args);
-          decryptFields(result);
+          decryptFields(result, args);
           return result;
         },
         async findUniqueOrThrow({ args, query }: { args: any; query: any }) {
           const result = await query(args);
-          decryptFields(result);
+          decryptFields(result, args);
           return result;
         },
         async findFirstOrThrow({ args, query }: { args: any; query: any }) {
           const result = await query(args);
-          decryptFields(result);
+          decryptFields(result, args);
           return result;
         },
       },

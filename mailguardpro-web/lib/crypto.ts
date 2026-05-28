@@ -2,21 +2,25 @@ import crypto from "node:crypto";
 
 // === TOKEN ENCRYPTION ===
 
-const TOKEN_ENCRYPTION_KEY = process.env.TOKEN_ENCRYPTION_KEY;
-if (!TOKEN_ENCRYPTION_KEY || Buffer.from(TOKEN_ENCRYPTION_KEY, "hex").length !== 32) {
-  if (process.env.NODE_ENV === "production") {
-    throw new Error("TOKEN_ENCRYPTION_KEY must be a 64-char hex string (32 bytes) in production");
+function getEncryptionKey(): string {
+  const key = process.env.TOKEN_ENCRYPTION_KEY;
+  if (!key || Buffer.from(key, "hex").length !== 32) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("TOKEN_ENCRYPTION_KEY must be a 64-char hex string (32 bytes) in production");
+    }
+    console.warn("TOKEN_ENCRYPTION_KEY not configured — tokens stored in plaintext");
   }
-  console.warn("TOKEN_ENCRYPTION_KEY not configured — tokens stored in plaintext");
+  return key;
 }
 
 const ALGORITHM = "aes-256-gcm";
 const IV_LENGTH = 16;
 
 export function encryptToken(plaintext: string): string {
-  if (!TOKEN_ENCRYPTION_KEY) return plaintext; // fallback during dev
+  const key = getEncryptionKey();
+  if (!key) return plaintext; // fallback during dev
   const iv = crypto.randomBytes(IV_LENGTH);
-  const cipher = crypto.createCipheriv(ALGORITHM, Buffer.from(TOKEN_ENCRYPTION_KEY, "hex"), iv);
+  const cipher = crypto.createCipheriv(ALGORITHM, Buffer.from(key, "hex"), iv);
   let encrypted = cipher.update(plaintext, "utf8", "hex");
   encrypted += cipher.final("hex");
   const authTag = cipher.getAuthTag().toString("hex");
@@ -24,14 +28,15 @@ export function encryptToken(plaintext: string): string {
 }
 
 export function decryptToken(ciphertext: string): string {
-  if (!TOKEN_ENCRYPTION_KEY) return ciphertext; // fallback during dev
+  const key = getEncryptionKey();
+  if (!key) return ciphertext; // fallback during dev
   try {
     const parts = ciphertext.split(":");
     if (parts.length !== 3) return ciphertext; // not encrypted
     const [ivHex, authTagHex, encrypted] = parts;
     const decipher = crypto.createDecipheriv(
       ALGORITHM,
-      Buffer.from(TOKEN_ENCRYPTION_KEY, "hex"),
+      Buffer.from(key, "hex"),
       Buffer.from(ivHex, "hex"),
     );
     decipher.setAuthTag(Buffer.from(authTagHex, "hex"));
@@ -61,12 +66,15 @@ export function decryptToken(ciphertext: string): string {
  * Example stored format: "v1:<64-char-hex>"
  */
 
-const PEPPER = process.env.API_KEY_PEPPER;
-if (!PEPPER) {
-  throw new Error(
-    "API_KEY_PEPPER is not defined — set it in environment before deploying. " +
-      "See crypto.ts for rotation strategy.",
-  );
+function getPepper(): string {
+  const pepper = process.env.API_KEY_PEPPER;
+  if (!pepper) {
+    throw new Error(
+      "API_KEY_PEPPER is not defined — set it in environment before deploying. " +
+        "See crypto.ts for rotation strategy.",
+    );
+  }
+  return pepper;
 }
 
 /**
@@ -74,7 +82,7 @@ if (!PEPPER) {
  * The pepper prevents rainbow-table attacks if the DB is leaked.
  */
 export function hashApiKey(key: string): string {
-  const hmac = crypto.createHmac("sha256", PEPPER);
+  const hmac = crypto.createHmac("sha256", getPepper());
   hmac.update(key);
   return hmac.digest("hex");
 }

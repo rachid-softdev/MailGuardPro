@@ -103,7 +103,7 @@ export class WebhookDispatcher {
       },
     });
 
-    const results = await Promise.all(
+    const results = await Promise.allSettled(
       webhooks.map((webhook) =>
         this.dispatch(
           {
@@ -119,10 +119,18 @@ export class WebhookDispatcher {
       ),
     );
 
+    const successful = results.filter(
+      (r): r is PromiseFulfilledResult<boolean> => r.status === "fulfilled" && r.value,
+    ).length;
+
+    const failed = results.filter(
+      (r) => r.status === "rejected" || (r.status === "fulfilled" && !r.value),
+    ).length;
+
     return {
       total: webhooks.length,
-      successful: results.filter((r) => r).length,
-      failed: results.filter((r) => !r).length,
+      successful,
+      failed,
     };
   }
 
