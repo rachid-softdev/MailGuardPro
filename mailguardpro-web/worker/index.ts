@@ -12,7 +12,15 @@ import {
 } from "../services/webhookDispatcher";
 
 // Configuration Redis pour le worker
-const connection = new Redis(process.env.REDIS_URL || "redis://localhost:6379", {
+const rawRedisUrl = process.env.REDIS_URL || "redis://localhost:6379";
+const parsedWorkerUrl = new URL(rawRedisUrl);
+
+const connection = new Redis({
+  host: parsedWorkerUrl.hostname || "localhost",
+  port: parseInt(parsedWorkerUrl.port) || 6379,
+  username: parsedWorkerUrl.username || undefined,
+  password: parsedWorkerUrl.password || undefined,
+  tls: parsedWorkerUrl.protocol === "rediss:" ? {} : undefined,
   maxRetriesPerRequest: null, // Nécessaire pour BullMQ
 });
 

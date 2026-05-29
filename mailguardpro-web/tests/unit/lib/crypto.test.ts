@@ -107,16 +107,15 @@ describe("crypto utils", () => {
       ).toThrow();
     });
 
-    it("should pass through unencrypted strings in decryptToken (not 3 parts)", async () => {
+    it("should throw for unencrypted strings (not 3 parts)", async () => {
       vi.stubEnv(
         "TOKEN_ENCRYPTION_KEY",
         "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789",
       );
       const { decryptToken } = await import("@/lib/crypto");
 
-      // Not encrypted - just a plain string (not 3 colon-separated parts)
-      const result = decryptToken("plain-not-encrypted");
-      expect(result).toBe("plain-not-encrypted");
+      expect(() => decryptToken("someplaintext")).toThrow("not in encrypted format");
+      expect(() => decryptToken("someplaintext")).toThrow("migrate-legacy-tokens");
     });
 
     it("should produce different ciphertexts for same plaintext (different IV)", async () => {

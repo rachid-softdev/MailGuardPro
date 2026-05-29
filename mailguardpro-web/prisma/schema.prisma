@@ -154,6 +154,7 @@ model Webhook {
   encryptedSecret String   @db.Text // Secret pour HMAC signing (AES-256-GCM encrypted)
   isActive        Boolean  @default(true)
   privacyMode     Boolean  @default(false) // If true, mask email addresses in webhook payload
+  pinnedIps       String?  @db.Text // JSON ["1.2.3.4", "::1"] — IPs résolues au moment de la création
   createdAt       DateTime @default(now())
 }
 

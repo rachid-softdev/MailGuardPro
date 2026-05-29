@@ -123,7 +123,7 @@ describe("POST /api/v1/billing/subscribe", () => {
     const req = new NextRequest("http://localhost:3000/api/v1/billing/subscribe", {
       method: "POST",
       body: JSON.stringify({ priceId: "price_pro_monthly", paymentMethodId: "pm_123" }),
-      headers: { "Content-Type": "application/json" },
+      headers: { origin: "http://localhost:3000", "Content-Type": "application/json" },
     });
     const response = await POST(req);
 
@@ -145,7 +145,7 @@ describe("POST /api/v1/billing/subscribe", () => {
     const req = new NextRequest("http://localhost:3000/api/v1/billing/subscribe", {
       method: "POST",
       body: JSON.stringify({ priceId: "price_pro_monthly", paymentMethodId: "pm_123" }),
-      headers: { "Content-Type": "application/json" },
+      headers: { origin: "http://localhost:3000", "Content-Type": "application/json" },
     });
     const response = await POST(req);
 
@@ -167,7 +167,7 @@ describe("POST /api/v1/billing/subscribe", () => {
     const req = new NextRequest("http://localhost:3000/api/v1/billing/subscribe", {
       method: "POST",
       body: JSON.stringify({ paymentMethodId: "pm_123" }),
-      headers: { "Content-Type": "application/json" },
+      headers: { origin: "http://localhost:3000", "Content-Type": "application/json" },
     });
     const response = await POST(req);
 
@@ -180,7 +180,7 @@ describe("POST /api/v1/billing/subscribe", () => {
     const req = new NextRequest("http://localhost:3000/api/v1/billing/subscribe", {
       method: "POST",
       body: JSON.stringify({ priceId: "price_pro_monthly" }),
-      headers: { "Content-Type": "application/json" },
+      headers: { origin: "http://localhost:3000", "Content-Type": "application/json" },
     });
     const response = await POST(req);
 
@@ -195,7 +195,7 @@ describe("POST /api/v1/billing/subscribe", () => {
     const req = new NextRequest("http://localhost:3000/api/v1/billing/subscribe", {
       method: "POST",
       body: JSON.stringify({ priceId: "price_invalid", paymentMethodId: "pm_123" }),
-      headers: { "Content-Type": "application/json" },
+      headers: { origin: "http://localhost:3000", "Content-Type": "application/json" },
     });
     const response = await POST(req);
 
@@ -232,7 +232,7 @@ describe("POST /api/v1/billing/subscribe", () => {
     const req = new NextRequest("http://localhost:3000/api/v1/billing/subscribe", {
       method: "POST",
       body: JSON.stringify({ priceId: "price_pro_monthly", paymentMethodId: "pm_123" }),
-      headers: { "Content-Type": "application/json" },
+      headers: { origin: "http://localhost:3000", "Content-Type": "application/json" },
     });
     const response = await POST(req);
 
@@ -318,7 +318,7 @@ describe("POST /api/v1/billing/subscribe", () => {
     const req = new NextRequest("http://localhost:3000/api/v1/billing/subscribe", {
       method: "POST",
       body: JSON.stringify({ priceId: "price_starter_monthly", paymentMethodId: "pm_456" }),
-      headers: { "Content-Type": "application/json" },
+      headers: { origin: "http://localhost:3000", "Content-Type": "application/json" },
     });
     const response = await POST(req);
 
@@ -356,7 +356,7 @@ describe("POST /api/v1/billing/subscribe", () => {
     const req = new NextRequest("http://localhost:3000/api/v1/billing/subscribe", {
       method: "POST",
       body: JSON.stringify({ priceId: "price_starter_monthly", paymentMethodId: "pm_456" }),
-      headers: { "Content-Type": "application/json" },
+      headers: { origin: "http://localhost:3000", "Content-Type": "application/json" },
     });
     const response = await POST(req);
 
@@ -392,7 +392,7 @@ describe("POST /api/v1/billing/subscribe", () => {
     const req = new NextRequest("http://localhost:3000/api/v1/billing/subscribe", {
       method: "POST",
       body: JSON.stringify({ priceId: "price_pro_monthly", paymentMethodId: "pm_789" }),
-      headers: { "Content-Type": "application/json" },
+      headers: { origin: "http://localhost:3000", "Content-Type": "application/json" },
     });
     const response = await POST(req);
 
@@ -421,7 +421,7 @@ describe("POST /api/v1/billing/subscribe", () => {
     const req = new NextRequest("http://localhost:3000/api/v1/billing/subscribe", {
       method: "POST",
       body: JSON.stringify({ priceId: "price_pro_monthly", paymentMethodId: "pm_999" }),
-      headers: { "Content-Type": "application/json" },
+      headers: { origin: "http://localhost:3000", "Content-Type": "application/json" },
     });
     const response = await POST(req);
 
@@ -450,7 +450,7 @@ describe("POST /api/v1/billing/subscribe", () => {
     const req = new NextRequest("http://localhost:3000/api/v1/billing/subscribe", {
       method: "POST",
       body: JSON.stringify({ priceId: "price_pro_monthly", paymentMethodId: "pm_bad" }),
-      headers: { "Content-Type": "application/json" },
+      headers: { origin: "http://localhost:3000", "Content-Type": "application/json" },
     });
     const response = await POST(req);
 
@@ -485,7 +485,7 @@ describe("POST /api/v1/billing/subscribe", () => {
     const req = new NextRequest("http://localhost:3000/api/v1/billing/subscribe", {
       method: "POST",
       body: JSON.stringify({ priceId: "price_business_monthly", paymentMethodId: "pm_audit" }),
-      headers: { "Content-Type": "application/json" },
+      headers: { origin: "http://localhost:3000", "Content-Type": "application/json" },
     });
     await POST(req);
 

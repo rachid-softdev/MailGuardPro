@@ -154,6 +154,56 @@ export async function validateWebhookUrlWithDns(urlString: string): Promise<{
 }
 
 /**
+ * Résout un hostname, valide les IPs, et retourne la liste des IPs valides.
+ * Utilisé pour le DNS pinning : les IPs sont stockées en DB à la création
+ * et comparées au moment du dispatch pour prévenir le DNS rebinding.
+ *
+ * Retourne un tableau d'IPs (string[]) ou une erreur.
+ */
+export async function resolveWebhookIps(hostname: string): Promise<{
+  valid: boolean;
+  ips?: string[];
+  error?: string;
+}> {
+  const normalizedHostname = hostname.toLowerCase().replace(/^\[|\]$/g, "");
+
+  // Rejeter si c'est une IP directe (on exige un nom de domaine)
+  if (isIP(normalizedHostname) !== 0) {
+    return { valid: false, error: "Domain names only, no direct IP addresses" };
+  }
+
+  // Résoudre IPv4 avec fallback IPv6
+  let resolvedIps: string[];
+  try {
+    resolvedIps = await dns.resolve4(normalizedHostname);
+  } catch {
+    try {
+      resolvedIps = await dns.resolve6(normalizedHostname);
+    } catch {
+      return { valid: false, error: `Cannot resolve hostname: ${normalizedHostname}` };
+    }
+  }
+
+  if (resolvedIps.length === 0) {
+    try {
+      resolvedIps = await dns.resolve6(normalizedHostname);
+    } catch {
+      return { valid: false, error: `Cannot resolve hostname: ${normalizedHostname}` };
+    }
+  }
+
+  // Valider chaque IP
+  for (const ip of resolvedIps) {
+    const ipCheck = validateResolvedIp(ip);
+    if (!ipCheck.valid) {
+      return { valid: false, error: `Blocked IP: ${ip} - ${ipCheck.error}` };
+    }
+  }
+
+  return { valid: true, ips: resolvedIps };
+}
+
+/**
  * Extract the client IP from a request, with validation.
  * Parses X-Forwarded-For chain and takes the first valid IP.
  */

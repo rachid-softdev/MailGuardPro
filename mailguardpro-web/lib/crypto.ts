@@ -25,20 +25,14 @@ export function encryptToken(plaintext: string): string {
 
 export function decryptToken(ciphertext: string): string {
   const key = getEncryptionKey();
+  const parts = ciphertext.split(":");
+  if (parts.length !== 3) {
+    throw new Error(
+      `Token is not in encrypted format (expected 3 colon-separated parts, got ${parts.length}). ` +
+        "Run `npx tsx scripts/migrate-legacy-tokens.ts` first.",
+    );
+  }
   try {
-    const parts = ciphertext.split(":");
-    if (parts.length !== 3) {
-      console.error("[Crypto] Token is not in encrypted format", {
-        length: ciphertext.length,
-        prefix: ciphertext.substring(0, 4) + "...",
-      });
-      // Log warning but still return the value to avoid breaking login
-      // In a future release, this will throw instead
-      console.warn(
-        "[Crypto] Returning unencrypted token as fallback — schedule re-encryption migration",
-      );
-      return ciphertext; // Keep fallback for now, will be removed in next release
-    }
     const [ivHex, authTagHex, encrypted] = parts;
     const decipher = crypto.createDecipheriv(
       ALGORITHM,
