@@ -30,7 +30,10 @@ const { MockSocket, mockResolveMx, mockResolve4, mockResolve6 } = vi.hoisted(() 
       }
     }
 
-    connect(_port: number, _host?: string) {
+    connect(_port: number, host?: string) {
+      // Set remoteAddress so connectWithResolvedIp rebinding check passes
+      this.remoteAddress = host;
+
       // Fire the event synchronously so connectWithTimeout resolves
       // within the same Promise executor.
       if (MockSocket.shouldTimeout) {

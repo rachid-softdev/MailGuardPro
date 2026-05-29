@@ -174,8 +174,13 @@ export async function POST(req: NextRequest) {
                 const acquired = await redis.set(firstPaymentKey, "1", "NX", "EX", 2592000); // 30 jours
                 isFirstPayment = acquired === "OK";
               } catch (err) {
-                console.warn(`[Stripe] Redis check failed, assuming first payment:`, err);
-                isFirstPayment = true;
+                console.error(`[Stripe] Redis unavailable — cannot determine first payment:`, err);
+                // Compensate: remove idempotency key so Stripe's retry can re-process this event
+                redis.del(eventIdKey).catch(() => {});
+                return NextResponse.json(
+                  { error: "Service temporarily unavailable — will retry" },
+                  { status: 503, headers: { "Retry-After": "10" } },
+                );
               }
 
               if (isFirstPayment) {

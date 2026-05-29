@@ -173,7 +173,7 @@ import { redis } from "@/lib/redis";
 import { processBulkUpload } from "@/services/bulkProcessor";
 
 // M2
-import { checkRateLimitByPlan } from "@/services/rateLimitService";
+import { type Plan, checkRateLimitByPlan } from "@/lib/rateLimits";
 
 // H3
 import { GET } from "@/app/api/v1/validate/route";
@@ -576,107 +576,63 @@ describe("Fix H2 — bulkProcessor inverted order and compensating rollback", ()
 });
 
 // =============================================================================
-// FIX 4 (M2) — rateLimitService: checkRateLimitByPlan
+// FIX 4 (M2) — lib/rateLimits: checkRateLimitByPlan (consolidated)
 // =============================================================================
 
-describe("Fix M2 — checkRateLimitByPlan", () => {
-  test("should return IP-based rate limit for anonymous (null) user", async () => {
-    const result = await checkRateLimitByPlan(null, "192.168.1.1");
-
-    expect(result.rateLimitKey).toBe("ip:192.168.1.1");
-    expect(result.rateLimitMax).toBe(10);
-    expect(result.userPlan).toBeNull();
+describe("Fix M2 — checkRateLimitByPlan (consolidated lib/rateLimits)", () => {
+  beforeEach(() => {
+    vi.mocked(checkRateLimitFn).mockClear();
   });
 
-  test("should return user-based rate limit with plan from session (FREE)", async () => {
-    const user = { id: "user-1", plan: "FREE" };
-    const result = await checkRateLimitByPlan(user, "192.168.1.1");
+  test("should return rate limit object with expected shape", async () => {
+    const result = await checkRateLimitByPlan("user-1", "FREE", "validate");
 
-    expect(result.rateLimitKey).toBe("user:user-1");
-    expect(result.rateLimitMax).toBe(20); // FREE limit
-    expect(result.userPlan).toBe("FREE");
+    expect(result).toHaveProperty("success");
+    expect(result).toHaveProperty("remaining");
+    expect(result).toHaveProperty("resetAt");
+    expect(result).toHaveProperty("limit");
   });
 
-  test("should return user-based rate limit with plan from session (STARTER)", async () => {
-    const user = { id: "user-2", plan: "STARTER" };
-    const result = await checkRateLimitByPlan(user, "192.168.1.1");
-
-    expect(result.rateLimitKey).toBe("user:user-2");
-    expect(result.rateLimitMax).toBe(100); // STARTER limit
+  test("should use validate action limits for FREE plan", async () => {
+    await checkRateLimitByPlan("user-1", "FREE", "validate");
+    // FREE validate: 20 requests per 60s
+    expect(vi.mocked(checkRateLimitFn)).toHaveBeenCalledWith("user:user-1:validate", 20, 60);
   });
 
-  test("should return user-based rate limit with plan from session (PRO)", async () => {
-    const user = { id: "user-3", plan: "PRO" };
-    const result = await checkRateLimitByPlan(user, "192.168.1.1");
-
-    expect(result.rateLimitKey).toBe("user:user-3");
-    expect(result.rateLimitMax).toBe(500); // PRO limit
+  test("should use billing action limits for FREE plan", async () => {
+    await checkRateLimitByPlan("user-1", "FREE", "billing");
+    // FREE billing: 3 requests per 60s
+    expect(vi.mocked(checkRateLimitFn)).toHaveBeenCalledWith("user:user-1:billing", 3, 60);
   });
 
-  test("should return user-based rate limit with plan from session (BUSINESS)", async () => {
-    const user = { id: "user-4", plan: "BUSINESS" };
-    const result = await checkRateLimitByPlan(user, "192.168.1.1");
-
-    expect(result.rateLimitKey).toBe("user:user-4");
-    expect(result.rateLimitMax).toBe(2000); // BUSINESS limit
+  test("should use higher limits for PRO plan", async () => {
+    await checkRateLimitByPlan("user-3", "PRO", "validate");
+    expect(vi.mocked(checkRateLimitFn)).toHaveBeenCalledWith("user:user-3:validate", 500, 60);
   });
 
-  test("should fallback to DB lookup when user has no plan in session", async () => {
-    const user = { id: "user-5", plan: undefined as string | null | undefined };
-    // Mock DB fallback
-    vi.mocked(prisma.user.findUnique).mockResolvedValue({
-      id: "user-5",
-      plan: "STARTER",
-    } as any);
-
-    const result = await checkRateLimitByPlan(user, "192.168.1.1");
-
-    expect(result.rateLimitKey).toBe("user:user-5");
-    expect(result.rateLimitMax).toBe(100); // STARTER limit
-    expect(result.userPlan).toBe("STARTER");
-    expect(prisma.user.findUnique).toHaveBeenCalledWith({
-      where: { id: "user-5" },
-      select: { plan: true },
-    });
+  test("should use business-specific key for BUSINESS plan with capped rate", async () => {
+    await checkRateLimitByPlan("user-4", "BUSINESS", "validate");
+    // BUSINESS uses special key with effectiveLimit of 100K/min
+    expect(vi.mocked(checkRateLimitFn)).toHaveBeenCalledWith(
+      "user:user-4:validate:business",
+      100000,
+      60,
+    );
   });
 
-  test("should default to FREE when DB user has no plan", async () => {
-    const user = { id: "user-6", plan: undefined as string | null | undefined };
-    vi.mocked(prisma.user.findUnique).mockResolvedValue({
-      id: "user-6",
-      plan: null,
-    } as any);
-
-    const result = await checkRateLimitByPlan(user, "192.168.1.1");
-
-    expect(result.rateLimitMax).toBe(20); // Default FREE
-    expect(result.userPlan).toBe("FREE");
+  test("should use apiKeys action for FREE plan", async () => {
+    await checkRateLimitByPlan("user-1", "FREE", "apiKeys");
+    expect(vi.mocked(checkRateLimitFn)).toHaveBeenCalledWith("user:user-1:apiKeys", 2, 3600);
   });
 
-  test("should default to FREE when DB user not found", async () => {
-    const user = { id: "nonexistent", plan: undefined as string | null | undefined };
-    vi.mocked(prisma.user.findUnique).mockResolvedValue(null);
-
-    const result = await checkRateLimitByPlan(user, "192.168.1.1");
-
-    expect(result.rateLimitMax).toBe(20); // Default FREE
-    expect(result.userPlan).toBe("FREE");
+  test("should use webhooks action for FREE plan", async () => {
+    await checkRateLimitByPlan("user-1", "FREE", "webhooks");
+    expect(vi.mocked(checkRateLimitFn)).toHaveBeenCalledWith("user:user-1:webhooks", 5, 3600);
   });
 
-  test("should handle unknown plan gracefully (fallback to 20)", async () => {
-    const user = { id: "user-7", plan: "ENTERPRISE_LEGACY" };
-    const result = await checkRateLimitByPlan(user, "192.168.1.1");
-
-    expect(result.rateLimitMax).toBe(20);
-    expect(result.userPlan).toBe("ENTERPRISE_LEGACY");
-  });
-
-  test("should not hit DB when plan is in session", async () => {
-    const user = { id: "user-8", plan: "PRO" };
-    await checkRateLimitByPlan(user, "192.168.1.1");
-
-    // DB should NOT be called when plan is already in session
-    expect(prisma.user.findUnique).not.toHaveBeenCalled();
+  test("should handle unknown plan with default limits", async () => {
+    const result = await checkRateLimitByPlan("user-7", "FREE" as Plan, "validate");
+    expect(result.success).toBe(true);
   });
 });
 

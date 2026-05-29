@@ -80,16 +80,12 @@ describe("crypto utils", () => {
       expect(decrypted).toBe(original);
     });
 
-    it("should return plaintext when TOKEN_ENCRYPTION_KEY is not set (dev fallback)", async () => {
+    it("should throw when TOKEN_ENCRYPTION_KEY is not set (no plaintext fallback)", async () => {
       vi.stubEnv("TOKEN_ENCRYPTION_KEY", "");
       vi.resetModules();
-      const { encryptToken, decryptToken } = await import("@/lib/crypto");
+      const { encryptToken } = await import("@/lib/crypto");
 
-      const result = encryptToken("plaintext-in-dev");
-      expect(result).toBe("plaintext-in-dev");
-
-      const roundTrip = decryptToken(result);
-      expect(roundTrip).toBe("plaintext-in-dev");
+      expect(() => encryptToken("secret")).toThrow("TOKEN_ENCRYPTION_KEY");
     });
 
     it("should throw on decryption failure (tampered ciphertext)", async () => {

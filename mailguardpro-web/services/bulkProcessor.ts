@@ -1,7 +1,7 @@
 // Bulk processing service - CSV upload and job management
 
 import { prisma } from "@/lib/prisma";
-import { publishProgress, redis } from "@/lib/redis";
+import { redis } from "@/lib/redis";
 import { Queue } from "bullmq";
 import { parse } from "csv-parse/sync";
 import { v4 as uuidv4 } from "uuid";
@@ -139,13 +139,13 @@ export async function processBulkUpload(
           filename: file.name,
           totalEmails: emails.length,
           status: "PENDING",
+          emailsJson: JSON.stringify(emails), // Store email data in DB (outbox pattern)
         },
       });
     });
     dbCommitted = true;
 
-    // 2. Redis + Queue — infra can fail after DB commit
-    await redis.setex(`bulk:job:${jobId}:data`, 3600, JSON.stringify(emails));
+    // 2. Queue — submit job for processing
     await bulkQueue.add("process", { jobId, totalEmails: emails.length, userId });
 
     return { success: true, jobId, totalEmails: emails.length };
@@ -166,9 +166,6 @@ export async function processBulkUpload(
         .catch((e) => console.error("[BulkProcessor] Rollback refund failed:", e));
       await prisma.bulkJob.delete({ where: { id: jobId } }).catch(() => {});
     }
-
-    // Cleanup Redis key if it was set
-    await redis.del(`bulk:job:${jobId}:data`).catch(() => {});
 
     return {
       success: false,
