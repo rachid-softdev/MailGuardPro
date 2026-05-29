@@ -26,7 +26,6 @@ export async function checkCatchAll(domain: string): Promise<CheckResult> {
     } catch {
       return {
         passed: true, // Can't verify, assume safe
-        weight: 5,
         message: "Vérification impossible",
         detail: "Impossible de résoudre les MX records",
       };
@@ -35,7 +34,6 @@ export async function checkCatchAll(domain: string): Promise<CheckResult> {
     if (!mxRecords || mxRecords.length === 0) {
       return {
         passed: true,
-        weight: 5,
         message: "Pas de MX record",
         detail: "Domaine sans serveur mail",
       };
@@ -64,7 +62,6 @@ export async function checkCatchAll(domain: string): Promise<CheckResult> {
     if (mxCount > 5) {
       return {
         passed: false,
-        weight: 10,
         message: "Domaine potentiellement catch-all",
         detail: `${mxCount} MX records détectés - comportement catch-all probable`,
       };
@@ -73,7 +70,6 @@ export async function checkCatchAll(domain: string): Promise<CheckResult> {
     // Default: not catch-all based on MX pattern
     return {
       passed: true,
-      weight: 10,
       message: "Non catch-all",
       detail: `Serveur mail configuré normally (${mxCount} MX record${mxCount > 1 ? "s" : ""})`,
     };
@@ -84,7 +80,6 @@ export async function checkCatchAll(domain: string): Promise<CheckResult> {
   } catch (error) {
     return {
       passed: true,
-      weight: 5,
       message: "Vérification échouée",
       detail: "Erreur lors de la vérification catch-all",
     };
@@ -100,22 +95,21 @@ export async function checkCatchAllQuick(domain: string): Promise<CheckResult> {
     const mxRecords = await dns.resolveMx(domain);
 
     if (!mxRecords || mxRecords.length === 0) {
-      return { passed: true, weight: 5, message: "Pas de MX" };
+      return { passed: true, message: "Pas de MX" };
     }
 
     // Heuristic: many MX records often indicate catch-all
     if (mxRecords.length > 4) {
       return {
         passed: false,
-        weight: 10,
         message: "Possibly catch-all",
         detail: `${mxRecords.length} MX records - may accept any address`,
       };
     }
 
-    return { passed: true, weight: 10, message: "Likely not catch-all" };
+    return { passed: true, message: "Likely not catch-all" };
   } catch {
-    return { passed: true, weight: 5, message: "Cannot verify" };
+    return { passed: true, message: "Cannot verify" };
   }
 }
 
