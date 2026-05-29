@@ -126,6 +126,7 @@ model BulkJob {
   totalEmails   Int
   processed     Int         @default(0)
   status        JobStatus   @default(PENDING)
+  emailsJson    String?     @db.Text // Outbox pattern: email data stored in DB, not Redis
   resultUrl     String?
   reportUrl     String?
   startedAt     DateTime?

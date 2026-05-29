@@ -30,21 +30,25 @@ const worker = new Worker<BulkJobData>(
 
     console.log(`[Worker] Starting job ${jobId} for ${totalEmails} emails`);
 
-    // Récupérer les données des emails depuis Redis
-    const jobDataKey = `bulk:job:${jobId}:data`;
-    // Using 'connection' from outer scope
+    // Récupérer les données des emails depuis la base de données (outbox pattern)
+    const bulkJobRecord = await prisma.bulkJob.findUnique({
+      where: { id: jobId },
+      select: { emailsJson: true, processed: true },
+    });
 
-    const dataStr = await connection.get(jobDataKey);
-    if (!dataStr) {
-      throw new Error(`No data found for job ${jobId}`);
+    if (!bulkJobRecord?.emailsJson) {
+      throw new Error(`No email data found for job ${jobId}`);
     }
 
-    const emails = JSON.parse(dataStr) as {
+    const emails = JSON.parse(bulkJobRecord.emailsJson) as {
       email: string;
       firstName?: string;
       lastName?: string;
       company?: string;
     }[];
+
+    // Resume support: skip already-processed emails
+    const startIndex = bulkJobRecord.processed || 0;
 
     // Mettre à jour le statut du job
     await prisma.bulkJob.update({
@@ -52,7 +56,7 @@ const worker = new Worker<BulkJobData>(
       data: { status: "PROCESSING", startedAt: new Date() },
     });
 
-    let processed = 0;
+    let processed = startIndex;
     const results = {
       valid: 0,
       invalid: 0,
@@ -60,8 +64,9 @@ const worker = new Worker<BulkJobData>(
       unknown: 0,
     };
 
-    // Traiter chaque email
-    for (const emailData of emails) {
+    // Traiter chaque email (resume support: skip already-processed emails)
+    for (let i = startIndex; i < emails.length; i++) {
+      const emailData = emails[i];
       try {
         const validation = await validateEmail(emailData.email);
 
@@ -127,9 +132,6 @@ const worker = new Worker<BulkJobData>(
         completedAt: new Date(),
       },
     });
-
-    // Nettoyer Redis
-    await connection.del(jobDataKey);
 
     // Dispatcher les webhooks
     try {

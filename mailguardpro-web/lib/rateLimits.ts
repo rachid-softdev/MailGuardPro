@@ -1,6 +1,6 @@
 // Rate limiting par plan - Configuration et helper
 
-import { redis, checkRateLimit } from "./redis";
+import { checkRateLimit, redis } from "./redis";
 
 export type Plan = "FREE" | "STARTER" | "PRO" | "BUSINESS";
 
@@ -12,6 +12,7 @@ export const PLAN_LIMITS = {
     bulkSize: 10000, // 10k rows max
     apiKeys: { requests: 2, window: 3600 }, // 2 clés/hour
     webhooks: { requests: 5, window: 3600 }, // 5 webhooks/hour
+    billing: { requests: 3, window: 60 }, // 3 req/min
   },
   STARTER: {
     validate: { requests: 100, window: 60 }, // 100 req/min
@@ -19,6 +20,7 @@ export const PLAN_LIMITS = {
     bulkSize: 10000, // 10k rows max
     apiKeys: { requests: 5, window: 3600 }, // 5 clés/hour
     webhooks: { requests: 10, window: 3600 }, // 10 webhooks/hour
+    billing: { requests: 10, window: 60 }, // 10 req/min
   },
   PRO: {
     validate: { requests: 500, window: 60 }, // 500 req/min
@@ -26,6 +28,7 @@ export const PLAN_LIMITS = {
     bulkSize: 100000, // 100k rows max
     apiKeys: { requests: 10, window: 3600 }, // 10 clés/hour
     webhooks: { requests: 20, window: 3600 }, // 20 webhooks/hour
+    billing: { requests: 30, window: 60 }, // 30 req/min
   },
   BUSINESS: {
     validate: { requests: 999999, window: 60 }, // Unlimited
@@ -33,10 +36,12 @@ export const PLAN_LIMITS = {
     bulkSize: 1000000, // 1M rows max
     apiKeys: { requests: 999999, window: 3600 }, // Unlimited
     webhooks: { requests: 999999, window: 3600 }, // Unlimited
+    billing: { requests: 999999, window: 60 }, // Unlimited
   },
 } as const;
 
 export type ActionType = keyof (typeof PLAN_LIMITS)["FREE"];
+export type RateLimitAction = Exclude<ActionType, "bulkSize">;
 
 // Helper pour récupérer les limites selon le plan
 export function getPlanLimits(plan: Plan) {
@@ -67,11 +72,7 @@ export async function checkRateLimitByPlan(
     // Use a high but finite limit to keep Redis tracking active
     // BUSINESS: 100K/min for validate, 5K/hour for bulk/apiKeys/webhooks
     const effectiveLimit = action === "validate" ? 100000 : 5000;
-    return checkRateLimit(
-      `user:${userId}:${action}:business`,
-      effectiveLimit,
-      actionLimits.window,
-    );
+    return checkRateLimit(`user:${userId}:${action}:business`, effectiveLimit, actionLimits.window);
   }
 
   // Vérifier le rate limit

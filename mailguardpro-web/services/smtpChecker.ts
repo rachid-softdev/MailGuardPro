@@ -10,19 +10,43 @@ interface SMTPResult extends CheckResult {
   code?: string;
 }
 
-function connectWithTimeout(host: string, port: number, timeout: number): Promise<net.Socket> {
+/**
+ * Normalize an IP address — handles IPv4-mapped IPv6 (::ffff:x.x.x.x → x.x.x.x).
+ */
+export function normalizeIp(ip: string): string {
+  const v4MappedMatch = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/.exec(ip);
+  return v4MappedMatch ? v4MappedMatch[1] : ip;
+}
+
+/**
+ * Connect to an already-resolved IP address with DNS rebinding protection.
+ * Verifies that the socket's remoteAddress matches the expected IP after connection.
+ */
+export function connectWithResolvedIp(
+  ip: string,
+  port: number,
+  timeout: number,
+): Promise<net.Socket> {
   return new Promise((resolve, reject) => {
     const socket = new net.Socket();
     socket.setTimeout(timeout);
 
-    socket.on("connect", () => resolve(socket));
+    socket.on("connect", () => {
+      const connectedIp = normalizeIp(socket.remoteAddress || "");
+      if (connectedIp !== ip) {
+        socket.destroy();
+        reject(new Error(`DNS rebinding detected: connected to ${connectedIp}, expected ${ip}`));
+        return;
+      }
+      resolve(socket);
+    });
     socket.on("timeout", () => {
       socket.destroy();
       reject(new Error("SMTP connection timeout"));
     });
     socket.on("error", reject);
 
-    socket.connect(port, host);
+    socket.connect(port, ip);
   });
 }
 
@@ -167,7 +191,7 @@ export async function checkSMTP(email: string, timeoutMs = 5000): Promise<SMTPRe
     for (const ip of ipsToTry) {
       for (const port of [25, 587]) {
         try {
-          socket = await connectWithTimeout(ip, port, timeoutMs);
+          socket = await connectWithResolvedIp(ip, port, timeoutMs);
           break;
         } catch (error) {
           lastError = error as Error;

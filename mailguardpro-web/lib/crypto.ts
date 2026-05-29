@@ -5,10 +5,7 @@ import crypto from "crypto";
 function getEncryptionKey(): string {
   const key = process.env.TOKEN_ENCRYPTION_KEY;
   if (!key || Buffer.from(key, "hex").length !== 32) {
-    if (process.env.NODE_ENV === "production") {
-      throw new Error("TOKEN_ENCRYPTION_KEY must be a 64-char hex string (32 bytes) in production");
-    }
-    console.warn("TOKEN_ENCRYPTION_KEY not configured — tokens stored in plaintext");
+    throw new Error("TOKEN_ENCRYPTION_KEY must be a 64-char hex string (32 bytes)");
   }
   return key;
 }
@@ -18,7 +15,6 @@ const IV_LENGTH = 16;
 
 export function encryptToken(plaintext: string): string {
   const key = getEncryptionKey();
-  if (!key) return plaintext; // fallback during dev
   const iv = crypto.randomBytes(IV_LENGTH);
   const cipher = crypto.createCipheriv(ALGORITHM, Buffer.from(key, "hex"), iv);
   let encrypted = cipher.update(plaintext, "utf8", "hex");
@@ -29,7 +25,6 @@ export function encryptToken(plaintext: string): string {
 
 export function decryptToken(ciphertext: string): string {
   const key = getEncryptionKey();
-  if (!key) return ciphertext; // fallback during dev
   try {
     const parts = ciphertext.split(":");
     if (parts.length !== 3) return ciphertext; // not encrypted

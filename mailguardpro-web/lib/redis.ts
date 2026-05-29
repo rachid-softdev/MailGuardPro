@@ -1,4 +1,5 @@
 import Redis from "ioredis";
+import { checkMemoryRateLimit } from "./rateLimitMemory";
 
 const globalForRedis = globalThis as unknown as {
   redis: Redis | undefined;
@@ -82,8 +83,9 @@ export async function checkRateLimit(
       limit,
     };
   } catch {
-    // Fail-open when Redis is down (general rate limits)
-    return { success: true, remaining: limit, resetAt: Date.now() + windowSeconds * 1000, limit };
+    // Fail-closed: fallback to in-memory rate limiter with stricter limits
+    console.error("[Redis] Rate limit check failed — falling back to memory rate limiter");
+    return checkMemoryRateLimit(key, limit, windowSeconds);
   }
 }
 

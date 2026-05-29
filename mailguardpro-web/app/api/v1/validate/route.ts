@@ -4,12 +4,12 @@
 import { auth } from "@/lib/auth";
 import { hashApiKey, hashApiKeyLegacy } from "@/lib/crypto";
 import { prisma } from "@/lib/prisma";
-import { checkRateLimit } from "@/lib/redis";
+import { type Plan, checkRateLimitByPlan } from "@/lib/rateLimits";
+import { getClientIp } from "@/lib/ssrf";
 import { AuditAction, AuditResource, logAudit } from "@/services/auditLogger";
 import { checkDisposable } from "@/services/disposableChecker";
 import { validateEmail } from "@/services/emailValidator";
 import { checkFormat } from "@/services/formatChecker";
-import { checkRateLimitByPlan } from "@/services/rateLimitService";
 import { NextRequest, NextResponse } from "next/server";
 import { v4 as uuidv4 } from "uuid";
 import { z } from "zod";
@@ -80,13 +80,9 @@ export async function GET(req: NextRequest) {
     const user = authResult?.user;
 
     // Rate limiting based on plan or IP
-    const ip =
-      req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
-      req.headers.get("x-real-ip") ??
-      "127.0.0.1";
-    const { rateLimitKey, rateLimitMax, userPlan } = await checkRateLimitByPlan(user, ip);
-
-    const rateLimit = await checkRateLimit(rateLimitKey, rateLimitMax, 60);
+    const userId = user?.id || getClientIp(req);
+    const plan = (user?.plan as Plan) || "FREE";
+    const rateLimit = await checkRateLimitByPlan(userId, plan, "validate");
     if (!rateLimit.success) {
       return NextResponse.json(
         {
@@ -236,7 +232,7 @@ export async function GET(req: NextRequest) {
     // HTTP cache - differs by user plan
     // Free/anonymous users: no cache (potentially dynamic data)
     // Premium users: short cache (5 min) with stale-while-revalidate
-    if (user && userPlan && ["PRO", "BUSINESS"].includes(userPlan)) {
+    if (user && plan && ["PRO", "BUSINESS"].includes(plan)) {
       // Premium: cache de 5 minutes avec stale-while-revalidate de 10 minutes
       response.headers.set("Cache-Control", "s-maxage=300, stale-while-revalidate=600");
     } else {

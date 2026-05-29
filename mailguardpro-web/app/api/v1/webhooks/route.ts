@@ -5,6 +5,7 @@
 import { auth } from "@/lib/auth";
 import { encryptToken } from "@/lib/crypto";
 import { prisma } from "@/lib/prisma";
+import { type Plan, checkRateLimitByPlan } from "@/lib/rateLimits";
 import { validateWebhookUrlWithDns } from "@/lib/ssrf";
 import { AuditAction, AuditResource, logAudit } from "@/services/auditLogger";
 import { NextRequest, NextResponse } from "next/server";
@@ -56,6 +57,23 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { success: false, error: "Authentication required" },
         { status: 401 },
+      );
+    }
+
+    // Rate limit check
+    const rateCheck = await checkRateLimitByPlan(
+      session.user.id,
+      (session.user.plan as Plan) || "FREE",
+      "webhooks",
+    );
+    if (!rateCheck.success) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Rate limit exceeded. Please try again later.",
+          retryAfter: rateCheck.resetAt,
+        },
+        { status: 429 },
       );
     }
 
