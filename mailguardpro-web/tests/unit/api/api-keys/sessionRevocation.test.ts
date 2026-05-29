@@ -76,7 +76,10 @@ describe("Session revocation on API key delete [M-07]", () => {
     } as any);
 
     const url = new URL("http://localhost:3000/api/v1/api-keys/key-123");
-    const req = new NextRequest(url, { method: "DELETE" });
+    const req = new NextRequest(url, {
+      method: "DELETE",
+      headers: { origin: "http://localhost:3000" },
+    });
     const params = Promise.resolve({ id: "key-123" });
     const response = await DELETE(req, { params } as any);
 
@@ -107,7 +110,10 @@ describe("Session revocation on API key delete [M-07]", () => {
     } as any);
 
     const url = new URL("http://localhost:3000/api/v1/api-keys/key-456");
-    const req = new NextRequest(url, { method: "DELETE" });
+    const req = new NextRequest(url, {
+      method: "DELETE",
+      headers: { origin: "http://localhost:3000" },
+    });
     const params = Promise.resolve({ id: "key-456" });
     await DELETE(req, { params } as any);
 
@@ -132,7 +138,10 @@ describe("Session revocation on API key delete [M-07]", () => {
     } as any);
 
     const url = new URL("http://localhost:3000/api/v1/api-keys/key-789");
-    const req = new NextRequest(url, { method: "DELETE" });
+    const req = new NextRequest(url, {
+      method: "DELETE",
+      headers: { origin: "http://localhost:3000" },
+    });
     const params = Promise.resolve({ id: "key-789" });
     await DELETE(req, { params } as any);
 
@@ -157,7 +166,10 @@ describe("Session revocation on API key delete [M-07]", () => {
     } as any);
 
     const url = new URL("http://localhost:3000/api/v1/api-keys/key-101");
-    const req = new NextRequest(url, { method: "DELETE" });
+    const req = new NextRequest(url, {
+      method: "DELETE",
+      headers: { origin: "http://localhost:3000" },
+    });
     const params = Promise.resolve({ id: "key-101" });
     await DELETE(req, { params } as any);
 
@@ -185,7 +197,10 @@ describe("Session revocation on API key delete [M-07]", () => {
     } as any);
 
     const url = new URL("http://localhost:3000/api/v1/api-keys/key-202");
-    const req = new NextRequest(url, { method: "DELETE" });
+    const req = new NextRequest(url, {
+      method: "DELETE",
+      headers: { origin: "http://localhost:3000" },
+    });
     const params = Promise.resolve({ id: "key-202" });
     const response = await DELETE(req, { params } as any);
 
@@ -203,7 +218,10 @@ describe("Session revocation on API key delete [M-07]", () => {
     vi.mocked(auth).mockResolvedValue(null);
 
     const url = new URL("http://localhost:3000/api/v1/api-keys/key-303");
-    const req = new NextRequest(url, { method: "DELETE" });
+    const req = new NextRequest(url, {
+      method: "DELETE",
+      headers: { origin: "http://localhost:3000" },
+    });
     const params = Promise.resolve({ id: "key-303" });
     const response = await DELETE(req, { params } as any);
 
@@ -219,7 +237,10 @@ describe("Session revocation on API key delete [M-07]", () => {
     vi.mocked(prisma.apiKey.findFirst).mockResolvedValue(null);
 
     const url = new URL("http://localhost:3000/api/v1/api-keys/key-404");
-    const req = new NextRequest(url, { method: "DELETE" });
+    const req = new NextRequest(url, {
+      method: "DELETE",
+      headers: { origin: "http://localhost:3000" },
+    });
     const params = Promise.resolve({ id: "key-404" });
     const response = await DELETE(req, { params } as any);
 

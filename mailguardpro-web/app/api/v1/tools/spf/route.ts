@@ -1,10 +1,11 @@
 // API Route: Outil SPF Lookup
 // GET /api/v1/tools/spf?domain=xxx
 
+import { isIP } from "net";
+import { checkRateLimit } from "@/lib/redis";
 import dns from "dns/promises";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { checkRateLimit } from "@/lib/redis";
 
 const querySchema = z.object({
   domain: z.string().min(1).max(253),
@@ -29,6 +30,14 @@ export async function GET(req: NextRequest) {
     if (!validated.success) {
       return NextResponse.json(
         { success: false, error: "Invalid domain parameter" },
+        { status: 400 },
+      );
+    }
+
+    // Protection SSRF : rejeter les IPs directes
+    if (isIP(validated.data.domain)) {
+      return NextResponse.json(
+        { success: false, error: "Domain name required, IP addresses not allowed" },
         { status: 400 },
       );
     }

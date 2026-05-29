@@ -22,7 +22,9 @@ export interface CsrfCheckResult {
 }
 
 function getAppOrigin(): string {
-  return process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  // Utiliser APP_ORIGIN (serveur uniquement) en priorité
+  // NEXT_PUBLIC_APP_URL est publique (accessible au client) — ne pas l'utiliser pour la sécu
+  return process.env.APP_ORIGIN || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 }
 
 /**

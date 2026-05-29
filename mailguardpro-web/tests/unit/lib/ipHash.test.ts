@@ -45,13 +45,15 @@ describe("ipHash", () => {
       expect(hash1).not.toBe(hash2);
     });
 
-    it("should return the raw IP when IP_HASH_KEY is not configured", async () => {
+    it("should return a SHA-256 hash when IP_HASH_KEY is not configured", async () => {
       vi.unstubAllEnvs();
       vi.stubEnv("IP_HASH_KEY", "");
       vi.resetModules(); // Force re-import with new env
       const { hashIp } = await import("@/lib/ipHash");
       const result = hashIp("203.0.113.42");
-      expect(result).toBe("203.0.113.42");
+      // SHA-256 truncated to 16 chars hex
+      expect(result).toMatch(/^[0-9a-f]{16}$/);
+      expect(result).not.toBe("203.0.113.42");
     });
 
     it("should handle IPv6 addresses", async () => {

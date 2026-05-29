@@ -7,6 +7,7 @@ import { hashApiKey, hashApiKeyLegacy } from "@/lib/crypto";
 import { hashEmail } from "@/lib/emailHash";
 import { prisma } from "@/lib/prisma";
 import { type Plan, checkRateLimitByPlan } from "@/lib/rateLimits";
+import { checkRateLimit } from "@/lib/redis";
 import { getClientIp } from "@/lib/ssrf";
 import { AuditAction, AuditResource, logAudit } from "@/services/auditLogger";
 import { checkDisposable } from "@/services/disposableChecker";
@@ -89,17 +90,60 @@ export async function GET(req: NextRequest) {
     const authResult = await getAuthenticatedUser(req);
     const user = authResult?.user;
 
-    // Rate limiting based on plan or IP
-    const userId = user?.id || getClientIp(req);
-    const plan = (user?.plan as Plan) || "FREE";
+    // Si pas authentifié, rate limit STRICT (5 req/min/IP)
+    if (!user) {
+      const anonIp = getClientIp(req);
+      const anonRateCheck = await checkRateLimit(`anon:validate:${anonIp}`, 5, 60);
+      if (!anonRateCheck.success) {
+        return NextResponse.json(
+          { success: false, error: "Rate limit exceeded. Authenticate for higher limits." },
+          { status: 429 },
+        );
+      }
+
+      // Retour rapide avec checks limités (format + disposable seulement)
+      const startTime = Date.now();
+      const formatCheck = checkFormat(email!);
+      if (!formatCheck.passed) {
+        await enforceMinResponseTime(startTime);
+        return NextResponse.json({
+          success: true,
+          data: {
+            email,
+            score: 0,
+            status: "invalid",
+            checks: { format: formatCheck },
+            processingTimeMs: Date.now() - startTime,
+          },
+          meta: { creditsUsed: 0, creditsRemaining: null },
+        });
+      }
+      const disposableCheck = await checkDisposable(email!);
+      await enforceMinResponseTime(startTime);
+      return NextResponse.json({
+        success: true,
+        data: {
+          email,
+          score: disposableCheck.passed ? 50 : 0,
+          status: disposableCheck.passed ? "unknown" : "invalid",
+          checks: { format: formatCheck, disposable: disposableCheck },
+          processingTimeMs: Date.now() - startTime,
+        },
+        meta: {
+          creditsUsed: 0,
+          creditsRemaining: null,
+          note: "Full validation requires authentication",
+        },
+      });
+    }
+
+    // Rate limiting for authenticated users
+    const userId = user.id;
+    const plan = ((user as any).plan as Plan) || "FREE";
     const rateLimit = await checkRateLimitByPlan(userId, plan, "validate");
     if (!rateLimit.success) {
       return NextResponse.json(
-        {
-          success: false,
-          error: "Rate limit exceeded",
-          retryAfter: rateLimit.resetAt,
-        },
+        { success: false, error: "Rate limit exceeded", retryAfter: rateLimit.resetAt },
         { status: 429 },
       );
     }

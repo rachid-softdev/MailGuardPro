@@ -5,6 +5,7 @@ import crypto from "node:crypto";
 import { auth } from "@/lib/auth";
 import { validateCsrfOrigin } from "@/lib/csrf";
 import { prisma } from "@/lib/prisma";
+import { parseJsonBody } from "@/lib/request";
 import { getPlanFromPriceId, stripe } from "@/lib/stripe";
 import { AuditAction, AuditResource, logAudit } from "@/services/auditLogger";
 import { NextRequest, NextResponse } from "next/server";
@@ -41,7 +42,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const body = await req.json();
+    const { data: body, error: bodyError } = await parseJsonBody(req);
+    if (bodyError) return bodyError;
     const { priceId, paymentMethodId } = body;
 
     if (!priceId || !paymentMethodId) {
