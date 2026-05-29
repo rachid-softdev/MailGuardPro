@@ -3,6 +3,7 @@
 // POST /api/v1/api-keys - Create a key
 
 import { auth } from "@/lib/auth";
+import { VALID_SCOPES } from "@/lib/auth/require-scope";
 import { hashApiKey } from "@/lib/crypto";
 import { prisma } from "@/lib/prisma";
 import { type Plan, checkRateLimitByPlan } from "@/lib/rateLimits";
@@ -34,6 +35,7 @@ export async function GET(req: NextRequest) {
         id: true,
         keyPrefix: true,
         name: true,
+        scopes: true,
         isActive: true,
         lastUsedAt: true,
         createdAt: true,
@@ -78,7 +80,8 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { name } = body;
+    const { name, scope } = body;
+    const effectiveScope = scope || "full";
 
     // Validation
     if (!name || typeof name !== "string" || name.trim().length === 0) {
@@ -88,6 +91,13 @@ export async function POST(req: NextRequest) {
     if (name.length > 50) {
       return NextResponse.json(
         { success: false, error: "Name must be less than 50 characters" },
+        { status: 400 },
+      );
+    }
+
+    if (scope && !VALID_SCOPES.includes(scope as any)) {
+      return NextResponse.json(
+        { success: false, error: "Invalid scope. Must be one of: full, read, validate, export" },
         { status: 400 },
       );
     }
@@ -115,6 +125,7 @@ export async function POST(req: NextRequest) {
         keyHash,
         keyPrefix,
         name: name.trim(),
+        scopes: effectiveScope,
         userId: session.user.id,
       },
     });
@@ -137,6 +148,7 @@ export async function POST(req: NextRequest) {
           key: apiKey, // Retourner seulement une fois!
           keyPrefix: newKey.keyPrefix,
           name: newKey.name,
+          scopes: newKey.scopes,
           isActive: newKey.isActive,
           createdAt: newKey.createdAt,
         },

@@ -38,6 +38,7 @@ model User {
   role              Role      @default(USER)
   stripeCustomerId  String?   @unique
   stripeSubscriptionId String?
+  tokenVersion      Int       @default(0)      // Incremented on API key revocation
 
   accounts          Account[]
   sessions          Session[]
@@ -88,6 +89,7 @@ model ApiKey {
   keyHash     String   @unique // Hash de la clé pour sécurité
   keyPrefix   String   // Prefixe pour affichage (ex: mg_live_abc1...)
   name        String
+  scopes      String   @default("full")    // Comma-separated: "full" | "read" | "validate" | "export"
   userId      String
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   lastUsedAt  DateTime?

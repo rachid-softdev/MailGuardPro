@@ -1,5 +1,12 @@
 // Stripe Webhook Handler
 // POST /api/stripe/webhook
+// SECURITY: Stripe webhook authentication relies SOLELY on HMAC signature
+// verification via stripe.webhooks.constructEvent(). We deliberately do NOT
+// add IP allowlisting because:
+//   1. Signature verification provides cryptographic proof of Stripe origin
+//   2. Stripe's IP ranges change without notice and are not guaranteed stable
+//   3. Our idempotency key mechanism (Redis SET NX) prevents replay attacks
+// See: https://docs.stripe.com/webhooks#verify-events
 
 import { prisma } from "@/lib/prisma";
 import { redis } from "@/lib/redis";
@@ -176,7 +183,11 @@ export async function POST(req: NextRequest) {
               } catch (err) {
                 console.error(`[Stripe] Redis unavailable — cannot determine first payment:`, err);
                 // Compensate: remove idempotency key so Stripe's retry can re-process this event
-                redis.del(eventIdKey).catch(() => {});
+                redis
+                  .del(eventIdKey)
+                  .catch((e: unknown) =>
+                    console.error("[Stripe] Idempotency key cleanup failed:", e),
+                  );
                 return NextResponse.json(
                   { error: "Service temporarily unavailable — will retry" },
                   { status: 503, headers: { "Retry-After": "10" } },

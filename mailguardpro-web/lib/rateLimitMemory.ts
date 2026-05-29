@@ -61,6 +61,21 @@ export async function checkMemoryRateLimit(
   entry.count += 1;
   const success = entry.count <= limit;
 
+  if (!success) {
+    console.warn(
+      "[RateLimit] REJECTED (memory fallback)",
+      JSON.stringify({
+        key,
+        originalLimit,
+        effectiveLimit: limit,
+        windowSeconds,
+        currentCount: entry.count,
+        resetAt: new Date(entry.windowStart + windowMs).toISOString(),
+        source: "memory",
+      }),
+    );
+  }
+
   return {
     success,
     remaining: Math.max(0, limit - entry.count),

@@ -21,14 +21,27 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (session.user?.email) {
         const dbUser = await prisma.user.findUnique({
           where: { email: session.user.email },
-          select: { id: true, plan: true, credits: true, role: true },
+          select: { id: true, plan: true, credits: true, role: true, tokenVersion: true },
         });
 
         if (dbUser) {
+          // Detect session invalidation (tokenVersion was incremented)
+          if (dbUser.tokenVersion > 0 && dbUser.tokenVersion !== (user as any)?.tokenVersion) {
+            console.warn(
+              "[Auth] Session invalidated — tokenVersion mismatch",
+              JSON.stringify({
+                userId: dbUser.id,
+                sessionVersion: (user as any)?.tokenVersion,
+                dbVersion: dbUser.tokenVersion,
+              }),
+            );
+          }
+
           session.user.id = dbUser.id;
           session.user.plan = dbUser.plan;
           session.user.credits = dbUser.credits;
           session.user.role = dbUser.role;
+          (session.user as any).tokenVersion = dbUser.tokenVersion;
         }
       }
       return session;
@@ -48,6 +61,35 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   session: {
     strategy: "database",
     maxAge: 30 * 24 * 60 * 60, // 30 days
+  },
+  cookies: {
+    sessionToken: {
+      name: `next-auth.session-token`,
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: process.env.NODE_ENV === "production",
+      },
+    },
+    callbackUrl: {
+      name: `next-auth.callback-url`,
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: process.env.NODE_ENV === "production",
+      },
+    },
+    csrfToken: {
+      name: `next-auth.csrf-token`,
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: process.env.NODE_ENV === "production",
+      },
+    },
   },
   events: {
     async createUser({ user }: any) {
