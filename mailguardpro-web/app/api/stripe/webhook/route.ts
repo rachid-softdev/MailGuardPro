@@ -36,8 +36,47 @@ async function findUserByStripeCustomerId(customerId: string, eventType: string)
   return user;
 }
 
+const STRIPE_MAX_BYTES = 1024 * 1024; // 1MB
+
+// === IDEMPOTENCY CHECK (two-layer: Redis + PostgreSQL fallback) ===
+async function checkIdempotency(eventId: string): Promise<"new" | "duplicate" | "error"> {
+  // Layer 1: Redis (fast path)
+  try {
+    const acquired = await redis.set(`stripe:event:${eventId}`, "1", "NX", "EX", 86400);
+    if (acquired === null) return "duplicate";
+    return "new";
+  } catch {
+    console.warn(`[Stripe] Redis unavailable — using PostgreSQL idempotency fallback`);
+  }
+
+  // Layer 2: PostgreSQL (reliable fallback)
+  try {
+    await prisma.stripeEvent.create({ data: { id: eventId } });
+    return "new";
+  } catch (err: any) {
+    if (err?.code === "P2002") {
+      // Prisma unique constraint violation
+      return "duplicate";
+    }
+    console.error(`[Stripe] PostgreSQL idempotency check failed:`, err);
+    return "error";
+  }
+}
+
 export async function POST(req: NextRequest) {
+  // Size check before reading body to prevent memory exhaustion
+  const contentLength = parseInt(req.headers.get("content-length") || "0", 10);
+  if (contentLength > STRIPE_MAX_BYTES) {
+    return NextResponse.json({ error: "Request body too large" }, { status: 413 });
+  }
+
   const body = await req.text();
+
+  // Double-check actual body size (content-length can be spoofed)
+  if (body.length > STRIPE_MAX_BYTES) {
+    return NextResponse.json({ error: "Request body too large" }, { status: 413 });
+  }
+
   const signature = (await headers()).get("stripe-signature");
   if (!signature) {
     console.error("[Stripe] Missing stripe-signature header");
@@ -53,19 +92,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
   }
 
-  // === IDEMPOTENCY CHECK (atomique) ===
+  // === IDEMPOTENCY CHECK (two-layer: Redis + PostgreSQL fallback) ===
   const eventId = event.id;
-  const eventIdKey = `stripe:event:${eventId}`;
 
-  try {
-    // SET NX = atomique : crée la clé seulement si elle n'existe pas
-    const acquired = await redis.set(eventIdKey, "1", "NX", "EX", 86400);
-    if (acquired === null) {
-      console.log(`[Stripe] Duplicate event skipped: ${eventId}`);
-      return NextResponse.json({ received: true, deduplicated: true });
-    }
-  } catch (err) {
-    console.error(`[Stripe] Redis unavailable — cannot guarantee idempotency:`, err);
+  const idempotencyResult = await checkIdempotency(eventId);
+  if (idempotencyResult === "duplicate") {
+    console.log(`[Stripe] Duplicate event skipped: ${eventId}`);
+    return NextResponse.json({ received: true, deduplicated: true });
+  }
+  if (idempotencyResult === "error") {
     return NextResponse.json(
       { error: "Service temporarily unavailable" },
       { status: 503, headers: { "Retry-After": "10" } },
@@ -87,11 +122,24 @@ export async function POST(req: NextRequest) {
           const plan = getPlanFromPriceId(priceId);
 
           if (plan) {
+            const creditMap: Record<string, number> = {
+              BUSINESS: 0,
+              PRO: 50000,
+              STARTER: 5000,
+            };
+
             await prisma.user.update({
               where: { id: user.id },
-              data: { plan, stripeSubscriptionId: subscriptionId },
+              data: {
+                plan,
+                stripeSubscriptionId: subscriptionId,
+                credits: { increment: creditMap[plan] ?? 5000 },
+              },
             });
-            console.log(`[Stripe] Checkout.session: User ${user.id} activated plan ${plan}`);
+
+            console.log(
+              `[Stripe] Checkout.session: User ${user.id} activated plan ${plan} with initial credits`,
+            );
           }
         }
       }
@@ -173,54 +221,14 @@ export async function POST(req: NextRequest) {
             }
 
             if (plan) {
-              // Vérifier si c'est le premier paiement (crédits initiaux)
-              const firstPaymentKey = `stripe:first_payment:${subscriptionId}`;
-              let isFirstPayment = false;
+              // Paiement récurrent : simplement maintenir le plan actif
+              // Les crédits initiaux sont attribués dans checkout.session.completed
+              await prisma.user.update({
+                where: { id: user.id },
+                data: { plan },
+              });
 
-              try {
-                const acquired = await redis.set(firstPaymentKey, "1", "NX", "EX", 2592000); // 30 jours
-                isFirstPayment = acquired === "OK";
-              } catch (err) {
-                console.error(`[Stripe] Redis unavailable — cannot determine first payment:`, err);
-                // Compensate: remove idempotency key so Stripe's retry can re-process this event
-                redis
-                  .del(eventIdKey)
-                  .catch((e: unknown) =>
-                    console.error("[Stripe] Idempotency key cleanup failed:", e),
-                  );
-                return NextResponse.json(
-                  { error: "Service temporarily unavailable — will retry" },
-                  { status: 503, headers: { "Retry-After": "10" } },
-                );
-              }
-
-              if (isFirstPayment) {
-                const creditMap: Record<string, number> = {
-                  BUSINESS: 0,
-                  PRO: 50000,
-                  STARTER: 5000,
-                };
-
-                await prisma.user.update({
-                  where: { id: user.id },
-                  data: {
-                    plan,
-                    credits: { increment: creditMap[plan] ?? 5000 },
-                  },
-                });
-
-                console.log(
-                  `[Stripe] Plan activated with initial credits for user ${user.id}: ${plan}`,
-                );
-              } else {
-                // Paiement récurrent : simplement maintenir le plan actif
-                await prisma.user.update({
-                  where: { id: user.id },
-                  data: { plan },
-                });
-
-                console.log(`[Stripe] Recurring payment confirmed for user ${user.id}: ${plan}`);
-              }
+              console.log(`[Stripe] Recurring payment confirmed for user ${user.id}: ${plan}`);
             }
           }
         } catch (error) {

@@ -4,6 +4,7 @@
 import { auth } from "@/lib/auth";
 import { hasScope } from "@/lib/auth/require-scope";
 import { hashApiKey, hashApiKeyLegacy } from "@/lib/crypto";
+import { hashEmail } from "@/lib/emailHash";
 import { prisma } from "@/lib/prisma";
 import { type Plan, checkRateLimitByPlan } from "@/lib/rateLimits";
 import { getClientIp } from "@/lib/ssrf";
@@ -20,6 +21,18 @@ const validateQuerySchema = z.object({
   email: z.string().email().min(1).max(254),
 });
 
+// Anti-enumeration: enforce a minimum response time to prevent timing-based
+// email enumeration attacks (distinguishing cached vs uncached SMTP results).
+// This is called before every response to ensure uniform timing.
+const MIN_RESPONSE_MS = 2000;
+
+async function enforceMinResponseTime(startTime: number): Promise<void> {
+  const elapsed = Date.now() - startTime;
+  if (elapsed < MIN_RESPONSE_MS) {
+    await new Promise((r) => setTimeout(r, MIN_RESPONSE_MS - elapsed));
+  }
+}
+
 // Helper pour extraire l'utilisateur (session ou API key)
 async function getAuthenticatedUser(req: NextRequest) {
   // 1. Essayer avec la session
@@ -31,26 +44,19 @@ async function getAuthenticatedUser(req: NextRequest) {
   // 2. Essayer avec l'API key
   const apiKey = req.headers.get("X-API-Key");
   if (apiKey) {
-    // Try new HMAC-peppered hash first, then fall back to legacy SHA256
-    const keyHash = hashApiKey(apiKey);
-    let keyRecord = await prisma.apiKey.findUnique({
-      where: { keyHash },
+    // Compute both hashes simultaneously to prevent timing oracle (VF-14)
+    const [keyHash, legacyHash] = await Promise.all([hashApiKey(apiKey), hashApiKeyLegacy(apiKey)]);
+    let keyRecord = await prisma.apiKey.findFirst({
+      where: { OR: [{ keyHash }, { keyHash: legacyHash }] },
       include: { user: true },
     });
 
-    if (!keyRecord) {
-      const legacyHash = hashApiKeyLegacy(apiKey);
-      keyRecord = await prisma.apiKey.findUnique({
-        where: { keyHash: legacyHash },
-        include: { user: true },
+    // Migrate to new hash on access if using legacy hash
+    if (keyRecord && keyRecord.keyHash === legacyHash) {
+      await prisma.apiKey.update({
+        where: { id: keyRecord.id },
+        data: { keyHash },
       });
-      // Migrate to new hash on access
-      if (keyRecord) {
-        await prisma.apiKey.update({
-          where: { id: keyRecord.id },
-          data: { keyHash },
-        });
-      }
     }
 
     if (keyRecord?.isActive) {
@@ -104,6 +110,7 @@ export async function GET(req: NextRequest) {
     if (user) {
       const formatCheck = checkFormat(email!);
       if (!formatCheck.passed) {
+        await enforceMinResponseTime(startTime);
         const remaining =
           (await prisma.user.findUnique({ where: { id: user.id }, select: { credits: true } }))
             ?.credits ?? null;
@@ -137,6 +144,7 @@ export async function GET(req: NextRequest) {
 
       const disposableCheck = await checkDisposable(email!);
       if (!disposableCheck.passed) {
+        await enforceMinResponseTime(startTime);
         const remaining =
           (await prisma.user.findUnique({ where: { id: user.id }, select: { credits: true } }))
             ?.credits ?? null;
@@ -198,7 +206,8 @@ export async function GET(req: NextRequest) {
     if (user) {
       await prisma.validation.create({
         data: {
-          email: result.email,
+          email: result.email, // Keep original for search compatibility
+          emailHash: hashEmail(result.email), // Hash for privacy compliance
           score: result.score,
           status: result.status,
           checksJson: result.checks as any,
@@ -218,7 +227,10 @@ export async function GET(req: NextRequest) {
       creditsRemaining = updatedUser?.credits ?? null;
     }
 
-    // Response
+    // Anti-enumeration: enforce minimum response time to prevent timing-based
+    // email enumeration attacks (attacker distinguishes cached vs uncached results)
+    await enforceMinResponseTime(startTime);
+
     const requestId = uuidv4();
     const processingTimeMs = Date.now() - startTime;
 

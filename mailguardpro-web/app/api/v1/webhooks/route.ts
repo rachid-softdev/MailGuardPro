@@ -2,8 +2,10 @@
 // GET /api/v1/webhooks - List webhooks
 // POST /api/v1/webhooks - Create a webhook
 
+import crypto from "crypto";
 import { auth } from "@/lib/auth";
 import { encryptToken } from "@/lib/crypto";
+import { validateCsrfOrigin } from "@/lib/csrf";
 import { prisma } from "@/lib/prisma";
 import { type Plan, checkRateLimitByPlan } from "@/lib/rateLimits";
 import { validateWebhookUrlWithDns } from "@/lib/ssrf";
@@ -52,6 +54,12 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    // CSRF protection
+    const csrf = validateCsrfOrigin(req);
+    if (!csrf.valid) {
+      return NextResponse.json({ success: false, error: csrf.error }, { status: 403 });
+    }
+
     const session = await auth();
     if (!session?.user?.id) {
       return NextResponse.json(
@@ -115,7 +123,6 @@ export async function POST(req: NextRequest) {
     }
 
     // Générer un secret pour le webhook et le chiffrer avant stockage
-    const crypto = await import("crypto");
     const rawSecret = crypto.randomBytes(32).toString("hex");
     const encryptedSecret = encryptToken(rawSecret);
 
@@ -147,10 +154,14 @@ export async function POST(req: NextRequest) {
           url: webhook.url,
           name: webhook.name,
           events: webhook.events,
-          rawSecret,
+          rawSecretPrefix: rawSecret.substring(0, 4),
           isActive: webhook.isActive,
           createdAt: webhook.createdAt,
         },
+        warning:
+          "IMPORTANT: The rawSecret is shown only once at creation. " +
+          "Save it securely — it will never be returned again. " +
+          "If lost, you must regenerate the webhook secret.",
       },
       { status: 201 },
     );

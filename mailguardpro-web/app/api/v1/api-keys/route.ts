@@ -5,6 +5,7 @@
 import { auth } from "@/lib/auth";
 import { VALID_SCOPES } from "@/lib/auth/require-scope";
 import { hashApiKey } from "@/lib/crypto";
+import { validateCsrfOrigin } from "@/lib/csrf";
 import { prisma } from "@/lib/prisma";
 import { type Plan, checkRateLimitByPlan } from "@/lib/rateLimits";
 import { getClientIp } from "@/lib/ssrf";
@@ -54,6 +55,12 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    // CSRF protection
+    const csrf = validateCsrfOrigin(req);
+    if (!csrf.valid) {
+      return NextResponse.json({ success: false, error: csrf.error }, { status: 403 });
+    }
+
     const session = await auth();
     if (!session?.user?.id) {
       return NextResponse.json(

@@ -1,8 +1,10 @@
+import { AuditAction, AuditResource, logAudit } from "@/services/auditLogger";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
 import Resend from "next-auth/providers/resend";
 import { prisma } from "./prisma";
+import { redis } from "./redis";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: PrismaAdapter(prisma) as any,
@@ -17,6 +19,54 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     }),
   ],
   callbacks: {
+    async signIn({ user, account, email, credentials }: any) {
+      // FIX #18: Magic link rate limit (Redis-based — atomic SET NX EX)
+      if (account?.provider === "resend" && email?.address) {
+        try {
+          const rateKey = `magiclink:${email.address}`;
+          const acquired = await redis.set(rateKey, "1", "NX", "EX", 60);
+          if (acquired === null) {
+            console.warn(`[Auth] Magic link rate limited for ${email.address}`);
+            return false;
+          }
+        } catch {
+          // Redis unavailable — allow the request
+          console.warn("[Auth] Redis unavailable for magic link rate limit");
+        }
+      }
+
+      // FIX #6: Login audit
+      if (!user) {
+        console.warn(`[Auth] Login failed for: ${email?.address || "unknown"}`);
+        try {
+          await logAudit({
+            action: AuditAction.USER_LOGIN_FAILED,
+            resource: AuditResource.USER,
+            metadata: {
+              email: email?.address || "unknown",
+              provider: account?.provider || "unknown",
+            },
+          });
+        } catch (err) {
+          console.error("[Auth] Failed to log login failure:", err);
+        }
+        return false;
+      }
+      // Log successful login
+      if (account?.provider === "resend" || account?.provider === "google") {
+        try {
+          await logAudit({
+            userId: user.id as string,
+            action: AuditAction.USER_LOGIN,
+            resource: AuditResource.USER,
+            metadata: { provider: account.provider },
+          });
+        } catch {
+          /* non-fatal */
+        }
+      }
+      return true;
+    },
     async session({ session, user }: any) {
       if (session.user?.email) {
         const dbUser = await prisma.user.findUnique({
@@ -25,7 +75,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         });
 
         if (dbUser) {
-          // Detect session invalidation (tokenVersion was incremented)
+          // Enforce session invalidation (tokenVersion was incremented via key revocation)
           if (dbUser.tokenVersion > 0 && dbUser.tokenVersion !== (user as any)?.tokenVersion) {
             console.warn(
               "[Auth] Session invalidated — tokenVersion mismatch",
@@ -35,6 +85,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                 dbVersion: dbUser.tokenVersion,
               }),
             );
+            // Return a session with no user data → NextAuth treats this as unauthenticated
+            return { ...session, user: null as any, expires: new Date(0).toISOString() };
           }
 
           session.user.id = dbUser.id;

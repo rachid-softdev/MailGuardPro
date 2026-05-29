@@ -1,6 +1,9 @@
 // Score de réputation de domaine - Optimisé pour la performance avec fallbacks multiples
 
 import { redis } from "@/lib/redis";
+import { safeJsonParse } from "@/lib/safeJson";
+import { validateResolvedIp } from "@/lib/ssrf";
+import dns from "dns/promises";
 import whois from "whois";
 import { DomainInfo } from "./types";
 
@@ -102,7 +105,7 @@ async function fetchRDAP(
   try {
     const cached = await redis.get(`domain_age:${domain}`);
     if (cached) {
-      return JSON.parse(cached);
+      return safeJsonParse(cached);
     }
   } catch {
     // Redis not available, continue
@@ -131,11 +134,30 @@ async function fetchRDAP(
   }
 }
 
-// Fetch WHOIS via node-whois
+// Fetch WHOIS via node-whois with SSRF protection
 async function fetchWHOIS(
   domain: string,
 ): Promise<{ createdAt?: string; ageInDays?: number } | null> {
   try {
+    // SSRF protection: resolve domain to IP and verify it's a public address
+    // The WHOIS lookup connects to the TLD's WHOIS server (e.g., whois.verisign-grs.com),
+    // not to the domain itself. However, this validation prevents lookups for
+    // domains that could cause connections to internal hosts.
+    const resolvedIps = await dns.resolve4(domain).catch(() => null);
+    if (resolvedIps && resolvedIps.length > 0) {
+      for (const ip of resolvedIps) {
+        const ipCheck = validateResolvedIp(ip);
+        if (!ipCheck.valid) {
+          console.warn(`[Reputation] Skipping WHOIS for ${domain} — resolves to blocked IP: ${ip}`);
+          return null;
+        }
+      }
+    }
+    // If resolution fails (NXDOMAIN), skip WHOIS entirely (domain likely doesn't exist)
+    if (!resolvedIps) {
+      return null;
+    }
+
     const whoisData = await new Promise<string>((resolve, reject) => {
       whois.lookup(domain, { timeout: WHOIS_TIMEOUT_MS }, (err, data) => {
         if (err) reject(err);
@@ -192,7 +214,7 @@ export async function getDomainAge(
   try {
     const cached = await redis.get(`domain_age:${domain}`);
     if (cached) {
-      return JSON.parse(cached);
+      return safeJsonParse(cached);
     }
   } catch {
     // Redis not available

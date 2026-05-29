@@ -1,6 +1,10 @@
 import { NextRequest } from "next/server";
 /**
- * Unit tests for app/api/stripe/webhook/route.ts — 503 on Redis failure.
+ * Unit tests for app/api/stripe/webhook/route.ts — checkIdempotency behavior.
+ *
+ * The new checkIdempotency() function uses a two-layer approach:
+ *   Layer 1: Redis SET NX (fast path)
+ *   Layer 2: PostgreSQL stripeEvent.create (reliable fallback)
  *
  * Note: The route module reads env vars at import time. We must reset
  * modules and stub env BEFORE each dynamic import to get a fresh evaluation.
@@ -53,6 +57,7 @@ vi.mock("@/lib/redis", () => ({
 // ---------------------------------------------------------------------------
 const mockConstructEvent = vi.hoisted(() => vi.fn());
 const mockRetrieveSub = vi.hoisted(() => vi.fn());
+const mockGetPlanFromPriceId = vi.hoisted(() => vi.fn().mockReturnValue("PRO"));
 vi.mock("stripe", () => ({
   default: vi.fn(() => ({
     webhooks: { constructEvent: mockConstructEvent },
@@ -60,7 +65,7 @@ vi.mock("stripe", () => ({
   })),
 }));
 vi.mock("@/lib/stripe", () => ({
-  getPlanFromPriceId: vi.fn().mockReturnValue("PRO"),
+  getPlanFromPriceId: mockGetPlanFromPriceId,
   stripe: {
     webhooks: { constructEvent: mockConstructEvent },
     subscriptions: { retrieve: mockRetrieveSub },
@@ -68,14 +73,21 @@ vi.mock("@/lib/stripe", () => ({
 }));
 
 // ---------------------------------------------------------------------------
-// Prisma mock
+// Prisma mock — includes stripeEvent for idempotency fallback
 // ---------------------------------------------------------------------------
+const mockPrismaFindFirst = vi.hoisted(() =>
+  vi.fn().mockResolvedValue({ id: "user-1", plan: "FREE" }),
+);
 const mockPrismaUpdate = vi.hoisted(() => vi.fn().mockResolvedValue({}));
+const mockStripeEventCreate = vi.hoisted(() => vi.fn().mockResolvedValue({}));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     user: {
-      findFirst: vi.fn().mockResolvedValue({ id: "user-1", plan: "FREE" }),
+      findFirst: mockPrismaFindFirst,
       update: mockPrismaUpdate,
+    },
+    stripeEvent: {
+      create: mockStripeEventCreate,
     },
     $connect: vi.fn(),
     $disconnect: vi.fn(),
@@ -106,20 +118,40 @@ function createReq(): NextRequest {
   });
 }
 
-describe("Stripe webhook — first-payment Redis failure", () => {
+describe("Stripe webhook — checkIdempotency", () => {
+  /** Re-apply mock implementations that vi.restoreAllMocks destroys */
+  function reapplyDefaultMocks() {
+    mockRedisSet.mockImplementation(() => {
+      const cfg = redisReturnValues[redisCallIdx++];
+      if (!cfg || cfg.type === "ok") return Promise.resolve("OK");
+      if (cfg.type === "null") return Promise.resolve(null);
+      if (cfg.type === "throw") return Promise.reject(new Error(cfg.value || "Redis error"));
+      return Promise.resolve("OK");
+    });
+    mockPrismaFindFirst.mockResolvedValue({ id: "user-1", plan: "FREE" });
+    mockPrismaUpdate.mockResolvedValue({});
+    mockStripeEventCreate.mockResolvedValue({});
+    mockConstructEvent.mockReturnValue(fakeEvent("invoice.payment_succeeded"));
+    mockRetrieveSub.mockResolvedValue({
+      items: { data: [{ price: { id: "price_pro" } }] },
+    });
+    mockGetPlanFromPriceId.mockReturnValue("PRO");
+  }
+
   beforeEach(() => {
     redisReturnValues.length = 0;
     redisCallIdx = 0;
     vi.clearAllMocks();
 
-    mockConstructEvent.mockReturnValue(fakeEvent("invoice.payment_succeeded"));
-    mockRetrieveSub.mockResolvedValue({
-      items: { data: [{ price: { id: "price_pro" } }] },
-    });
+    // Re-apply implementations that vi.restoreAllMocks in afterEach destroys
+    reapplyDefaultMocks();
 
     vi.spyOn(console, "error").mockImplementation(() => {});
     vi.spyOn(console, "log").mockImplementation(() => {});
+    vi.spyOn(console, "warn").mockImplementation(() => {});
   });
+
+  // We override mockReturnValue/ResolvedValue per-test when non-default behavior is needed
 
   afterEach(() => {
     vi.unstubAllEnvs();
@@ -136,11 +168,75 @@ describe("Stripe webhook — first-payment Redis failure", () => {
   }
 
   // ────────────────────────────────────────────
-  // Redis first-payment check fails → 503
+  // Idempotency: Redis OK → process event
   // ────────────────────────────────────────────
 
-  it("should return 503 when Redis first-payment set throws", async () => {
-    redisReturnValues.push({ type: "ok" }, { type: "throw" });
+  it("should return 200 when idempotency check passes via Redis", async () => {
+    redisReturnValues.push({ type: "ok" });
+    const POST = await getHandler();
+    const res = await POST(createReq());
+
+    expect(res.status).toBe(200);
+  });
+
+  it("should update user plan (not credits) on invoice.payment_succeeded", async () => {
+    redisReturnValues.push({ type: "ok" });
+    const POST = await getHandler();
+    const res = await POST(createReq());
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body).toHaveProperty("received", true);
+    // Plan should be updated
+    expect(mockPrismaUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "user-1" },
+        data: expect.objectContaining({
+          plan: "PRO",
+        }),
+      }),
+    );
+    // No credits increment in invoice.payment_succeeded (credits are in checkout.session.completed)
+    const creditCalls = mockPrismaUpdate.mock.calls.filter(
+      (c: any) => c[0]?.data?.credits?.increment !== undefined,
+    );
+    expect(creditCalls.length).toBe(0);
+  });
+
+  // ────────────────────────────────────────────
+  // Idempotency: Duplicate event
+  // ────────────────────────────────────────────
+
+  it("should return 200 with deduplicated:true when event already processed (Redis NX returns null)", async () => {
+    redisReturnValues.push({ type: "null" });
+    const POST = await getHandler();
+    const res = await POST(createReq());
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.received).toBe(true);
+    expect(body.deduplicated).toBe(true);
+    // No DB updates for duplicates
+    expect(mockPrismaUpdate).not.toHaveBeenCalled();
+  });
+
+  // ────────────────────────────────────────────
+  // Idempotency: Redis fails, PostgreSQL fallback
+  // ────────────────────────────────────────────
+
+  it("should fall back to PostgreSQL when Redis throws and proceed if PG succeeds", async () => {
+    redisReturnValues.push({ type: "throw" });
+    mockStripeEventCreate.mockResolvedValue({}); // PG succeeds
+    const POST = await getHandler();
+    const res = await POST(createReq());
+
+    expect(res.status).toBe(200);
+    expect(mockStripeEventCreate).toHaveBeenCalled();
+  });
+
+  it("should return 503 when both Redis and PostgreSQL idempotency checks fail", async () => {
+    redisReturnValues.push({ type: "throw" });
+    mockStripeEventCreate.mockRejectedValue(new Error("PG connection failed"));
     const POST = await getHandler();
     const res = await POST(createReq());
 
@@ -148,8 +244,9 @@ describe("Stripe webhook — first-payment Redis failure", () => {
     expect(res.headers.get("Retry-After")).toBe("10");
   });
 
-  it("should return error body when first-payment fails", async () => {
-    redisReturnValues.push({ type: "ok" }, { type: "throw" });
+  it("should return error body when both idempotency layers fail", async () => {
+    redisReturnValues.push({ type: "throw" });
+    mockStripeEventCreate.mockRejectedValue(new Error("PG connection failed"));
     const POST = await getHandler();
     const res = await POST(createReq());
     const body = await res.json();
@@ -159,27 +256,11 @@ describe("Stripe webhook — first-payment Redis failure", () => {
   });
 
   // ────────────────────────────────────────────
-  // Redis works → proceeds normally
+  // Success response shape
   // ────────────────────────────────────────────
 
-  it("should grant credits on first payment when Redis returns OK", async () => {
-    redisReturnValues.push({ type: "ok" }, { type: "ok" });
-    const POST = await getHandler();
-    const res = await POST(createReq());
-
-    expect(res.status).toBe(200);
-    expect(mockPrismaUpdate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { id: "user-1" },
-        data: expect.objectContaining({
-          credits: { increment: expect.any(Number) },
-        }),
-      }),
-    );
-  });
-
   it("should return received: true on success", async () => {
-    redisReturnValues.push({ type: "ok" }, { type: "ok" });
+    redisReturnValues.push({ type: "ok" });
     const POST = await getHandler();
     const res = await POST(createReq());
     const body = await res.json();
@@ -188,42 +269,11 @@ describe("Stripe webhook — first-payment Redis failure", () => {
   });
 
   // ────────────────────────────────────────────
-  // Idempotency check failure → 503
-  // ────────────────────────────────────────────
-
-  it("should return 503 when idempotency Redis check throws", async () => {
-    redisReturnValues.push({ type: "throw" });
-    const POST = await getHandler();
-    const res = await POST(createReq());
-
-    expect(res.status).toBe(503);
-  });
-
-  // ────────────────────────────────────────────
-  // First-payment already processed (recurring)
-  // ────────────────────────────────────────────
-
-  it("should not grant credits on recurring payment (SET NX returns null)", async () => {
-    redisReturnValues.push({ type: "ok" }, { type: "null" });
-    const POST = await getHandler();
-    const res = await POST(createReq());
-
-    expect(res.status).toBe(200);
-    // prisma update should have been called (plan update)
-    expect(mockPrismaUpdate).toHaveBeenCalled();
-    // but NOT with credits increment
-    const calls = mockPrismaUpdate.mock.calls.filter(
-      (c: any) => c[0]?.data?.credits?.increment !== undefined,
-    );
-    expect(calls.length).toBe(0);
-  });
-
-  // ────────────────────────────────────────────
   // Non-invoice events
   // ────────────────────────────────────────────
 
-  it("should return 200 for non-invoice events", async () => {
-    mockConstructEvent.mockReturnValue(fakeEvent("customer.subscription.updated"));
+  it("should return 200 for unknown event types (fallthrough)", async () => {
+    mockConstructEvent.mockReturnValue(fakeEvent("charge.succeeded"));
     redisReturnValues.push({ type: "ok" });
     const POST = await getHandler();
     const res = await POST(createReq());

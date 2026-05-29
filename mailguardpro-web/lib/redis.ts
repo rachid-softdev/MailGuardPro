@@ -1,13 +1,19 @@
 import Redis from "ioredis";
 import { checkMemoryRateLimit } from "./rateLimitMemory";
+import { safeJsonParse } from "./safeJson";
 
 const globalForRedis = globalThis as unknown as {
   redis: Redis | undefined;
 };
 
+const redisUrl =
+  process.env.REDIS_URL ||
+  (process.env.NODE_ENV === "production" ? undefined : "redis://localhost:6379");
+if (!redisUrl) throw new Error("REDIS_URL is required in production");
+
 export const redis =
   globalForRedis.redis ??
-  new Redis(process.env.REDIS_URL || "redis://localhost:6379", {
+  new Redis(redisUrl, {
     maxRetriesPerRequest: 3,
     lazyConnect: true,
     connectTimeout: 5000,
@@ -23,7 +29,7 @@ if (process.env.NODE_ENV !== "production") globalForRedis.redis = redis;
 // Helper functions pour le cache
 export async function getCached<T>(key: string): Promise<T | null> {
   const data = await redis.get(key);
-  return data ? JSON.parse(data) : null;
+  return data ? safeJsonParse<T>(data) : null;
 }
 
 export async function setCached(key: string, value: unknown, ttlSeconds = 3600): Promise<void> {
@@ -44,12 +50,12 @@ const RATE_LIMIT_SCRIPT = `
     redis.call("EXPIRE", key, window)
   else
     local ttl = redis.call("TTL", key)
-    if ttl == -1 then
+    if ttl < 0 then
       redis.call("EXPIRE", key, window)
     end
   end
   local finalTtl = redis.call("TTL", key)
-  if finalTtl == -1 then
+  if finalTtl < 0 then
     finalTtl = window
   end
   return {current, finalTtl}
@@ -77,10 +83,13 @@ export async function checkRateLimit(
     const [current, ttl] = result;
     const resetAt = Date.now() + (ttl > 0 ? ttl * 1000 : windowSeconds * 1000);
 
+    // Round to nearest 10 seconds to prevent precise timing leakage
+    const roundedResetAt = Math.ceil(resetAt / 10000) * 10000;
+
     return {
       success: current <= limit,
       remaining: Math.max(0, limit - current),
-      resetAt,
+      resetAt: roundedResetAt,
       limit,
     };
   } catch {
@@ -102,7 +111,7 @@ export function subscribeToProgress(jobId: string, callback: (data: unknown) => 
 
   subscriber.on("message", (_channel, message) => {
     try {
-      callback(JSON.parse(message));
+      callback(safeJsonParse(message));
     } catch (err) {
       console.warn("[Redis] Failed to parse progress message:", err);
     }

@@ -353,18 +353,18 @@ describe("validateWebhookUrlWithDns", () => {
 // ────────────────────────────────────────────
 
 describe("getClientIp", () => {
-  it("should extract IP from X-Forwarded-For", () => {
+  it("should extract the last valid IP from X-Forwarded-For (closest to server)", () => {
     const result = getClientIp({
       headers: new Headers({ "x-forwarded-for": "192.168.1.1, 10.0.0.1" }),
     });
-    expect(result).toBe("192.168.1.1");
+    expect(result).toBe("10.0.0.1");
   });
 
-  it("should return the first valid IP in chain", () => {
+  it("should return the last valid IP in chain", () => {
     const result = getClientIp({
       headers: new Headers({ "x-forwarded-for": "invalid, 8.8.8.8, 1.1.1.1" }),
     });
-    expect(result).toBe("8.8.8.8");
+    expect(result).toBe("1.1.1.1");
   });
 
   it("should return 'unknown' when no X-Forwarded-For header", () => {

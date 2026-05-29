@@ -1,6 +1,7 @@
 // Detection of disposable email domains
 
 import { redis } from "@/lib/redis";
+import { safeJsonParse } from "@/lib/safeJson";
 import { CheckResult } from "./types";
 
 // Liste de domaines jetables connus (subset populaire)
@@ -111,7 +112,7 @@ export async function initializeDisposableDomains(): Promise<void> {
   try {
     const cached = await redis.get("disposable:sync:all");
     if (cached) {
-      const domains: string[] = JSON.parse(cached);
+      const domains: string[] = safeJsonParse<string[]>(cached);
       for (const domain of domains) KNOWN_DISPOSABLE_DOMAINS.add(domain);
       console.log(`[Disposable] Loaded ${domains.length} domains from Redis cache`);
       return;

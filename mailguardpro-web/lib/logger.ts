@@ -1,6 +1,7 @@
 // Structured Logger Service using Pino
 // Provides structured logging for the application
 
+import crypto from "node:crypto";
 import pino from "pino";
 
 const logLevel =
@@ -84,7 +85,7 @@ export function createRequestLogger(req: Request) {
   const requestId =
     (req.headers.get("x-request-id") as string) ||
     (req.headers.get("cf-ray") as string) ||
-    Math.random().toString(36).substring(2);
+    crypto.randomUUID();
 
   return logger.child({
     requestId,

@@ -262,4 +262,25 @@ describe("checkMemoryRateLimit", () => {
     vi.advanceTimersByTime(3_000);
     expect((await checkMemoryRateLimit(key, 10, 2)).success).toBe(true);
   });
+
+  // ────────────────────────────────────────────
+  // LRU eviction when store exceeds MAX_STORE_SIZE
+  // ────────────────────────────────────────────
+
+  it("should evict oldest entries when store exceeds 10,000 entries (LRU)", async () => {
+    // Create enough unique keys to trigger LRU eviction
+    // MAX_STORE_SIZE = 10,000, so we need at least 10,001 keys
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    // Fill store with unique keys — each key triggers checkMemoryRateLimit which adds to the store
+    const keyCount = 10_050;
+    for (let i = 0; i < keyCount; i++) {
+      await checkMemoryRateLimit(`lru-test-key-${i}`, 100, 60);
+    }
+
+    // The LRU eviction should have been triggered and logged warnings
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("Store exceeded limit"));
+
+    warnSpy.mockRestore();
+  });
 });

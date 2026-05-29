@@ -2,6 +2,7 @@
 // Cache les résultats de validation pour améliorer les performances
 
 import { checkRateLimit, redis } from "@/lib/redis";
+import { safeJsonParse } from "@/lib/safeJson";
 import { ValidationResult } from "./types";
 
 // TTL: 4 hours for validation results
@@ -17,7 +18,7 @@ export async function getCachedValidation(email: string): Promise<ValidationResu
   try {
     const cached = await redis.get(`validation:${email.toLowerCase()}`);
     if (cached) {
-      return JSON.parse(cached) as ValidationResult;
+      return safeJsonParse<ValidationResult>(cached);
     }
   } catch (error) {
     console.error("[ValidationCache] Get error:", error);
@@ -64,7 +65,7 @@ export async function getCachedDomainChecks(domain: string): Promise<{
   try {
     const cached = await redis.get(`domain-checks:${domain}`);
     if (cached) {
-      return JSON.parse(cached);
+      return safeJsonParse(cached);
     }
   } catch (error) {
     console.error("[ValidationCache] Get domain checks error:", error);

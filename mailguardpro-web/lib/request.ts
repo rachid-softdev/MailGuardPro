@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { safeJsonParse } from "./safeJson";
 
 const DEFAULT_MAX_BYTES = 4 * 1024 * 1024;
 const STRIPE_MAX_BYTES = 1024 * 1024;
@@ -24,7 +25,7 @@ export async function parseJsonBody<T = Record<string, unknown>>(
           { status: 413 },
         ),
       };
-    return { data: JSON.parse(text) as T };
+    return { data: safeJsonParse<T>(text) };
   } catch {
     return { error: NextResponse.json({ success: false, error: "Invalid JSON" }, { status: 400 }) };
   }

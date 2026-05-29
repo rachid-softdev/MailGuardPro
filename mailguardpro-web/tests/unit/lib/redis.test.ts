@@ -136,9 +136,8 @@ describe("redis", () => {
 
   describe("checkRateLimit", () => {
     it("should allow request when under limit", async () => {
-      mockRedisInstance.incr.mockResolvedValue(1);
-      mockRedisInstance.expire.mockResolvedValue(1);
-      mockRedisInstance.ttl.mockResolvedValue(60);
+      // Lua script returns [currentCount, ttl]
+      mockRedisInstance.eval.mockResolvedValue([1, 60]); // current=1, ttl=60
 
       const result = await checkRateLimit("test-key", 10, 60);
 
@@ -148,9 +147,8 @@ describe("redis", () => {
     });
 
     it("should block request when over limit", async () => {
-      mockRedisInstance.incr.mockResolvedValue(11);
-      mockRedisInstance.expire.mockResolvedValue(1);
-      mockRedisInstance.ttl.mockResolvedValue(60);
+      // Lua script returns current > limit
+      mockRedisInstance.eval.mockResolvedValue([11, 60]); // current=11 > limit=10
 
       const result = await checkRateLimit("test-key", 10, 60);
 
@@ -159,56 +157,61 @@ describe("redis", () => {
     });
 
     it("should return result object with all required properties", async () => {
-      mockRedisInstance.incr.mockResolvedValue(5);
-      mockRedisInstance.expire.mockResolvedValue(1);
-      mockRedisInstance.ttl.mockResolvedValue(60);
+      mockRedisInstance.eval.mockResolvedValue([5, 60]);
 
       const result = await checkRateLimit("test-key", 10, 60);
 
       expect(result).toHaveProperty("success");
       expect(result).toHaveProperty("remaining");
       expect(result).toHaveProperty("resetAt");
+      expect(result).toHaveProperty("limit");
     });
 
-    it("should set expire on first request", async () => {
-      mockRedisInstance.incr.mockResolvedValue(1);
-      mockRedisInstance.expire.mockResolvedValue(1);
-      mockRedisInstance.ttl.mockResolvedValue(60);
-
+    it("should call redis.eval with Lua script and correct arguments", async () => {
       await checkRateLimit("new-key", 10, 60);
 
-      expect(mockRedisInstance.expire).toHaveBeenCalledWith("ratelimit:new-key", 60);
+      expect(mockRedisInstance.eval).toHaveBeenCalledWith(
+        expect.stringContaining("redis.call"), // Lua script content
+        1,
+        "ratelimit:new-key",
+        "10",
+        "60",
+      );
     });
 
-    it("should not set expire on subsequent requests", async () => {
-      mockRedisInstance.incr.mockResolvedValue(2);
-      mockRedisInstance.ttl.mockResolvedValue(50);
-
-      await checkRateLimit("existing-key", 10, 60);
-
-      expect(mockRedisInstance.expire).not.toHaveBeenCalled();
-    });
-
-    it("should calculate resetAt based on TTL when available", async () => {
-      mockRedisInstance.incr.mockResolvedValue(1);
-      mockRedisInstance.expire.mockResolvedValue(1);
-      mockRedisInstance.ttl.mockResolvedValue(30);
+    it("should calculate resetAt with TTL when ttl > 0", async () => {
+      const now = Date.now();
+      mockRedisInstance.eval.mockResolvedValue([1, 30]); // ttl=30 seconds
 
       const result = await checkRateLimit("test-key", 10, 60);
 
-      // resetAt should be approximately now + 30 seconds
-      expect(result.resetAt).toBeCloseTo(Date.now() + 30000, -2);
+      // resetAt = ceil((now + 30*1000) / 10000) * 10000
+      const expected = Math.ceil((now + 30000) / 10000) * 10000;
+      expect(result.resetAt).toBe(expected);
     });
 
-    it("should use windowSeconds when TTL is not available", async () => {
-      mockRedisInstance.incr.mockResolvedValue(1);
-      mockRedisInstance.expire.mockResolvedValue(1);
-      mockRedisInstance.ttl.mockResolvedValue(-1); // Key doesn't exist or no TTL
+    it("should use windowSeconds when TTL is 0", async () => {
+      const now = Date.now();
+      mockRedisInstance.eval.mockResolvedValue([1, 0]); // ttl=0
 
       const result = await checkRateLimit("test-key", 10, 60);
 
-      // resetAt should be approximately now + 60 seconds (windowSeconds)
-      expect(result.resetAt).toBeCloseTo(Date.now() + 60000, -2);
+      // resetAt = ceil((now + 60*1000) / 10000) * 10000
+      const expected = Math.ceil((now + 60000) / 10000) * 10000;
+      expect(result.resetAt).toBe(expected);
+    });
+
+    it("should use windowSeconds when TTL is negative (Lua script fix: < 0 check)", async () => {
+      const now = Date.now();
+      // Lua script now checks ttl < 0 (not == -1) to handle all negative TTLs
+      mockRedisInstance.eval.mockResolvedValue([1, -2]); // negative TTL (e.g., -2)
+
+      const result = await checkRateLimit("test-key", 10, 60);
+
+      // resetAt = ceil((now + 60*1000) / 10000) * 10000 (windowSeconds fallback)
+      const expected = Math.ceil((now + 60000) / 10000) * 10000;
+      expect(result.resetAt).toBe(expected);
+      expect(result.success).toBe(true);
     });
   });
 

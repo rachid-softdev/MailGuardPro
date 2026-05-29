@@ -46,6 +46,9 @@ vi.mock("@/lib/prisma", () => ({
       findFirst: vi.fn().mockResolvedValue(null),
       update: vi.fn().mockResolvedValue({}),
     },
+    stripeEvent: {
+      create: vi.fn().mockResolvedValue({}),
+    },
   },
 }));
 
@@ -160,7 +163,7 @@ describe("POST /api/stripe/webhook", () => {
     expect(json.deduplicated).toBe(true);
   });
 
-  it("should return 503 when Redis is unavailable for idempotency check", async () => {
+  it("should fall back to PostgreSQL when Redis is unavailable for idempotency check", async () => {
     vi.mocked(redis.set).mockRejectedValue(new Error("Redis connection refused"));
 
     const req = new NextRequest("http://localhost:3000/api/stripe/webhook", {
@@ -169,10 +172,9 @@ describe("POST /api/stripe/webhook", () => {
     });
     const response = await POST(req);
 
-    expect(response.status).toBe(503);
-    const json = await response.json();
-    expect(json.error).toBe("Service temporarily unavailable");
-    expect(response.headers.get("Retry-After")).toBe("10");
+    // checkIdempotency falls back to PostgreSQL when Redis throws
+    // With PG fallback succeeding, the request proceeds normally
+    expect(response.status).toBe(200);
   });
 
   // -----------------------------------------------------------------------
@@ -339,7 +341,7 @@ describe("POST /api/stripe/webhook", () => {
   // -----------------------------------------------------------------------
   // invoice.payment_succeeded — first payment
   // -----------------------------------------------------------------------
-  it("should grant initial credits on first invoice.payment_succeeded", async () => {
+  it("should update plan (not credits) on invoice.payment_succeeded", async () => {
     const mockUser = { id: "user-1", stripeCustomerId: "cus_123", plan: "STARTER" };
     vi.mocked(prisma.user.findFirst).mockResolvedValue(mockUser);
     vi.mocked(stripe.webhooks.constructEvent).mockReturnValue({
@@ -356,7 +358,6 @@ describe("POST /api/stripe/webhook", () => {
     });
     const { getPlanFromPriceId } = await import("@/lib/stripe");
     vi.mocked(getPlanFromPriceId).mockReturnValue("STARTER");
-    // First payment: redis.set with NX returns "OK" (acquired)
     vi.mocked(redis.set).mockResolvedValue("OK");
     vi.mocked(stripe.subscriptions.retrieve).mockResolvedValue({
       id: "sub_inv_1",
@@ -370,13 +371,12 @@ describe("POST /api/stripe/webhook", () => {
     const response = await POST(req);
 
     expect(response.status).toBe(200);
-    // Should increment credits by STARTER amount (5000)
+    // invoice.payment_succeeded only updates the plan (credits are handled in checkout.session.completed)
     expect(prisma.user.update).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { id: "user-1" },
         data: expect.objectContaining({
           plan: "STARTER",
-          credits: { increment: 5000 },
         }),
       }),
     );
@@ -462,7 +462,7 @@ describe("POST /api/stripe/webhook", () => {
     consoleSpy.mockRestore();
   });
 
-  it("should not crash when Redis is down during first payment check", async () => {
+  it("should not crash when Redis is down during idempotency check", async () => {
     const mockUser = { id: "user-1", stripeCustomerId: "cus_123" };
     vi.mocked(prisma.user.findFirst).mockResolvedValue(mockUser);
     vi.mocked(stripe.webhooks.constructEvent).mockReturnValue({
@@ -483,11 +483,9 @@ describe("POST /api/stripe/webhook", () => {
       id: "sub_redis_down",
       items: { data: [{ price: { id: "price_pro_test" } }] },
     });
-    // First redis.set call = idempotency → succeeds
-    // Second redis.set call = first payment check → throws (Redis down)
+    // Redis throws → checkIdempotency falls back to PostgreSQL → PG succeeds
     vi.mocked(redis.set).mockReset();
-    vi.mocked(redis.set).mockResolvedValueOnce("OK"); // idempotency passes
-    vi.mocked(redis.set).mockRejectedValueOnce(new Error("Redis down"));
+    vi.mocked(redis.set).mockRejectedValue(new Error("Redis down"));
 
     const req = new NextRequest("http://localhost:3000/api/stripe/webhook", {
       method: "POST",
@@ -496,13 +494,12 @@ describe("POST /api/stripe/webhook", () => {
     const response = await POST(req);
 
     expect(response.status).toBe(200);
-    // Should treat as first payment and grant credits
+    // Should update plan (credits not added in invoice handler in new code)
     expect(prisma.user.update).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { id: "user-1" },
         data: expect.objectContaining({
           plan: "PRO",
-          credits: { increment: 50000 },
         }),
       }),
     );

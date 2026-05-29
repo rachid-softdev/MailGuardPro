@@ -61,11 +61,14 @@ describe("middleware CSP", () => {
       expect(imgSrc).toContain("https:");
     });
 
-    it("nonce should be a base64-encoded string of 16 random bytes", () => {
+    it("nonce should be a base64url-encoded string (no +, /, or = characters)", () => {
       const nonce = generateTestNonce();
-      // Base64 encoding of 16 bytes produces ~24 chars
+      // Base64url encoding of 16 bytes produces ~22 chars (no padding)
       expect(nonce.length).toBeGreaterThanOrEqual(20);
-      expect(nonce).toMatch(/^[A-Za-z0-9+/=]+$/);
+      // Must NOT contain +, /, or = (base64url instead of base64)
+      expect(nonce).not.toMatch(/[+/=]/);
+      // Must be alphanumeric + dash + underscore
+      expect(nonce).toMatch(/^[A-Za-z0-9_-]+$/);
     });
 
     it("should set x-csp-nonce request header for downstream use", () => {
@@ -82,7 +85,11 @@ describe("middleware CSP", () => {
 function generateTestNonce(): string {
   const array = new Uint8Array(16);
   crypto.getRandomValues(array);
-  return btoa(String.fromCharCode(...array));
+  // Match the actual middleware implementation: base64url encoding
+  return btoa(String.fromCharCode(...array))
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
 }
 
 function buildTestCsp(nonce: string): string {

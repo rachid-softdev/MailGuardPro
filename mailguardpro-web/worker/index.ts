@@ -3,6 +3,7 @@
 import { Job, Worker } from "bullmq";
 import Redis from "ioredis";
 import { prisma } from "../lib/prisma";
+import { safeJsonParse } from "../lib/safeJson";
 import { validateEmail } from "../services/emailValidator";
 import {
   WEBHOOK_EVENTS,
@@ -40,12 +41,14 @@ const worker = new Worker<BulkJobData>(
       throw new Error(`No email data found for job ${jobId}`);
     }
 
-    const emails = JSON.parse(bulkJobRecord.emailsJson) as {
-      email: string;
-      firstName?: string;
-      lastName?: string;
-      company?: string;
-    }[];
+    const emails = safeJsonParse<
+      {
+        email: string;
+        firstName?: string;
+        lastName?: string;
+        company?: string;
+      }[]
+    >(bulkJobRecord.emailsJson);
 
     // Resume support: skip already-processed emails
     const startIndex = bulkJobRecord.processed || 0;
