@@ -1,5 +1,6 @@
 // Email validation engine - Orchestrator of all checks
 
+import { SCORING_WEIGHTS } from "@/config/scoringWeights";
 import { checkCatchAll } from "./catchAllChecker";
 import { checkDisposable } from "./disposableChecker";
 import { checkDMARC, checkMX, checkSPF } from "./dnsChecker";
@@ -38,20 +39,19 @@ export async function validateEmail(email: string): Promise<ValidationResult> {
       checks: {
         format: {
           passed: false,
-          weight: 15,
           message: "Rate limited",
           detail: "Too many requests for this email",
         },
-        mx: { passed: false, weight: 25, message: "Not checked", detail: "" },
-        smtp: { passed: false, weight: 30, message: "Not checked", detail: "" },
-        catchAll: { passed: false, weight: 10, message: "Not checked", detail: "" },
-        disposable: { passed: false, weight: 10, message: "Not checked", detail: "" },
-        generic: { passed: false, weight: 5, message: "Not checked", detail: "" },
-        freeProvider: { passed: false, weight: 0, message: "Not checked", detail: "" },
-        dnsbl: { passed: true, weight: 0, message: "Not checked", detail: "" },
-        spf: { passed: false, weight: 0, message: "Not checked", detail: "" },
-        dmarc: { passed: false, weight: 0, message: "Not checked", detail: "" },
-        typo: { passed: true, weight: 0, message: "Not checked", detail: "" },
+        mx: { passed: false, message: "Not checked", detail: "" },
+        smtp: { passed: false, message: "Not checked", detail: "" },
+        catchAll: { passed: false, message: "Not checked", detail: "" },
+        disposable: { passed: false, message: "Not checked", detail: "" },
+        generic: { passed: false, message: "Not checked", detail: "" },
+        freeProvider: { passed: false, message: "Not checked", detail: "" },
+        dnsbl: { passed: true, message: "Not checked", detail: "" },
+        spf: { passed: false, message: "Not checked", detail: "" },
+        dmarc: { passed: false, message: "Not checked", detail: "" },
+        typo: { passed: true, message: "Not checked", detail: "" },
       },
       processingTimeMs: 0,
     };
@@ -98,26 +98,26 @@ export async function validateEmail(email: string): Promise<ValidationResult> {
   let score = 0;
 
   // Positive points
-  if (formatResult.passed) score += 15;
-  if (mxResult.passed) score += 25;
-  if (smtpResult.passed) score += 30;
-  if (catchAllResult.passed) score += 10;
-  if (disposableResult.passed) score += 10;
-  if (genericResult.passed) score += 5;
+  if (formatResult.passed) score += SCORING_WEIGHTS.format.pass;
+  if (mxResult.passed) score += SCORING_WEIGHTS.mx.pass;
+  if (smtpResult.passed) score += SCORING_WEIGHTS.smtp.pass;
+  if (catchAllResult.passed) score += SCORING_WEIGHTS.catchAll.pass;
+  if (disposableResult.passed) score += SCORING_WEIGHTS.disposable.pass;
+  if (genericResult.passed) score += SCORING_WEIGHTS.generic.pass;
 
   // SPF/DMARC bonus
-  if (spfResult.passed) score += 5;
-  if (dmarcResult.passed) score += 5;
+  if (spfResult.passed) score += SCORING_WEIGHTS.spf.pass;
+  if (dmarcResult.passed) score += SCORING_WEIGHTS.dmarc.pass;
 
   // Old domain bonus (if available)
   const reputation = await getDomainReputation(domain);
   if (reputation.ageInDays && reputation.ageInDays > 365) {
-    score += 5;
+    score += SCORING_WEIGHTS.domainAge.pass;
   }
 
-  // Penalties
-  if (!dnsblResult.passed) score -= 20;
-  if (!typoResult.passed) score -= 10;
+  // Penalties (SCORING_WEIGHTS values are already negative)
+  if (!dnsblResult.passed) score += SCORING_WEIGHTS.dnsbl.fail;
+  if (!typoResult.passed) score += SCORING_WEIGHTS.typo.fail;
 
   // Ensure score is between 0 and 100
   score = Math.max(0, Math.min(100, score));

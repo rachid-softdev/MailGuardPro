@@ -63,23 +63,28 @@ export async function checkRateLimit(
   resetAt: number;
   limit: number;
 }> {
-  const result = (await redis.eval(
-    RATE_LIMIT_SCRIPT,
-    1,
-    `ratelimit:${key}`,
-    limit.toString(),
-    windowSeconds.toString(),
-  )) as [number, number];
+  try {
+    const result = (await redis.eval(
+      RATE_LIMIT_SCRIPT,
+      1,
+      `ratelimit:${key}`,
+      limit.toString(),
+      windowSeconds.toString(),
+    )) as [number, number];
 
-  const [current, ttl] = result;
-  const resetAt = Date.now() + (ttl > 0 ? ttl * 1000 : windowSeconds * 1000);
+    const [current, ttl] = result;
+    const resetAt = Date.now() + (ttl > 0 ? ttl * 1000 : windowSeconds * 1000);
 
-  return {
-    success: current <= limit,
-    remaining: Math.max(0, limit - current),
-    resetAt,
-    limit,
-  };
+    return {
+      success: current <= limit,
+      remaining: Math.max(0, limit - current),
+      resetAt,
+      limit,
+    };
+  } catch {
+    // Fail-open when Redis is down (general rate limits)
+    return { success: true, remaining: limit, resetAt: Date.now() + windowSeconds * 1000, limit };
+  }
 }
 
 // Pub/Sub for SSE

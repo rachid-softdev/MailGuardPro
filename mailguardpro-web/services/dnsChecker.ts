@@ -20,7 +20,6 @@ export async function checkMX(email: string): Promise<CheckResult> {
     if (!mxRecords || mxRecords.length === 0) {
       return {
         passed: false,
-        weight: 25,
         message: "Aucun enregistrement MX trouvé",
         detail: `Le domaine ${domain} n'a pas de serveur mail configuré`,
       };
@@ -31,14 +30,12 @@ export async function checkMX(email: string): Promise<CheckResult> {
 
     return {
       passed: true,
-      weight: 25,
       message: "MX valide",
       detail: `Serveur principal: ${mxRecords[0].exchange} (priorité: ${mxRecords[0].priority})`,
     };
   } catch (error) {
     return {
       passed: false,
-      weight: 25,
       message: "Erreur de résolution DNS",
       detail: `Impossible de résoudre les enregistrements MX pour ${domain}`,
     };
@@ -52,14 +49,8 @@ export async function checkSPF(domain: string): Promise<CheckResult> {
     for (const record of txtRecords) {
       const recordStr = record.join("");
       if (recordStr.includes("v=spf1")) {
-        // Analyser le record SPF
-        let passes = recordStr.includes("+all");
-        let fails = recordStr.includes("-all");
-        let softfails = recordStr.includes("~all");
-
         return {
           passed: true,
-          weight: 5,
           message: "SPF configuré",
           detail: `${recordStr.substring(0, 100)}${recordStr.length > 100 ? "..." : ""}`,
         };
@@ -68,14 +59,12 @@ export async function checkSPF(domain: string): Promise<CheckResult> {
 
     return {
       passed: false,
-      weight: 5,
       message: "SPF non trouvé",
       detail: "Aucun enregistrement SPF trouvé",
     };
   } catch {
     return {
       passed: false,
-      weight: 5,
       message: "Erreur vérification SPF",
       detail: "Impossible de vérifier les enregistrements SPF",
     };
@@ -91,7 +80,6 @@ export async function checkDMARC(domain: string): Promise<CheckResult> {
       if (recordStr.includes("v=DMARC1")) {
         return {
           passed: true,
-          weight: 5,
           message: "DMARC configuré",
           detail: recordStr.substring(0, 100),
         };
@@ -100,14 +88,12 @@ export async function checkDMARC(domain: string): Promise<CheckResult> {
 
     return {
       passed: false,
-      weight: 5,
       message: "DMARC non trouvé",
       detail: "Aucun enregistrement DMARC trouvé",
     };
   } catch {
     return {
       passed: false,
-      weight: 5,
       message: "Erreur vérification DMARC",
       detail: "Impossible de vérifier les enregistrements DMARC",
     };

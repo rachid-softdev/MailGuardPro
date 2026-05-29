@@ -152,6 +152,36 @@ export async function clearAllValidationCaches(): Promise<number> {
   return cleared;
 }
 
+class InMemoryRateLimit {
+  private maxEntries: number;
+  private store: Map<string, { count: number; resetAt: number }>;
+  constructor(maxEntries = 100_000) {
+    this.maxEntries = maxEntries;
+    this.store = new Map();
+  }
+  check(key: string, limit: number, windowMs: number): boolean {
+    const now = Date.now();
+    const entry = this.store.get(key);
+    if (!entry || now > entry.resetAt) {
+      this.store.set(key, { count: 1, resetAt: now + windowMs });
+      return true;
+    }
+    entry.count++;
+    if (entry.count > limit) return false;
+    this.store.delete(key);
+    this.store.set(key, entry);
+    return true;
+  }
+  evict(): void {
+    if (this.store.size <= this.maxEntries) return;
+    const toEvict = Math.floor(this.maxEntries * 0.1);
+    const keys = [...this.store.keys()];
+    for (let i = 0; i < toEvict && i < keys.length; i++) this.store.delete(keys[i]);
+  }
+}
+const memoryRateLimit = new InMemoryRateLimit();
+if (typeof setInterval !== "undefined") setInterval(() => memoryRateLimit.evict(), 60_000);
+
 /**
  * Per-email rate limiting to prevent enumeration attacks.
  * Allows 5 validation requests per email per hour.
@@ -162,6 +192,6 @@ export async function checkEmailRateLimit(email: string): Promise<boolean> {
     const result = await checkRateLimit(`smtp-rate:${email.toLowerCase()}`, 5, 3600);
     return result.success;
   } catch {
-    return true; // Fail open
+    return memoryRateLimit.check(`smtp-rate:${email.toLowerCase()}`, 5, 3_600_000);
   }
 }

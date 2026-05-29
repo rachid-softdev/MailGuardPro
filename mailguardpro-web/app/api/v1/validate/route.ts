@@ -5,9 +5,11 @@ import { auth } from "@/lib/auth";
 import { hashApiKey, hashApiKeyLegacy } from "@/lib/crypto";
 import { prisma } from "@/lib/prisma";
 import { checkRateLimit } from "@/lib/redis";
-import { getClientIp } from "@/lib/ssrf";
 import { AuditAction, AuditResource, logAudit } from "@/services/auditLogger";
+import { checkDisposable } from "@/services/disposableChecker";
 import { validateEmail } from "@/services/emailValidator";
+import { checkFormat } from "@/services/formatChecker";
+import { checkRateLimitByPlan } from "@/services/rateLimitService";
 import { NextRequest, NextResponse } from "next/server";
 import { v4 as uuidv4 } from "uuid";
 import { z } from "zod";
@@ -77,44 +79,12 @@ export async function GET(req: NextRequest) {
     const authResult = await getAuthenticatedUser(req);
     const user = authResult?.user;
 
-    // Rate limiting: single check based on authentication level
-    let rateLimitKey: string;
-    let rateLimitMax: number;
-    let userPlan: string | null = null;
-
-    if (user && user.plan) {
-      // Plan-based limits
-      const planLimits: Record<string, number> = {
-        FREE: 20,
-        STARTER: 100,
-        PRO: 500,
-        BUSINESS: 2000,
-      };
-      userPlan = user.plan as string;
-      rateLimitKey = `user:${user.id}`;
-      rateLimitMax = planLimits[userPlan] || 20;
-    } else if (user) {
-      // Authenticated but plan not available in session — fetch from DB
-      const dbUser = await prisma.user.findUnique({
-        where: { id: user.id },
-        select: { plan: true },
-      });
-      userPlan = dbUser?.plan ?? "FREE";
-      rateLimitKey = `user:${user.id}`;
-      rateLimitMax =
-        userPlan === "STARTER"
-          ? 100
-          : userPlan === "PRO"
-            ? 500
-            : userPlan === "BUSINESS"
-              ? 2000
-              : 20;
-    } else {
-      // Anonymous: IP-based, strict limit
-      const ip = getClientIp(req);
-      rateLimitKey = `ip:${ip}`;
-      rateLimitMax = 10;
-    }
+    // Rate limiting based on plan or IP
+    const ip =
+      req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+      req.headers.get("x-real-ip") ??
+      "127.0.0.1";
+    const { rateLimitKey, rateLimitMax, userPlan } = await checkRateLimitByPlan(user, ip);
 
     const rateLimit = await checkRateLimit(rateLimitKey, rateLimitMax, 60);
     if (!rateLimit.success) {
@@ -126,6 +96,77 @@ export async function GET(req: NextRequest) {
         },
         { status: 429 },
       );
+    }
+
+    // Quick pre-deduction gate: format + disposable checks
+    // Don't charge users for emails that fail basic validation
+    const startTime = Date.now();
+    if (user) {
+      const formatCheck = checkFormat(email!);
+      if (!formatCheck.passed) {
+        const remaining =
+          (await prisma.user.findUnique({ where: { id: user.id }, select: { credits: true } }))
+            ?.credits ?? null;
+        const requestId = uuidv4();
+        const processingTimeMs = Date.now() - startTime;
+        return NextResponse.json({
+          success: true,
+          data: {
+            email,
+            score: 0,
+            status: "invalid",
+            checks: {
+              format: formatCheck,
+              mx: { passed: false, message: "Not checked", detail: "" },
+              smtp: { passed: false, message: "Not checked", detail: "" },
+              catchAll: { passed: false, message: "Not checked", detail: "" },
+              disposable: { passed: false, message: "Not checked", detail: "" },
+              generic: { passed: false, message: "Not checked", detail: "" },
+              freeProvider: { passed: false, message: "Not checked", detail: "" },
+              dnsbl: { passed: true, message: "Not checked", detail: "" },
+              spf: { passed: false, message: "Not checked", detail: "" },
+              dmarc: { passed: false, message: "Not checked", detail: "" },
+              typo: { passed: true, message: "Not checked", detail: "" },
+            },
+            domain: { name: email!.split("@")[1] || "", reputation: "neutral" },
+            processingTimeMs,
+          },
+          meta: { requestId, processingTimeMs, creditsUsed: 0, creditsRemaining: remaining },
+        });
+      }
+
+      const disposableCheck = await checkDisposable(email!);
+      if (!disposableCheck.passed) {
+        const remaining =
+          (await prisma.user.findUnique({ where: { id: user.id }, select: { credits: true } }))
+            ?.credits ?? null;
+        const requestId = uuidv4();
+        const processingTimeMs = Date.now() - startTime;
+        return NextResponse.json({
+          success: true,
+          data: {
+            email,
+            score: 0,
+            status: "invalid",
+            checks: {
+              format: formatCheck,
+              mx: { passed: false, message: "Not checked", detail: "" },
+              smtp: { passed: false, message: "Not checked", detail: "" },
+              catchAll: { passed: false, message: "Not checked", detail: "" },
+              disposable: disposableCheck,
+              generic: { passed: false, message: "Not checked", detail: "" },
+              freeProvider: { passed: false, message: "Not checked", detail: "" },
+              dnsbl: { passed: true, message: "Not checked", detail: "" },
+              spf: { passed: false, message: "Not checked", detail: "" },
+              dmarc: { passed: false, message: "Not checked", detail: "" },
+              typo: { passed: true, message: "Not checked", detail: "" },
+            },
+            domain: { name: email!.split("@")[1] || "", reputation: "neutral" },
+            processingTimeMs,
+          },
+          meta: { requestId, processingTimeMs, creditsUsed: 0, creditsRemaining: remaining },
+        });
+      }
     }
 
     // Deduct credits atomically for authenticated users
@@ -151,7 +192,6 @@ export async function GET(req: NextRequest) {
     }
 
     // Validation de l'email
-    const startTime = Date.now();
     const result = await validateEmail(email!);
 
     // Save to DB if user is authenticated

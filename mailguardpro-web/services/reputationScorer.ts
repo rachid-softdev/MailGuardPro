@@ -1,6 +1,7 @@
 // Score de réputation de domaine - Optimisé pour la performance avec fallbacks multiples
 
 import { redis } from "@/lib/redis";
+import whois from "whois";
 import { DomainInfo } from "./types";
 
 // Timeouts pour éviter de bloquer sur une API lente
@@ -93,22 +94,6 @@ function parseRdapResponse(data: any): { createdAt?: string; ageInDays?: number 
   return null;
 }
 
-// Parser la réponse WHOIS pour extraire la date de création
-function parseWhoisResponse(data: any): { createdAt?: string; ageInDays?: number } | null {
-  const createdDate = data.created_date || data.creation_date || data.createdDate;
-  if (createdDate) {
-    const created = new Date(createdDate);
-    const ageInDays = Math.floor((Date.now() - created.getTime()) / (1000 * 60 * 60 * 24));
-
-    return {
-      createdAt: createdDate,
-      ageInDays,
-    };
-  }
-
-  return null;
-}
-
 // Fetch RDAP avec timeout
 async function fetchRDAP(
   domain: string,
@@ -146,31 +131,38 @@ async function fetchRDAP(
   }
 }
 
-// Fetch WHOIS via multiple fallbacks
+// Fetch WHOIS via node-whois
 async function fetchWHOIS(
   domain: string,
 ): Promise<{ createdAt?: string; ageInDays?: number } | null> {
-  // Try multiple WHOIS APIs
-  const apis = [
-    `https://whois.freeai.dev/v1/whois?domain=${domain}`,
-    `https://whois-api-w54c.onrender.com/whois/${domain}`,
-  ];
-
-  for (const apiUrl of apis) {
-    const response = await fetchWithTimeout(apiUrl, WHOIS_TIMEOUT_MS);
-
-    if (response?.ok) {
-      try {
-        const data = await response.json();
-        const result = parseWhoisResponse(data);
-        if (result) return result;
-      } catch {
-        continue;
+  try {
+    const whoisData = await new Promise<string>((resolve, reject) => {
+      whois.lookup(domain, { timeout: WHOIS_TIMEOUT_MS }, (err, data) => {
+        if (err) reject(err);
+        else resolve(data);
+      });
+    });
+    const patterns = [
+      /Creation Date:\s*(.+)/i,
+      /created:\s*(.+)/i,
+      /Domain Registration Date:\s*(.+)/i,
+      /Domain Create Date:\s*(.+)/i,
+      /Registration Time:\s*(.+)/i,
+      /registered:\s*(.+)/i,
+      /Created on:\s*(.+)/i,
+    ];
+    for (const pattern of patterns) {
+      const match = whoisData.match(pattern);
+      if (match) {
+        const created = new Date(match[1].trim());
+        const ageInDays = Math.floor((Date.now() - created.getTime()) / 86400000);
+        return { createdAt: match[1].trim(), ageInDays };
       }
     }
+    return null;
+  } catch {
+    return null;
   }
-
-  return null;
 }
 
 // Check if domain is in known old domains list
