@@ -1,10 +1,11 @@
 import { NextRequest } from "next/server";
 /**
- * Unit tests for L-04 — Stripe webhook idempotency key cleanup catch logging.
+ * Unit tests for L-04 — Stripe webhook idempotency error logging.
  *
- * Verifies that when Redis first-payment check fails after a successful
- * idempotency check, the idempotency key cleanup failure is logged via
- * console.error with "[Stripe] Idempotency key cleanup failed:".
+ * Verifies that when checkIdempotency() fails in various ways, the correct
+ * log messages are emitted:
+ *   - Redis unavailable → console.warn "[Stripe] Redis unavailable"
+ *   - PostgreSQL fallback fails → console.error "[Stripe] PostgreSQL idempotency check failed"
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -25,10 +26,6 @@ vi.mock("next/headers", () => ({
 // ---------------------------------------------------------------------------
 // Redis mock — sequential call control via counter
 // ---------------------------------------------------------------------------
-// We control each redis.set call in sequence:
-//   call 0: idempotency check (must succeed)
-//   call 1: first-payment check (must throw)
-//   call 2: idempotency key cleanup via redis.del (must reject for catch)
 const redisReturnValues: Array<{ type: "ok" | "throw" | "null"; value?: any }> = [];
 let redisCallIdx = 0;
 
@@ -42,15 +39,12 @@ const mockRedisSet = vi.hoisted(() =>
   }),
 );
 
-// redis.del needs to reject for the catch test
-const mockRedisDel = vi.hoisted(() => vi.fn().mockRejectedValue(new Error("Redis del failed")));
-
 vi.mock("@/lib/redis", () => ({
   redis: {
     get: vi.fn().mockResolvedValue(null),
     set: mockRedisSet,
     setex: vi.fn().mockResolvedValue("OK"),
-    del: mockRedisDel,
+    del: vi.fn().mockResolvedValue(1),
   },
   checkRateLimit: vi.fn(),
 }));
@@ -68,8 +62,9 @@ vi.mock("stripe", () => ({
   })),
 }));
 
+const mockGetPlanFromPriceId = vi.hoisted(() => vi.fn().mockReturnValue("PRO"));
 vi.mock("@/lib/stripe", () => ({
-  getPlanFromPriceId: vi.fn().mockReturnValue("PRO"),
+  getPlanFromPriceId: mockGetPlanFromPriceId,
   stripe: {
     webhooks: { constructEvent: mockConstructEvent },
     subscriptions: { retrieve: mockRetrieveSub },
@@ -77,13 +72,21 @@ vi.mock("@/lib/stripe", () => ({
 }));
 
 // ---------------------------------------------------------------------------
-// Prisma mock
+// Prisma mock — includes stripeEvent for fallback control
 // ---------------------------------------------------------------------------
+const mockStripeEventCreate = vi.hoisted(() => vi.fn().mockResolvedValue({}));
+const mockPrismaFindFirst = vi.hoisted(() =>
+  vi.fn().mockResolvedValue({ id: "user-1", plan: "FREE" }),
+);
+const mockPrismaUpdate = vi.hoisted(() => vi.fn().mockResolvedValue({}));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     user: {
-      findFirst: vi.fn().mockResolvedValue({ id: "user-1", plan: "FREE" }),
-      update: vi.fn().mockResolvedValue({}),
+      findFirst: mockPrismaFindFirst,
+      update: mockPrismaUpdate,
+    },
+    stripeEvent: {
+      create: mockStripeEventCreate,
     },
     $connect: vi.fn(),
     $disconnect: vi.fn(),
@@ -116,16 +119,11 @@ function createReq(): NextRequest {
 }
 
 describe("Stripe catch logging [L-04]", () => {
+  let warnSpy: ReturnType<typeof vi.spyOn>;
   let errorSpy: ReturnType<typeof vi.spyOn>;
 
-  beforeEach(() => {
-    redisReturnValues.length = 0;
-    redisCallIdx = 0;
-    vi.clearAllMocks();
-    errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-    vi.spyOn(console, "log").mockImplementation(() => {});
-
-    // Re-apply custom implementations that get destroyed by vi.restoreAllMocks in afterEach
+  /** Re-apply mock implementations that vi.restoreAllMocks destroys */
+  function reapplyDefaultMocks() {
     mockRedisSet.mockImplementation(() => {
       const cfg = redisReturnValues[redisCallIdx++];
       if (!cfg || cfg.type === "ok") return Promise.resolve("OK");
@@ -133,17 +131,32 @@ describe("Stripe catch logging [L-04]", () => {
       if (cfg.type === "throw") return Promise.reject(new Error(cfg.value || "Redis error"));
       return Promise.resolve("OK");
     });
-    mockRedisDel.mockRejectedValue(new Error("Redis del failed"));
-
+    mockPrismaFindFirst.mockResolvedValue({ id: "user-1", plan: "FREE" });
+    mockPrismaUpdate.mockResolvedValue({});
+    mockStripeEventCreate.mockResolvedValue({});
     mockConstructEvent.mockReturnValue(fakeEvent("invoice.payment_succeeded"));
     mockRetrieveSub.mockResolvedValue({
       items: { data: [{ price: { id: "price_pro" } }] },
     });
+    mockGetPlanFromPriceId.mockReturnValue("PRO");
+  }
+
+  beforeEach(() => {
+    redisReturnValues.length = 0;
+    redisCallIdx = 0;
+    vi.clearAllMocks();
+
+    // Re-apply implementations that vi.restoreAllMocks in afterEach destroys
+    reapplyDefaultMocks();
+
+    warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(console, "log").mockImplementation(() => {});
   });
 
   afterEach(() => {
     vi.unstubAllEnvs();
-    vi.clearAllMocks();
+    vi.restoreAllMocks();
   });
 
   /** Import the POST handler with required env vars */
@@ -155,71 +168,57 @@ describe("Stripe catch logging [L-04]", () => {
     return mod.POST;
   }
 
-  it("should log error when idempotency key cleanup fails", async () => {
-    // Sequence:
-    //   call 0: redis.set(eventIdKey) → idempotency check → OK
-    //   call 1: redis.set(firstPaymentKey) → first-payment check → throws
-    //   call 2: redis.del(eventIdKey) → cleanup → rejects (triggering .catch)
-    redisReturnValues.push({ type: "ok" }, { type: "throw" });
+  it("should log warning when Redis is unavailable and PostgreSQL fallback succeeds", async () => {
+    // Redis throws → fallback to PostgreSQL → PG succeeds
+    redisReturnValues.push({ type: "throw" });
+    mockStripeEventCreate.mockResolvedValue({}); // PG fallback succeeds
 
     const POST = await getHandler();
     const res = await POST(createReq());
 
-    expect(res.status).toBe(503);
+    expect(res.status).toBe(200); // PG fallback handled it
 
-    // Check that console.error was called with the idempotency cleanup message
-    const cleanupLogs = errorSpy.mock.calls.filter(
-      (call) => typeof call[0] === "string" && call[0].includes("Idempotency key cleanup failed"),
-    );
-    expect(cleanupLogs.length).toBeGreaterThanOrEqual(1);
-    expect(cleanupLogs[0][0]).toBe("[Stripe] Idempotency key cleanup failed:");
-  });
-
-  it("should call redis.del after first payment check fails", async () => {
-    redisReturnValues.push({ type: "ok" }, { type: "throw" });
-
-    const POST = await getHandler();
-    await POST(createReq());
-
-    // Verify redis.del was called to clean up the idempotency key
-    expect(mockRedisDel).toHaveBeenCalledWith(expect.stringContaining("stripe:event:"));
-  });
-
-  it("should still log error even when redis.del resolves (not rejects)", async () => {
-    // Override redis.del to resolve successfully (catch still executes)
-    mockRedisDel.mockResolvedValue(1);
-
-    redisReturnValues.push({ type: "ok" }, { type: "throw" });
-
-    const POST = await getHandler();
-    const res = await POST(createReq());
-
-    expect(res.status).toBe(503);
-
-    // redis.del resolves, but the .catch still fires because the first-payment
-    // check failed — the outer catch uses redis.del().catch(...) which still
-    // triggers the .catch handler since the catch is attached regardless
-    // Actually, .catch won't fire if del resolves - that's fine, we just want
-    // to make sure the 503 path still works.
-  });
-
-  it("should log both Redis unavailable AND idempotency cleanup errors when del also fails", async () => {
-    mockRedisDel.mockRejectedValue(new Error("Cleanup failed"));
-
-    redisReturnValues.push({ type: "ok" }, { type: "throw" });
-
-    const POST = await getHandler();
-    await POST(createReq());
-
-    // Should have BOTH the "Redis unavailable" log and the "Idempotency key cleanup failed" log
-    const redisUnavailableLogs = errorSpy.mock.calls.filter(
+    const redisUnavailableLogs = warnSpy.mock.calls.filter(
       (call) => typeof call[0] === "string" && call[0].includes("Redis unavailable"),
     );
-    const cleanupLogs = errorSpy.mock.calls.filter(
-      (call) => typeof call[0] === "string" && call[0].includes("Idempotency key cleanup failed"),
+    expect(redisUnavailableLogs.length).toBeGreaterThanOrEqual(1);
+    expect(redisUnavailableLogs[0][0]).toBe(
+      "[Stripe] Redis unavailable — using PostgreSQL idempotency fallback",
+    );
+  });
+
+  it("should log error when PostgreSQL fallback also fails", async () => {
+    // Redis throws → fallback to PostgreSQL → PG also throws
+    redisReturnValues.push({ type: "throw" });
+    mockStripeEventCreate.mockRejectedValue(new Error("PG connection failed"));
+
+    const POST = await getHandler();
+    const res = await POST(createReq());
+
+    expect(res.status).toBe(503);
+
+    // Should log BOTH the Redis unavailable warning AND the PG error
+    const redisUnavailableLogs = warnSpy.mock.calls.filter(
+      (call) => typeof call[0] === "string" && call[0].includes("Redis unavailable"),
+    );
+    const pgErrorLogs = errorSpy.mock.calls.filter(
+      (call) =>
+        typeof call[0] === "string" && call[0].includes("PostgreSQL idempotency check failed"),
     );
 
     expect(redisUnavailableLogs.length).toBeGreaterThanOrEqual(1);
-    expect(cleanupLogs.length).toBeGreaterThanOrEqual(1);
+    expect(pgErrorLogs.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("should return 503 when both idempotency layers fail", async () => {
+    redisReturnValues.push({ type: "throw" });
+    mockStripeEventCreate.mockRejectedValue(new Error("PG connection failed"));
+
+    const POST = await getHandler();
+    const res = await POST(createReq());
+
+    expect(res.status).toBe(503);
+    const body = await res.json();
+    expect(body.error).toContain("Service temporarily unavailable");
   });
 });

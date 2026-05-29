@@ -6,7 +6,10 @@ import { NextResponse } from "next/server";
 function generateNonce(): string {
   const array = new Uint8Array(16);
   crypto.getRandomValues(array);
-  return btoa(String.fromCharCode(...array));
+  return btoa(String.fromCharCode(...array))
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
 }
 
 function buildCsp(nonce: string): string {
@@ -26,7 +29,6 @@ function buildCsp(nonce: string): string {
 export default auth((req) => {
   const nonce = generateNonce();
   const requestHeaders = new Headers(req.headers);
-  requestHeaders.set("x-csp-nonce", nonce);
 
   const isLoggedIn = !!req.auth;
 

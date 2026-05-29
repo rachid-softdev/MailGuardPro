@@ -1,5 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+// Use actual crypto for proper HMAC/SHA256 behavior
+vi.mock("crypto", async () => {
+  const actual = await vi.importActual<typeof import("crypto")>("crypto");
+  return { ...actual, default: actual };
+});
+
 // crypto.ts needs TOKEN_ENCRYPTION_KEY and API_KEY_PEPPER at import time.
 // vitest.config.ts sets these as env vars globally.
 
@@ -183,13 +189,15 @@ describe("crypto utils", () => {
 
     it("should produce different hashes with different peppers", async () => {
       vi.stubEnv("API_KEY_PEPPER", "pepper-a");
-      const modA = await import("@/lib/crypto");
+      const { hashApiKey } = await import("@/lib/crypto");
 
-      vi.resetModules();
+      const hashA = hashApiKey("same_key");
+
+      // Change pepper at runtime — hashApiKey reads env at call time via getPepper()
       vi.stubEnv("API_KEY_PEPPER", "pepper-b");
-      const modB = await import("@/lib/crypto");
+      const hashB = hashApiKey("same_key");
 
-      expect(modA.hashApiKey("same_key")).not.toBe(modB.hashApiKey("same_key"));
+      expect(hashA).not.toBe(hashB);
     });
   });
 

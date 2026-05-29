@@ -143,7 +143,12 @@ export class RateLimitExceededError extends Error {
     public windowSeconds: number,
     public resetAt: number,
   ) {
-    super(`Rate limit exceeded. Try again in ${Math.ceil((resetAt - Date.now()) / 1000)} seconds`);
+    // Round resetAt to nearest 10 seconds to prevent precise timing leakage
+    const roundedResetAt = Math.ceil(resetAt / 10000) * 10000;
+    super(
+      `Rate limit exceeded. Try again in approximately ${Math.ceil((roundedResetAt - Date.now()) / 1000)} seconds`,
+    );
     this.name = "RateLimitExceededError";
+    this.resetAt = roundedResetAt;
   }
 }

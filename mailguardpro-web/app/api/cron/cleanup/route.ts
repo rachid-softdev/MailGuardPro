@@ -1,26 +1,17 @@
 // Cron: Cleanup old validation records
 // Runs daily to remove old validations for free users (keep only 90 days)
 
+import { verifyCronRequest } from "@/lib/cronAuth";
 import { prisma } from "@/lib/prisma";
-import { timingSafeEqual } from "@/lib/timingSafe";
 import { AuditAction, AuditResource, logAudit } from "@/services/auditLogger";
 import { NextRequest, NextResponse } from "next/server";
 
-const CRON_SECRET = process.env.CRON_SECRET;
 const RETENTION_DAYS = 90;
 
 export async function GET(req: NextRequest) {
-  // Verify cron authorization
-  if (!CRON_SECRET) {
-    console.error("[Cron] CRON_SECRET is not configured");
-    return NextResponse.json({ error: "Server configuration error" }, { status: 500 });
-  }
-
-  const authHeader = req.headers.get("authorization");
-  const expected = `Bearer ${CRON_SECRET}`;
-  if (!timingSafeEqual(authHeader ?? "", expected)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  // Verify cron authorization with rate limiting and failed-attempt logging
+  const { authorized, response } = await verifyCronRequest(req, "cleanup");
+  if (!authorized) return response;
 
   try {
     console.log("[Cron] Starting validation cleanup...");

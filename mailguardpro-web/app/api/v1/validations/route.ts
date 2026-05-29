@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
       where.status = status;
     }
     if (search) {
-      where.email = { contains: search.toLowerCase() };
+      where.email = { startsWith: search.toLowerCase() };
     }
 
     // Fetch validations

@@ -3,6 +3,7 @@
 
 import crypto from "node:crypto";
 import { auth } from "@/lib/auth";
+import { validateCsrfOrigin } from "@/lib/csrf";
 import { prisma } from "@/lib/prisma";
 import { getPlanFromPriceId, stripe } from "@/lib/stripe";
 import { AuditAction, AuditResource, logAudit } from "@/services/auditLogger";
@@ -11,6 +12,12 @@ import Stripe from "stripe";
 
 export async function POST(req: NextRequest) {
   try {
+    // CSRF protection
+    const csrf = validateCsrfOrigin(req);
+    if (!csrf.valid) {
+      return NextResponse.json({ success: false, error: csrf.error }, { status: 403 });
+    }
+
     // Validate Stripe configuration
     if (
       !process.env.STRIPE_STARTER_PRICE_ID ||

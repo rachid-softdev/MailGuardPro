@@ -1,5 +1,6 @@
 // Audit Logger Service - Log toutes les actions sensibles
 
+import { hashIp } from "@/lib/ipHash";
 import { prisma } from "@/lib/prisma";
 
 export enum AuditAction {
@@ -79,7 +80,7 @@ export async function logAuditEvent(params: AuditLogParams): Promise<void> {
         action: params.action,
         resource: params.resource,
         resourceId: params.resourceId,
-        ipAddress: params.ipAddress,
+        ipAddress: params.ipAddress ? hashIp(params.ipAddress) : undefined,
         userAgent: params.userAgent,
         metadata: params.metadata as any,
       },

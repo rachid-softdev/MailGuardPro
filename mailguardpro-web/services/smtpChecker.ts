@@ -2,6 +2,7 @@
 
 import net from "net";
 import { redis } from "@/lib/redis";
+import { safeJsonParse } from "@/lib/safeJson";
 import { validateResolvedIp } from "@/lib/ssrf";
 import dns from "dns/promises";
 import { CheckResult } from "./types";
@@ -112,7 +113,7 @@ export async function checkSMTP(email: string, timeoutMs = 5000): Promise<SMTPRe
     const cacheKey = `smtp:email:${email}`;
     const cached = await redis.get(cacheKey);
     if (cached) {
-      return JSON.parse(cached) as SMTPResult;
+      return safeJsonParse<SMTPResult>(cached);
     }
   } catch (err) {
     console.warn("[SMTP] Redis unavailable, proceeding without cache:", err);

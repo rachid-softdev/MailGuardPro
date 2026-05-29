@@ -133,7 +133,7 @@ let nextConfig: NextConfig = {
           // Feature policy - disable unused browser features
           {
             key: "Permissions-Policy",
-            value: "camera=(), microphone=(), geolocation=(), payment=()",
+            value: "camera=(), microphone=(), geolocation=(), payment=(self)",
           },
           // XSS protection (legacy but still useful)
           {
