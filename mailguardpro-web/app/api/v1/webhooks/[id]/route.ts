@@ -134,6 +134,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
     const { url, events, name, isActive } = validation.data;
 
+    // Build update payload with only provided fields
+    const updateData: Record<string, unknown> = {};
+
     // If URL is being updated, perform SSRF validation with DNS
     if (url) {
       const ssrfCheck = await validateWebhookUrlWithDns(url);
@@ -157,8 +160,6 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       updateData.pinnedIps = JSON.stringify(ipResolution.ips);
     }
 
-    // Build update payload with only provided fields
-    const updateData: Record<string, unknown> = {};
     if (url !== undefined) updateData.url = url;
     if (events !== undefined) updateData.events = events;
     if (name !== undefined) updateData.name = name;

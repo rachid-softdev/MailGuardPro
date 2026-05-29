@@ -74,13 +74,22 @@ vi.mock("@/lib/ssrf", () => ({
   validateWebhookUrlWithDns: vi.fn().mockResolvedValue({ valid: true }),
 }));
 
+// Mock rate limits (used by api-keys route)
+// NOTE: We use plain vi.fn() here and re-setup mockResolvedValue in beforeEach
+// because afterEach(restoreAllMocks) clears the implementation.
+vi.mock("@/lib/rateLimits", () => ({
+  checkRateLimitByPlan: vi.fn(),
+  getPlanLimits: vi.fn(),
+}));
+
 // Mock uuid (used by api-keys route)
 vi.mock("uuid", () => ({
   v4: vi.fn(() => "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"),
 }));
 
-// Mock crypto (used by webhook route for randomBytes)
-vi.mock("crypto", () => ({
+// Mock crypto (used by webhook route for randomBytes and by ipHash for createHash)
+// NOTE: hashIp uses `import crypto from "crypto"` so we must provide a `default` export.
+const cryptoMock = {
   randomUUID: vi.fn(() => "test-uuid-12345"),
   randomBytes: vi.fn((size: number) => Buffer.alloc(size, "a")),
   createHmac: vi.fn(() => ({
@@ -89,10 +98,11 @@ vi.mock("crypto", () => ({
   })),
   createHash: vi.fn(() => ({
     update: vi.fn().mockReturnThis(),
-    digest: vi.fn(() => Buffer.from("mock-hash")),
+    digest: vi.fn(() => "abcdef0123456789abcdef0123456789"), // hex string for hashIp.substring()
   })),
   timingSafeEqual: vi.fn(() => true),
-}));
+};
+vi.mock("crypto", () => ({ default: cryptoMock, ...cryptoMock }));
 
 // NOTE: We do NOT mock @/services/auditLogger — the actual implementation runs,
 // which calls prisma.auditLog.create (mocked above).
@@ -108,12 +118,21 @@ describe("Audit logging integration from API routes", () => {
     prisma = prismaModule.prisma;
   });
 
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
     // Set Stripe env vars for subscribe route
     process.env.STRIPE_STARTER_PRICE_ID = "price_starter_monthly";
     process.env.STRIPE_PRO_PRICE_ID = "price_pro_monthly";
     process.env.STRIPE_BUSINESS_PRICE_ID = "price_business_monthly";
+
+    // Re-setup rate limit mock (restoreAllMocks in afterEach clears implementations)
+    const { checkRateLimitByPlan } = await import("@/lib/rateLimits");
+    vi.mocked(checkRateLimitByPlan).mockResolvedValue({
+      success: true,
+      remaining: 999,
+      resetAt: Date.now() + 3600000,
+      limit: 10,
+    });
   });
 
   afterEach(() => {
@@ -141,7 +160,7 @@ describe("Audit logging integration from API routes", () => {
       const req = new NextRequest("http://localhost:3000/api/v1/api-keys", {
         method: "POST",
         body: JSON.stringify({ name: "Test Key" }),
-        headers: { "Content-Type": "application/json" },
+        headers: { origin: "http://localhost:3000", "Content-Type": "application/json" },
       });
       const response = await POST(req);
 
@@ -155,7 +174,8 @@ describe("Audit logging integration from API routes", () => {
       expect(callArg.data.resource).toBe("ApiKey");
       expect(callArg.data.resourceId).toBe("key-123");
       expect(callArg.data.metadata).toEqual({ keyName: "Test Key" });
-      expect(callArg.data.ipAddress).toBe("192.168.1.1");
+      // ipAddress is hashed by hashIp via the real auditLogger → crypto mock
+      expect(callArg.data.ipAddress).toMatch(/^[0-9a-f]{16}$/);
     });
 
     it("should still return 201 if audit logging fails (non-fatal)", async () => {
@@ -177,7 +197,7 @@ describe("Audit logging integration from API routes", () => {
       const req = new NextRequest("http://localhost:3000/api/v1/api-keys", {
         method: "POST",
         body: JSON.stringify({ name: "Another Key" }),
-        headers: { "Content-Type": "application/json" },
+        headers: { origin: "http://localhost:3000", "Content-Type": "application/json" },
       });
       const response = await POST(req);
 

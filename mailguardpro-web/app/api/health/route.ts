@@ -44,7 +44,12 @@ export async function GET() {
   } catch (error) {
     services.database = {
       status: "unhealthy",
-      error: error instanceof Error ? error.message : "Unknown error",
+      error:
+        process.env.NODE_ENV === "production"
+          ? "Database connection failed"
+          : error instanceof Error
+            ? error.message
+            : "Unknown error",
     };
   }
 
@@ -59,7 +64,12 @@ export async function GET() {
   } catch (error) {
     services.redis = {
       status: "unhealthy",
-      error: error instanceof Error ? error.message : "Unknown error",
+      error:
+        process.env.NODE_ENV === "production"
+          ? "Redis connection failed"
+          : error instanceof Error
+            ? error.message
+            : "Unknown error",
     };
   }
 

@@ -24,6 +24,7 @@ vi.mock("@/lib/crypto", () => ({
 
 vi.mock("@/lib/ssrf", () => ({
   validateWebhookUrlWithDns: vi.fn().mockResolvedValue({ valid: true }),
+  resolveWebhookIps: vi.fn().mockResolvedValue({ valid: true, ips: ["93.184.216.34"] }),
 }));
 
 vi.mock("@/services/auditLogger", () => ({

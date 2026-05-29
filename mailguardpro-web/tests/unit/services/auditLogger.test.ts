@@ -43,7 +43,7 @@ describe("auditLogger", () => {
           userId: "user-123",
           action: AuditAction.USER_LOGIN,
           resource: AuditResource.USER,
-          ipAddress: "192.168.1.1",
+          ipAddress: expect.stringMatching(/^[0-9a-f]{16}$/),
           userAgent: undefined,
           metadata: undefined,
         },

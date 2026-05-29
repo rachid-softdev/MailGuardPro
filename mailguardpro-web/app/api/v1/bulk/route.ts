@@ -29,11 +29,11 @@ export async function GET(req: NextRequest) {
     });
 
     if (!queryValidation.success) {
+      console.warn("[Validation] Input validation failed:", queryValidation.error.errors);
       return NextResponse.json(
         {
           success: false,
           error: "Invalid query parameters",
-          details: queryValidation.error.errors,
         },
         { status: 400 },
       );

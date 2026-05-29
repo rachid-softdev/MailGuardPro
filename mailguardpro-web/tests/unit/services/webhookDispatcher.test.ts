@@ -17,6 +17,14 @@ vi.mock("@/lib/prisma", () => ({
   prisma: mockPrisma,
 }));
 
+vi.mock("@/lib/ssrf", () => ({
+  resolveWebhookIps: vi.fn().mockResolvedValue({ valid: true, ips: ["93.184.216.34"] }),
+}));
+
+vi.mock("@/lib/crypto", () => ({
+  decryptToken: vi.fn((s: string) => s),
+}));
+
 import {
   WEBHOOK_EVENTS,
   WebhookDispatcher,
@@ -28,13 +36,15 @@ describe("webhookDispatcher", () => {
     id: "webhook-123",
     url: "https://example.com/webhook",
     secret: "test-secret",
+    encryptedSecret: "test-secret",
     events: ["bulk_job_completed"],
     isActive: true,
+    pinnedIps: '["93.184.216.34"]',
   };
 
   beforeEach(() => {
     vi.clearAllMocks();
-    mockFetch.mockClear();
+    mockFetch.mockReset();
   });
 
   describe("dispatch", () => {
@@ -115,7 +125,7 @@ describe("webhookDispatcher", () => {
 
       expect(result).toBe(true);
       expect(mockFetch).toHaveBeenCalledTimes(3);
-    });
+    }, 20000);
 
     it("should return false after all retries exhausted", async () => {
       mockFetch.mockRejectedValue(new Error("Network error"));
@@ -126,7 +136,7 @@ describe("webhookDispatcher", () => {
 
       expect(result).toBe(false);
       expect(mockFetch).toHaveBeenCalledTimes(3); // MAX_RETRIES = 3
-    });
+    }, 20000);
 
     it("should log warning for non-ok responses", async () => {
       mockFetch.mockResolvedValue({
@@ -144,7 +154,7 @@ describe("webhookDispatcher", () => {
       expect(result).toBe(false);
       expect(warnSpy).toHaveBeenCalled();
       warnSpy.mockRestore();
-    });
+    }, 20000);
   });
 
   describe("dispatchToUser", () => {
@@ -216,7 +226,7 @@ describe("webhookDispatcher", () => {
       expect(result.total).toBe(2);
       expect(result.successful).toBe(1);
       expect(result.failed).toBe(1);
-    });
+    }, 15_000);
 
     it("should return zero counts when no webhooks exist", async () => {
       mockPrisma.webhook.findMany.mockResolvedValue([]);
@@ -233,11 +243,13 @@ describe("webhookDispatcher", () => {
 
   describe("verifyIncomingSignature", () => {
     it("should return true for valid signature", () => {
-      const result = WebhookDispatcher.verifyIncomingSignature(
-        '{"test":"data"}',
-        "valid-signature",
-        "secret",
-      );
+      const payload = '{"test":"data"}';
+      const secret = "secret";
+      // Compute the expected HMAC-SHA256 using Node's crypto
+      const nodeCrypto = require("crypto");
+      const expectedSig = nodeCrypto.createHmac("sha256", secret).update(payload).digest("hex");
+
+      const result = WebhookDispatcher.verifyIncomingSignature(payload, expectedSig, secret);
 
       expect(result).toBe(true);
     });

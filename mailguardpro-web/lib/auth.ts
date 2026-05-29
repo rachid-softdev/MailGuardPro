@@ -146,9 +146,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   events: {
     async createUser({ user }: any) {
       // Nouveau utilisateur = 100 crédits gratuits
-      if (user.email) {
+      // Utiliser user.id (plus fiable que email qui peut avoir des races conditions)
+      if (user?.id) {
         await prisma.user.update({
-          where: { email: user.email },
+          where: { id: user.id },
           data: { credits: 100 },
         });
       }
