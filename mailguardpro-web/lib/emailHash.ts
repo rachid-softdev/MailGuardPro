@@ -1,9 +1,17 @@
 import crypto from "crypto";
 
 const EMAIL_HASH_SALT = process.env.EMAIL_HASH_SALT;
+
 if (!EMAIL_HASH_SALT) {
+  if (process.env.NODE_ENV === "production") {
+    throw new Error(
+      "EMAIL_HASH_SALT is required in production. " +
+        "Set it to a random 32+ character string. " +
+        "WARNING: Changing this salt will invalidate all existing email hashes.",
+    );
+  }
   console.warn(
-    "[EmailHash] EMAIL_HASH_SALT is not defined — using default (INSECURE for production)",
+    "[EmailHash] EMAIL_HASH_SALT is not defined — using insecure default for development",
   );
 }
 

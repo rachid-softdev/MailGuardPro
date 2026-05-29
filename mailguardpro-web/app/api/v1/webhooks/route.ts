@@ -8,7 +8,8 @@ import { encryptToken } from "@/lib/crypto";
 import { validateCsrfOrigin } from "@/lib/csrf";
 import { prisma } from "@/lib/prisma";
 import { type Plan, checkRateLimitByPlan } from "@/lib/rateLimits";
-import { validateWebhookUrlWithDns } from "@/lib/ssrf";
+import { parseJsonBody } from "@/lib/request";
+import { resolveWebhookIps, validateWebhookUrlWithDns } from "@/lib/ssrf";
 import { AuditAction, AuditResource, logAudit } from "@/services/auditLogger";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
@@ -85,15 +86,16 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const body = await req.json();
+    const { data: body, error: bodyError } = await parseJsonBody(req);
+    if (bodyError) return bodyError;
     const validation = createWebhookSchema.safeParse(body);
 
     if (!validation.success) {
+      console.warn("[Validation] Input validation failed:", validation.error.errors);
       return NextResponse.json(
         {
           success: false,
           error: "Invalid input",
-          details: validation.error.errors,
         },
         { status: 400 },
       );
@@ -109,6 +111,18 @@ export async function POST(req: NextRequest) {
         { status: 400 },
       );
     }
+
+    // DNS Pinning : résoudre et stocker les IPs
+    const webhookUrl = new URL(url);
+    const hostname = webhookUrl.hostname.toLowerCase().replace(/^\[|\]$/g, "");
+    const ipResolution = await resolveWebhookIps(hostname);
+    if (!ipResolution.valid || !ipResolution.ips) {
+      return NextResponse.json(
+        { success: false, error: `Webhook URL rejected: ${ipResolution.error}` },
+        { status: 400 },
+      );
+    }
+    const pinnedIps = JSON.stringify(ipResolution.ips);
 
     // Vérifier le nombre de webhooks existants
     const existingWebhooksCount = await prisma.webhook.count({
@@ -132,6 +146,7 @@ export async function POST(req: NextRequest) {
         name,
         events,
         encryptedSecret,
+        pinnedIps,
         userId: session.user.id,
       },
     });

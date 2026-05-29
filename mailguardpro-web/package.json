@@ -12,6 +12,7 @@
     "lint:fix": "next lint --fix",
     "format": "biome format --write .",
     "format:check": "biome format .",
+    "migrate:tokens": "tsx scripts/migrate-legacy-tokens.ts",
     "worker": "tsx worker/index.ts",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",

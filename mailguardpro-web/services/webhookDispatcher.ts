@@ -3,7 +3,7 @@
 import crypto from "crypto";
 import { decryptToken } from "@/lib/crypto";
 import { prisma } from "@/lib/prisma";
-import { validateWebhookUrlWithDns } from "@/lib/ssrf";
+import { resolveWebhookIps, validateWebhookUrlWithDns } from "@/lib/ssrf";
 
 export interface WebhookPayload {
   event: string;
@@ -17,6 +17,7 @@ export interface WebhookConfig {
   secret: string;
   events: string[];
   isActive: boolean;
+  pinnedIps?: string; // JSON array of IPs
 }
 
 // Retry configuration
@@ -34,11 +35,35 @@ export class WebhookDispatcher {
       return false;
     }
 
-    // SSRF check with DNS resolution
-    const ssrfCheck = await validateWebhookUrlWithDns(webhook.url);
-    if (!ssrfCheck.valid) {
-      console.error(`[Webhook] SSRF blocked: ${webhook.url} - ${ssrfCheck.error}`);
+    // DNS Pinning : re-résoudre et comparer avec les IPs stockées
+    if (!webhook.pinnedIps) {
+      console.error(`[Webhook] No pinned IPs for webhook ${webhook.id} — rejecting`);
       return false;
+    }
+
+    const url = new URL(webhook.url);
+    const hostname = url.hostname.toLowerCase().replace(/^\[|\]$/g, "");
+
+    const currentResolution = await resolveWebhookIps(hostname);
+    if (!currentResolution.valid || !currentResolution.ips) {
+      console.error(`[Webhook] DNS resolution failed for ${hostname}: ${currentResolution.error}`);
+      return false;
+    }
+
+    const storedIps: string[] = JSON.parse(webhook.pinnedIps);
+    const currentIps: string[] = currentResolution.ips;
+
+    // Vérifier que les IPs courantes sont toujours dans la liste des IPs stockées
+    const hasMismatch = currentIps.some((ip) => !storedIps.includes(ip));
+    if (hasMismatch) {
+      console.error(
+        `[Webhook] DNS REBINDING DETECTED for ${webhook.url}. ` +
+          `Stored: [${storedIps.join(", ")}], Current: [${currentIps.join(", ")}]`,
+      );
+      // En production, on bloque. En dev, on log juste.
+      if (process.env.NODE_ENV === "production") {
+        return false;
+      }
     }
 
     const payload: WebhookPayload = {
@@ -112,6 +137,7 @@ export class WebhookDispatcher {
             secret: webhook.encryptedSecret,
             events: webhook.events,
             isActive: webhook.isActive,
+            pinnedIps: webhook.pinnedIps,
           },
           event,
           data,

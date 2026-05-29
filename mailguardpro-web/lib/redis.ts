@@ -6,14 +6,21 @@ const globalForRedis = globalThis as unknown as {
   redis: Redis | undefined;
 };
 
-const redisUrl =
-  process.env.REDIS_URL ||
-  (process.env.NODE_ENV === "production" ? undefined : "redis://localhost:6379");
-if (!redisUrl) throw new Error("REDIS_URL is required in production");
+const rawRedisUrl = process.env.REDIS_URL || "redis://localhost:6379";
 
-export const redis =
-  globalForRedis.redis ??
-  new Redis(redisUrl, {
+function createRedisClient(url: string, extraOpts: Record<string, unknown> = {}): Redis {
+  const parsedUrl = new URL(url);
+
+  if (parsedUrl.protocol !== "redis:" && parsedUrl.protocol !== "rediss:") {
+    throw new Error(`Invalid REDIS_URL protocol: ${parsedUrl.protocol}. Use redis:// or rediss://`);
+  }
+
+  return new Redis({
+    host: parsedUrl.hostname || "localhost",
+    port: parseInt(parsedUrl.port) || 6379,
+    username: parsedUrl.username || undefined,
+    password: parsedUrl.password || undefined,
+    tls: parsedUrl.protocol === "rediss:" ? {} : undefined,
     maxRetriesPerRequest: 3,
     lazyConnect: true,
     connectTimeout: 5000,
@@ -22,7 +29,16 @@ export const redis =
       if (times > 5) return null;
       return Math.min(times * 200, 2000);
     },
+    ...extraOpts,
   });
+}
+
+const redisUrl =
+  process.env.REDIS_URL ||
+  (process.env.NODE_ENV === "production" ? undefined : "redis://localhost:6379");
+if (!redisUrl) throw new Error("REDIS_URL is required in production");
+
+export const redis = globalForRedis.redis ?? createRedisClient(redisUrl);
 
 if (process.env.NODE_ENV !== "production") globalForRedis.redis = redis;
 
