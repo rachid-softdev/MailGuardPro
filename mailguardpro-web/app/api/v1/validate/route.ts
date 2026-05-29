@@ -2,6 +2,7 @@
 // GET /api/v1/validate?email=xxx
 
 import { auth } from "@/lib/auth";
+import { hasScope } from "@/lib/auth/require-scope";
 import { hashApiKey, hashApiKeyLegacy } from "@/lib/crypto";
 import { prisma } from "@/lib/prisma";
 import { type Plan, checkRateLimitByPlan } from "@/lib/rateLimits";
@@ -53,6 +54,9 @@ async function getAuthenticatedUser(req: NextRequest) {
     }
 
     if (keyRecord?.isActive) {
+      if (!hasScope(keyRecord.scopes || "full", "validate")) {
+        return null;
+      }
       await prisma.apiKey.update({
         where: { id: keyRecord.id },
         data: { lastUsedAt: new Date() },

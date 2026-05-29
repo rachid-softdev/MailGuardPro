@@ -133,7 +133,9 @@ export async function initializeDisposableDomains(): Promise<void> {
 // Function to sync the blocklist (called by cron)
 export async function syncDisposableDomains(): Promise<{ added: number }> {
   try {
-    const response = await fetch(DISPOSABLE_LIST_URL);
+    const response = await fetch(DISPOSABLE_LIST_URL, {
+      signal: AbortSignal.timeout(10000),
+    });
     if (!response.ok) {
       throw new Error("Failed to fetch list");
     }

@@ -163,8 +163,12 @@ export async function processBulkUpload(
     if (dbCommitted) {
       await prisma.user
         .update({ where: { id: userId }, data: { credits: { increment: creditCost } } })
-        .catch((e) => console.error("[BulkProcessor] Rollback refund failed:", e));
-      await prisma.bulkJob.delete({ where: { id: jobId } }).catch(() => {});
+        .catch((e: unknown) => console.error("[BulkProcessor] Rollback refund failed:", e));
+      await prisma.bulkJob
+        .delete({ where: { id: jobId } })
+        .catch((e: unknown) =>
+          console.error("[BulkProcessor] Compensating rollback: job deletion failed:", e),
+        );
     }
 
     return {

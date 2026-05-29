@@ -13,6 +13,7 @@ export const PLAN_LIMITS = {
     apiKeys: { requests: 2, window: 3600 }, // 2 clés/hour
     webhooks: { requests: 5, window: 3600 }, // 5 webhooks/hour
     billing: { requests: 3, window: 60 }, // 3 req/min
+    export: { requests: 5, window: 3600 },
   },
   STARTER: {
     validate: { requests: 100, window: 60 }, // 100 req/min
@@ -21,6 +22,7 @@ export const PLAN_LIMITS = {
     apiKeys: { requests: 5, window: 3600 }, // 5 clés/hour
     webhooks: { requests: 10, window: 3600 }, // 10 webhooks/hour
     billing: { requests: 10, window: 60 }, // 10 req/min
+    export: { requests: 20, window: 3600 },
   },
   PRO: {
     validate: { requests: 500, window: 60 }, // 500 req/min
@@ -29,6 +31,7 @@ export const PLAN_LIMITS = {
     apiKeys: { requests: 10, window: 3600 }, // 10 clés/hour
     webhooks: { requests: 20, window: 3600 }, // 20 webhooks/hour
     billing: { requests: 30, window: 60 }, // 30 req/min
+    export: { requests: 100, window: 3600 },
   },
   BUSINESS: {
     validate: { requests: 999999, window: 60 }, // Unlimited
@@ -37,6 +40,7 @@ export const PLAN_LIMITS = {
     apiKeys: { requests: 999999, window: 3600 }, // Unlimited
     webhooks: { requests: 999999, window: 3600 }, // Unlimited
     billing: { requests: 999999, window: 60 }, // Unlimited
+    export: { requests: 999999, window: 3600 },
   },
 } as const;
 
@@ -52,7 +56,7 @@ export function getPlanLimits(plan: Plan) {
 export async function checkRateLimitByPlan(
   userId: string,
   plan: Plan,
-  action: ActionType,
+  action: RateLimitAction,
 ): Promise<{
   success: boolean;
   remaining: number;
@@ -64,7 +68,22 @@ export async function checkRateLimitByPlan(
 
   if (!actionLimits) {
     // Unknown action - use default
-    return checkRateLimit(`user:${userId}:${action}`, 10, 60);
+    const fallbackResult = await checkRateLimit(`user:${userId}:${action}`, 10, 60);
+    if (!fallbackResult.success) {
+      console.warn(
+        "[RateLimit] REJECTED",
+        JSON.stringify({
+          userId,
+          plan,
+          action,
+          limit: fallbackResult.limit,
+          window: 60,
+          resetAt: new Date(fallbackResult.resetAt).toISOString(),
+          source: "redis",
+        }),
+      );
+    }
+    return fallbackResult;
   }
 
   // Si illimité (BUSINESS) — still hit Redis with a very high limit for observability
@@ -72,11 +91,49 @@ export async function checkRateLimitByPlan(
     // Use a high but finite limit to keep Redis tracking active
     // BUSINESS: 100K/min for validate, 5K/hour for bulk/apiKeys/webhooks
     const effectiveLimit = action === "validate" ? 100000 : 5000;
-    return checkRateLimit(`user:${userId}:${action}:business`, effectiveLimit, actionLimits.window);
+    const bizResult = await checkRateLimit(
+      `user:${userId}:${action}:business`,
+      effectiveLimit,
+      actionLimits.window,
+    );
+    if (!bizResult.success) {
+      console.warn(
+        "[RateLimit] REJECTED",
+        JSON.stringify({
+          userId,
+          plan,
+          action,
+          limit: bizResult.limit,
+          window: actionLimits.window,
+          resetAt: new Date(bizResult.resetAt).toISOString(),
+          source: "redis",
+        }),
+      );
+    }
+    return bizResult;
   }
 
   // Vérifier le rate limit
-  return checkRateLimit(`user:${userId}:${action}`, actionLimits.requests, actionLimits.window);
+  const rateCheckResult = await checkRateLimit(
+    `user:${userId}:${action}`,
+    actionLimits.requests,
+    actionLimits.window,
+  );
+  if (!rateCheckResult.success) {
+    console.warn(
+      "[RateLimit] REJECTED",
+      JSON.stringify({
+        userId,
+        plan,
+        action,
+        limit: rateCheckResult.limit,
+        window: actionLimits.window,
+        resetAt: new Date(rateCheckResult.resetAt).toISOString(),
+        source: "redis",
+      }),
+    );
+  }
+  return rateCheckResult;
 }
 
 // Rate limit exceeded error helper

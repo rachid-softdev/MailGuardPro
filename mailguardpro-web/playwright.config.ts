@@ -1,3 +1,15 @@
+// =============================================================================
+// SECURITY NOTE: Headless Browser
+// =============================================================================
+// Playwright is a devDependency used EXCLUSIVELY in e2e tests
+// (tests/e2e/). No production code path imports Playwright,
+// puppeteer, or any headless browser. The Chromium binary is
+// NEVER included in production builds or deployments.
+//
+// To verify: grep -r 'playwright\|puppeteer\|chromium' --include='*.ts'
+// app/ services/ lib/ worker/ -- should return zero matches.
+// =============================================================================
+
 import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
