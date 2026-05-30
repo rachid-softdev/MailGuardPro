@@ -1,6 +1,9 @@
 // File: mailguardpro-web/lib/emailSanitizer.ts
 // Purpose: Email content sanitization for XSS and injection protection.
 // Sanitization at render/export boundaries only. Storage remains untouched.
+// EXCEPTION: bulkProcessor.ts sanitizes extra CSV fields (firstName, lastName, company)
+// at write time because emailsJson is a JSON blob consumed by workers that cannot
+// individually sanitize each consumer output path.
 
 export function sanitizeEmailForDisplay(email: string): string {
   // Allow: letters, digits, @, ., +, _, -, !, #, $, %, &, ', *, /, =, ?, ^, `, {, |, }, ~

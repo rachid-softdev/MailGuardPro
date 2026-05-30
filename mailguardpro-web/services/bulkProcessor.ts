@@ -1,5 +1,6 @@
 // Bulk processing service - CSV upload and job management
 
+import { sanitizeForHtml } from "@/lib/emailSanitizer";
 import { prisma } from "@/lib/prisma";
 import { redis } from "@/lib/redis";
 import { Queue } from "bullmq";
@@ -97,9 +98,15 @@ export async function processBulkUpload(
 
     emails.push({
       email: email.toLowerCase().trim(),
-      firstName: record.firstName || record.first_name || record.firstname || record.prenom,
-      lastName: record.lastName || record.last_name || record.lastname || record.nom,
-      company: record.company || record.Company || record.societe || record.entreprise,
+      firstName: sanitizeForHtml(
+        record.firstName || record.first_name || record.firstname || record.prenom || "",
+      ),
+      lastName: sanitizeForHtml(
+        record.lastName || record.last_name || record.lastname || record.nom || "",
+      ),
+      company: sanitizeForHtml(
+        record.company || record.Company || record.societe || record.entreprise || "",
+      ),
     });
   }
 
