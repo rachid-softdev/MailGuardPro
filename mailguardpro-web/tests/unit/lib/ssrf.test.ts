@@ -275,6 +275,49 @@ describe("validateWebhookUrlWithDns", () => {
     expect(result.valid).toBe(true);
   });
 
+  it("should return resolvedIps for a valid domain (M-1 fix)", async () => {
+    const dns = await import("dns/promises");
+    dns.default.resolve4.mockResolvedValue(["93.184.216.34", "93.184.216.35"]);
+
+    const result = await validateWebhookUrlWithDns("https://example.com/hook");
+    expect(result.valid).toBe(true);
+    expect(result.resolvedIps).toBeDefined();
+    expect(result.resolvedIps).toEqual(["93.184.216.34", "93.184.216.35"]);
+  });
+
+  it("should return resolvedIps with IPv6 fallback (M-1 fix)", async () => {
+    const dns = await import("dns/promises");
+    dns.default.resolve4.mockRejectedValue(new Error("ENOTFOUND"));
+    dns.default.resolve6.mockResolvedValue(["2001:db8::1", "2001:db8::2"]);
+
+    const result = await validateWebhookUrlWithDns("https://ipv6.example.com/hook");
+    expect(result.valid).toBe(true);
+    expect(result.resolvedIps).toBeDefined();
+    expect(result.resolvedIps).toEqual(["2001:db8::1", "2001:db8::2"]);
+  });
+
+  it("should NOT return resolvedIps when URL is invalid (M-1 fix)", async () => {
+    const result = await validateWebhookUrlWithDns("not-a-url");
+    expect(result.valid).toBe(false);
+    expect(result.resolvedIps).toBeUndefined();
+  });
+
+  it("should not return resolvedIps for blocked hostname (M-1 fix)", async () => {
+    const result = await validateWebhookUrlWithDns("https://localhost/hook");
+    expect(result.valid).toBe(false);
+    expect(result.resolvedIps).toBeUndefined();
+  });
+
+  it("should return empty array for unresolvable domain (M-1 edge case)", async () => {
+    const dns = await import("dns/promises");
+    dns.default.resolve4.mockResolvedValue([]);
+    dns.default.resolve6.mockRejectedValue(new Error("ENOTFOUND"));
+
+    const result = await validateWebhookUrlWithDns("https://empty.example.com/hook");
+    expect(result.valid).toBe(false);
+    expect(result.resolvedIps).toBeUndefined();
+  });
+
   it("should reject a domain that resolves to a private IP", async () => {
     const dns = await import("dns/promises");
     dns.default.resolve4.mockResolvedValue(["10.0.0.1"]);

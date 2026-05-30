@@ -28,22 +28,16 @@ export async function DELETE(req: NextRequest) {
     const userId = session.user.id;
     const now = new Date();
 
-    // 1. Cancel Stripe subscription if exists
+    // 1. Get user's Stripe subscription ID (before anonymization)
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: { stripeSubscriptionId: true, stripeCustomerId: true },
     });
+    const stripeSubscriptionId = user?.stripeSubscriptionId;
 
-    if (user?.stripeSubscriptionId) {
-      try {
-        await stripe.subscriptions.cancel(user.stripeSubscriptionId);
-      } catch {
-        console.warn(`[API] Failed to cancel subscription for user ${userId}`);
-      }
-    }
-
-    // 2-8. Anonymize & clean up all user data atomiquement (transaction Prisma)
-    //       Stripe cancellation (étape 1) est déjà faite — c'est un appel externe.
+    // 2. Anonymize & clean up all user data atomiquement (transaction Prisma)
+    //    This runs FIRST because it's the primary operation (GDPR data deletion).
+    //    Stripe cancellation follows after — it's a best-effort external call.
     await prisma.$transaction([
       prisma.user.update({
         where: { id: userId },
@@ -87,7 +81,22 @@ export async function DELETE(req: NextRequest) {
       prisma.webhook.deleteMany({ where: { userId } }),
     ]);
 
-    // 9. Audit log (hors transaction — ne doit pas bloquer la suppression)
+    // 3. Cancel Stripe subscription (best-effort après la suppression DB)
+    //    Si Stripe échoue, l'utilisateur est déjà supprimé en DB.
+    //    Un CRON de réconciliation Stripe↔DB devrait nettoyer ces cas.
+    if (stripeSubscriptionId) {
+      try {
+        await stripe.subscriptions.cancel(stripeSubscriptionId);
+      } catch {
+        console.warn(
+          `[API] DB deleted but Stripe cancellation failed for subscription ${stripeSubscriptionId}. ` +
+            `User ${userId} may still have an active Stripe subscription. ` +
+            `A reconciler job should clean this up.`,
+        );
+      }
+    }
+
+    // 4. Audit log (non-bloquant)
     try {
       await logAudit({
         userId,

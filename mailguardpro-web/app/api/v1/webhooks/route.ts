@@ -9,7 +9,7 @@ import { validateCsrfOrigin } from "@/lib/csrf";
 import { prisma } from "@/lib/prisma";
 import { type Plan, checkRateLimitByPlan } from "@/lib/rateLimits";
 import { parseJsonBody } from "@/lib/request";
-import { resolveWebhookIps, validateWebhookUrlWithDns } from "@/lib/ssrf";
+import { validateWebhookUrlWithDns } from "@/lib/ssrf";
 import { AuditAction, AuditResource, logAudit } from "@/services/auditLogger";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
@@ -103,7 +103,7 @@ export async function POST(req: NextRequest) {
 
     const { url, name, events } = validation.data;
 
-    // SSRF validation + HTTPS enforcement with DNS resolution
+    // SSRF validation + DNS resolution (single call — prevents DNS rebinding window)
     const ssrfCheck = await validateWebhookUrlWithDns(url);
     if (!ssrfCheck.valid) {
       return NextResponse.json(
@@ -112,17 +112,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // DNS Pinning : résoudre et stocker les IPs
-    const webhookUrl = new URL(url);
-    const hostname = webhookUrl.hostname.toLowerCase().replace(/^\[|\]$/g, "");
-    const ipResolution = await resolveWebhookIps(hostname);
-    if (!ipResolution.valid || !ipResolution.ips) {
+    // DNS Pinning: reuse IPs already resolved during SSRF validation
+    if (!ssrfCheck.resolvedIps || ssrfCheck.resolvedIps.length === 0) {
       return NextResponse.json(
-        { success: false, error: `Webhook URL rejected: ${ipResolution.error}` },
+        { success: false, error: "Webhook URL rejected: no IPs resolved" },
         { status: 400 },
       );
     }
-    const pinnedIps = JSON.stringify(ipResolution.ips);
+    const pinnedIps = JSON.stringify(ssrfCheck.resolvedIps);
 
     // Vérifier le nombre de webhooks existants
     const existingWebhooksCount = await prisma.webhook.count({

@@ -2,6 +2,7 @@
 
 import { hashIp } from "@/lib/ipHash";
 import { prisma } from "@/lib/prisma";
+import type { Prisma } from "@prisma/client";
 
 export enum AuditAction {
   // User actions
@@ -82,7 +83,7 @@ export async function logAuditEvent(params: AuditLogParams): Promise<void> {
         resourceId: params.resourceId,
         ipAddress: params.ipAddress ? hashIp(params.ipAddress) : undefined,
         userAgent: params.userAgent,
-        metadata: params.metadata as any,
+        metadata: params.metadata as Prisma.InputJsonValue,
       },
     });
   } catch (error) {

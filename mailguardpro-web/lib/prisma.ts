@@ -1,10 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import { decryptToken, encryptToken } from "./crypto";
 
-const globalForPrisma = globalThis as unknown as {
-  prisma: PrismaClient | undefined;
-};
-
 const TOKEN_FIELDS = ["access_token", "refresh_token", "id_token"];
 
 function encryptFields(data: any): void {
@@ -82,8 +78,19 @@ function createTokenExtension() {
   } as const;
 }
 
-export const prisma = globalForPrisma.prisma ?? new PrismaClient().$extends(createTokenExtension());
+// Create the extended client with proper typing
+const prismaClient = new PrismaClient().$extends(createTokenExtension());
+type ExtendedPrismaClient = typeof prismaClient;
 
-if (process.env.NODE_ENV !== "production") (globalForPrisma as any).prisma = prisma;
+// Fix the global type
+const globalForPrisma = globalThis as unknown as {
+  prisma: ExtendedPrismaClient | undefined;
+};
+
+export const prisma = globalForPrisma.prisma ?? prismaClient;
+
+if (process.env.NODE_ENV !== "production") {
+  globalForPrisma.prisma = prisma;
+}
 
 export default prisma;

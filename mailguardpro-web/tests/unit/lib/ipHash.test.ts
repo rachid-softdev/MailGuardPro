@@ -63,14 +63,31 @@ describe("ipHash", () => {
       expect(hash).toMatch(/^[a-f0-9]{16}$/);
     });
 
-    it("should warn when IP_HASH_KEY is not defined", async () => {
+    it("should not warn at module import — warn only when function is called", async () => {
       const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
       vi.unstubAllEnvs();
       vi.stubEnv("IP_HASH_KEY", "");
-      vi.resetModules(); // Force re-import to trigger module-level warn
-      await import("@/lib/ipHash");
+      vi.resetModules();
+      // Import should NOT trigger warning anymore (M-2 fix)
+      const { hashIp } = await import("@/lib/ipHash");
+      expect(warnSpy).not.toHaveBeenCalled();
+
+      // Warning should fire only when hashIp is actually called
+      hashIp("203.0.113.42");
       expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("IP_HASH_KEY"));
       warnSpy.mockRestore();
+    });
+
+    it("should throw in production when IP_HASH_KEY is missing and function is called", async () => {
+      // Set both env vars BEFORE resetting modules
+      vi.stubEnv("NODE_ENV", "production");
+      vi.stubEnv("IP_HASH_KEY", "");
+      vi.resetModules();
+      const { hashIp } = await import("@/lib/ipHash");
+      // Import should NOT throw — only calling the function should
+      expect(() => hashIp("192.168.1.1")).toThrow("IP_HASH_KEY is required in production");
+      // Restore env vars for subsequent tests
+      vi.unstubAllEnvs();
     });
 
     it("should produce different hashes with different keys", async () => {
