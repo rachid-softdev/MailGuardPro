@@ -3,6 +3,7 @@
 
 import { isIP } from "net";
 import { checkRateLimit } from "@/lib/redis";
+import { getClientIp } from "@/lib/ssrf";
 import dns from "dns/promises";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
@@ -13,7 +14,7 @@ const querySchema = z.object({
 
 export async function GET(req: NextRequest) {
   try {
-    const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+    const ip = getClientIp(req);
     const rateCheck = await checkRateLimit(`tools:ip:${ip}`, 30, 60);
 
     if (!rateCheck.success) {

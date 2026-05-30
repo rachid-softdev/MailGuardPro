@@ -2,8 +2,9 @@
 // Returns the health status of all services
 
 import { prisma } from "@/lib/prisma";
-import { redis } from "@/lib/redis";
-import { NextResponse } from "next/server";
+import { checkRateLimit, redis } from "@/lib/redis";
+import { getClientIp } from "@/lib/ssrf";
+import { NextRequest, NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
 
@@ -25,8 +26,28 @@ interface HealthResponse {
   environment: string;
 }
 
-export async function GET() {
+export async function GET(req?: NextRequest) {
   const startTime = Date.now();
+
+  // Rate limiting (60 req/min per IP — generous to accommodate Docker/ALB/K8s health checks)
+  if (req) {
+    try {
+      const ip = getClientIp(req);
+      const rateCheck = await checkRateLimit(`health:ip:${ip}`, 60, 60);
+      if (!rateCheck.success) {
+        return NextResponse.json(
+          { status: "degraded", message: "Rate limit exceeded" },
+          {
+            status: 429,
+            headers: { "Cache-Control": "no-store, no-cache, must-revalidate" },
+          },
+        );
+      }
+    } catch {
+      // Redis down — allow health check to proceed
+    }
+  }
+
   const services: HealthResponse["services"] = {
     database: { status: "unhealthy" },
     redis: { status: "unhealthy" },
@@ -86,8 +107,16 @@ export async function GET() {
   const response: HealthResponse = {
     status: overallStatus,
     timestamp: new Date().toISOString(),
-    services,
-    version: process.env.npm_package_version || "1.0.0",
+    services:
+      process.env.NODE_ENV === "production"
+        ? {
+            database: { status: services.database.status },
+            redis: { status: services.redis.status },
+            app: { status: services.app.status },
+          }
+        : services,
+    version:
+      process.env.NODE_ENV === "production" ? "1.0.0" : process.env.npm_package_version || "1.0.0",
     environment: process.env.NODE_ENV || "development",
   };
 
@@ -96,7 +125,7 @@ export async function GET() {
   return NextResponse.json(response, {
     status: statusCode,
     headers: {
-      "Cache-Control": "no-store, no-cache, must-revalidate",
+      "Cache-Control": "s-maxage=30, stale-while-revalidate=60",
       "X-Health-Check-Duration": `${Date.now() - startTime}ms`,
     },
   });
