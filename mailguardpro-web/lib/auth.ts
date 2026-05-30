@@ -29,7 +29,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     }),
   ],
   callbacks: {
-    async signIn({ user, account, email, credentials }: any) {
+    async signIn({ user, account, email, credentials, req }: any) {
       // FIX #18: Magic link rate limit (Redis-based — atomic SET NX EX)
       if (account?.provider === "resend" && email?.address) {
         try {
@@ -42,6 +42,22 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         } catch {
           // Redis unavailable — allow the request
           console.warn("[Auth] Redis unavailable for magic link rate limit");
+        }
+
+        // IP-based rate limiting to prevent targeted magic link DoS (6 req/min per IP)
+        const ip =
+          req?.headers?.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+          req?.headers?.get("x-real-ip") ||
+          "unknown";
+        try {
+          const ipRateKey = `magiclink:ip:${ip}`;
+          const ipAcquired = await redis.set(ipRateKey, "1", "NX", "EX", 10);
+          if (ipAcquired === null) {
+            console.warn(`[Auth] Magic link IP rate limited for ${ip}`);
+            return false;
+          }
+        } catch {
+          console.warn("[Auth] Redis unavailable for magic link IP rate limit");
         }
       }
 
