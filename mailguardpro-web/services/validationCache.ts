@@ -153,13 +153,20 @@ export async function clearAllValidationCaches(): Promise<number> {
   return cleared;
 }
 
-class InMemoryRateLimit {
+export class InMemoryRateLimit {
   private maxEntries: number;
   private store: Map<string, { count: number; resetAt: number }>;
   constructor(maxEntries = 100_000) {
     this.maxEntries = maxEntries;
     this.store = new Map();
   }
+  /**
+   * Check rate limit for a key.
+   * Note: We intentionally do NOT re-insert the entry on hit (no delete+set).
+   * This means frequently-accessed keys inserted early are vulnerable to
+   * eviction under memory pressure. Acceptable trade-off: evict() is a
+   * memory safety valve, not a true LRU cache.
+   */
   check(key: string, limit: number, windowMs: number): boolean {
     const now = Date.now();
     const entry = this.store.get(key);
@@ -167,10 +174,9 @@ class InMemoryRateLimit {
       this.store.set(key, { count: 1, resetAt: now + windowMs });
       return true;
     }
+    // Check limit BEFORE incrementing to prevent unbounded counter growth
+    if (entry.count >= limit) return false;
     entry.count++;
-    if (entry.count > limit) return false;
-    this.store.delete(key);
-    this.store.set(key, entry);
     return true;
   }
   evict(): void {

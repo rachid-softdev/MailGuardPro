@@ -9,7 +9,7 @@
 // See: https://docs.stripe.com/webhooks#verify-events
 
 import { prisma } from "@/lib/prisma";
-import { redis } from "@/lib/redis";
+import { checkRateLimit, redis } from "@/lib/redis";
 import { getPlanFromPriceId, stripe } from "@/lib/stripe";
 import { AuditAction, AuditResource, logAudit } from "@/services/auditLogger";
 import { headers } from "next/headers";
@@ -75,7 +75,6 @@ export async function POST(req: NextRequest) {
   // Rate limiting (defense in depth — Stripe already verifies signature)
   try {
     const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
-    const { checkRateLimit } = await import("@/lib/redis");
     const rateCheck = await checkRateLimit(`stripe:webhook:ip:${ip}`, 60, 60);
     if (!rateCheck.success) {
       console.warn(`[Stripe] Rate limit exceeded for IP ${ip}`);

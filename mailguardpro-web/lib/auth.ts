@@ -1,6 +1,9 @@
 import { AuditAction, AuditResource, logAudit } from "@/services/auditLogger";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import NextAuth from "next-auth";
+import type { Account } from "next-auth";
+import type { AdapterUser } from "next-auth/adapters";
+import type { JWT } from "next-auth/jwt";
 import Google from "next-auth/providers/google";
 import Resend from "next-auth/providers/resend";
 import { validateAuthSecret } from "./authSecretValidator";
@@ -17,7 +20,9 @@ if (!secretCheck.valid) {
 }
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  adapter: PrismaAdapter(prisma) as any,
+  // TODO: NextAuth v5 Adapter typing doesn't support extended PrismaClient
+  // See: https://github.com/nextauthjs/next-auth/issues/9999
+  adapter: PrismaAdapter(prisma as any),
   providers: [
     Google({
       clientId: process.env.GOOGLE_CLIENT_ID!,
@@ -29,7 +34,19 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     }),
   ],
   callbacks: {
-    async signIn({ user, account, email, credentials, req }: any) {
+    async signIn({
+      user,
+      account,
+      email,
+      credentials,
+      req,
+    }: {
+      user: AdapterUser;
+      account: Account | null;
+      email?: { address: string };
+      credentials?: Record<string, unknown>;
+      req?: { headers: { get: (name: string) => string | null } };
+    }) {
       // FIX #18: Magic link rate limit (Redis-based — atomic SET NX EX)
       if (account?.provider === "resend" && email?.address) {
         try {
@@ -93,7 +110,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       }
       return true;
     },
-    async session({ session, user }: any) {
+    async session({ session, user }: { session: Session; user: AdapterUser }) {
       if (session.user?.email) {
         const dbUser = await prisma.user.findUnique({
           where: { email: session.user.email },
@@ -113,12 +130,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             return { ...session, user: null as any, expires: new Date(0).toISOString() };
           }
           // Enforce session invalidation (tokenVersion was incremented via key revocation)
-          if (dbUser.tokenVersion > 0 && dbUser.tokenVersion !== (user as any)?.tokenVersion) {
+          if (dbUser.tokenVersion > 0 && dbUser.tokenVersion !== user.tokenVersion) {
             console.warn(
               "[Auth] Session invalidated — tokenVersion mismatch",
               JSON.stringify({
                 userId: dbUser.id,
-                sessionVersion: (user as any)?.tokenVersion,
+                sessionVersion: user.tokenVersion,
                 dbVersion: dbUser.tokenVersion,
               }),
             );
@@ -130,12 +147,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           session.user.plan = dbUser.plan;
           session.user.credits = dbUser.credits;
           session.user.role = dbUser.role;
-          (session.user as any).tokenVersion = dbUser.tokenVersion;
+          session.user.tokenVersion = dbUser.tokenVersion;
         }
       }
       return session;
     },
-    async jwt({ token, user }: any) {
+    async jwt({ token, user }: { token: JWT; user?: AdapterUser | undefined }) {
       if (user) {
         token.id = user.id;
       }
@@ -181,7 +198,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
   },
   events: {
-    async createUser({ user }: any) {
+    async createUser({ user }: { user: AdapterUser }) {
       // Nouveau utilisateur = 100 crédits gratuits
       // Utiliser user.id (plus fiable que email qui peut avoir des races conditions)
       if (user?.id) {

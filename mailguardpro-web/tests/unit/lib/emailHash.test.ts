@@ -80,14 +80,33 @@ describe("emailHash", () => {
       expect(hashEmailSaltB("test@example.com")).toBe(hashEmailSaltB("test@example.com"));
     });
 
-    it("should warn when EMAIL_HASH_SALT is not defined", async () => {
+    it("should not warn at module import — warn only when function is called", async () => {
       const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
       vi.unstubAllEnvs();
       vi.stubEnv("EMAIL_HASH_SALT", "");
-      vi.resetModules(); // Force re-import to trigger module-level warn
-      await import("@/lib/emailHash");
+      vi.resetModules();
+      // Import should NOT trigger warning anymore (M-2 fix)
+      const { hashEmail } = await import("@/lib/emailHash");
+      expect(warnSpy).not.toHaveBeenCalled();
+
+      // Warning should fire only when hashEmail is actually called
+      hashEmail("test@example.com");
       expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("EMAIL_HASH_SALT"));
       warnSpy.mockRestore();
+    });
+
+    it("should throw in production when EMAIL_HASH_SALT is missing and function is called", async () => {
+      // Set both env vars BEFORE resetting modules
+      vi.stubEnv("NODE_ENV", "production");
+      vi.stubEnv("EMAIL_HASH_SALT", "");
+      vi.resetModules();
+      const { hashEmail } = await import("@/lib/emailHash");
+      // Import should NOT throw — only calling the function should
+      expect(() => hashEmail("test@example.com")).toThrow(
+        "EMAIL_HASH_SALT is required in production",
+      );
+      // Restore env vars for subsequent tests
+      vi.unstubAllEnvs();
     });
   });
 

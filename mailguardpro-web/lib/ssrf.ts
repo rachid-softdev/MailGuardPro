@@ -98,6 +98,7 @@ export function validateWebhookUrl(urlString: string): {
 export async function validateWebhookUrlWithDns(urlString: string): Promise<{
   valid: boolean;
   error?: string;
+  resolvedIps?: string[];
 }> {
   const baseCheck = validateWebhookUrl(urlString);
   if (!baseCheck.valid) {
@@ -150,7 +151,7 @@ export async function validateWebhookUrlWithDns(urlString: string): Promise<{
     }
   }
 
-  return { valid: true };
+  return { valid: true, resolvedIps };
 }
 
 /**

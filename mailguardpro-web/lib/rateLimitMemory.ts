@@ -32,6 +32,22 @@ export function clearSweeper(): void {
   store.clear();
 }
 
+const MAX_STORE_SIZE = 10_000;
+const EVICT_PERCENT = 0.2;
+
+/**
+ * Evict oldest entries when store exceeds MAX_STORE_SIZE.
+ * This is a memory safety valve, not a true LRU cache.
+ * 10K entries ≈ ~2MB memory. Evict 20% to avoid frequent evictions.
+ */
+function evictIfNeeded(): void {
+  if (store.size <= MAX_STORE_SIZE) return;
+  const entriesToDelete = Math.floor(MAX_STORE_SIZE * EVICT_PERCENT);
+  const keysToDelete = [...store.keys()].slice(0, entriesToDelete);
+  for (const k of keysToDelete) store.delete(k);
+  console.warn(`[RateLimit] Store exceeded limit, evicted ${entriesToDelete} entries`);
+}
+
 export async function checkMemoryRateLimit(
   key: string,
   originalLimit: number,
@@ -56,13 +72,7 @@ export async function checkMemoryRateLimit(
   if (!entry || now - entry.windowStart >= windowMs) {
     // New window
     store.set(key, { count: 1, windowStart: now });
-    // LRU eviction if store exceeds max size
-    if (store.size > 10_000) {
-      const entriesToDelete = Math.floor(10_000 * 0.2);
-      const keysToDelete = [...store.keys()].slice(0, entriesToDelete);
-      for (const k of keysToDelete) store.delete(k);
-      console.warn(`[RateLimit] Store exceeded limit, evicted ${entriesToDelete} entries`);
-    }
+    evictIfNeeded();
     return {
       success: true,
       remaining: limit - 1,
@@ -73,13 +83,7 @@ export async function checkMemoryRateLimit(
 
   // Existing window
   entry.count += 1;
-  // LRU eviction if store exceeds max size
-  if (store.size > 10_000) {
-    const entriesToDelete = Math.floor(10_000 * 0.2);
-    const keysToDelete = [...store.keys()].slice(0, entriesToDelete);
-    for (const k of keysToDelete) store.delete(k);
-    console.warn(`[RateLimit] Store exceeded limit, evicted ${entriesToDelete} entries`);
-  }
+  evictIfNeeded();
   const success = entry.count <= limit;
 
   if (!success) {
