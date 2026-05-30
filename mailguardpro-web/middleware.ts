@@ -23,6 +23,8 @@ function buildCsp(nonce: string): string {
     `frame-ancestors 'none'`,
     `form-action 'self'`,
     `base-uri 'self'`,
+    `object-src 'none'`,
+    `upgrade-insecure-requests`,
   ].join("; ");
 }
 
