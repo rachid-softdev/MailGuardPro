@@ -2,6 +2,7 @@
 
 import { redis } from "@/lib/redis";
 import { safeJsonParse } from "@/lib/safeJson";
+import { validateWebhookUrlWithDns } from "@/lib/ssrf";
 import { CheckResult } from "./types";
 
 // Liste de domaines jetables connus (subset populaire)
@@ -137,7 +138,6 @@ export async function syncDisposableDomains(url?: string): Promise<{ added: numb
 
   // SSRF protection: si l'URL est personnalisée, valider avec DNS
   if (url) {
-    const { validateWebhookUrlWithDns } = await import("@/lib/ssrf");
     const validation = await validateWebhookUrlWithDns(url);
     if (!validation.valid) {
       console.error(`[Disposable] SSRF validation failed for custom URL: ${validation.error}`);

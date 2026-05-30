@@ -39,7 +39,7 @@ export default auth(async (req) => {
       requestHeaders.get("x-forwarded-for")?.split(",")[0]?.trim() ||
       requestHeaders.get("x-real-ip") ||
       "unknown";
-    const rateCheck = checkMemoryRateLimit(`auth:${ip}`, 20, 60);
+    const rateCheck = await checkMemoryRateLimit(`auth:${ip}`, 20, 60);
     if (!rateCheck.success) {
       console.warn(`[Auth] Rate limited IP: ${ip}`);
       return NextResponse.json(
