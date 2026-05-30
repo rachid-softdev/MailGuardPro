@@ -20,7 +20,8 @@
     "web:start": "pnpm --filter mailguardpro-web start",
     "web:lint": "pnpm --filter mailguardpro-web lint",
     "web:typecheck": "pnpm --filter mailguardpro-web typecheck",
-    "check-env": "pnpm --filter mailguardpro-web check-env"
+    "check-env": "pnpm --filter mailguardpro-web check-env",
+    "db:generate": "pnpm --filter @mailguardpro/web db:generate"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.15",
