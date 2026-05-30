@@ -47,7 +47,7 @@
     "pino-pretty": "^11.3.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "recharts": "^2.15.0",
+    "recharts": "^3.8.1",
     "resend": "^4.0.1",
     "stripe": "^17.4.0",
     "tailwind-merge": "^2.6.0",
