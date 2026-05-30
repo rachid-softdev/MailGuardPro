@@ -104,7 +104,7 @@ export default function DocsPage() {
             <pre className="bg-[var(--bg-subtle)] p-4 rounded-lg overflow-x-auto">
               <code className="text-sm">
 {`curl -X GET "https://api.mailguard.pro/v1/validate?email=test@example.com" \\
-  -H "X-API-Key: mg_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"`
+  -H "X-API-Key: mg_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 
 // Response:
 {
