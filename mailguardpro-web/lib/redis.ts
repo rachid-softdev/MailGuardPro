@@ -38,6 +38,14 @@ const redisUrl =
   (process.env.NODE_ENV === "production" ? undefined : "redis://localhost:6379");
 if (!redisUrl) throw new Error("REDIS_URL is required in production");
 
+// Warning if Redis doesn't use TLS in production
+if (process.env.NODE_ENV === "production" && redisUrl.startsWith("redis://")) {
+  console.warn(
+    "[Redis] WARNING: REDIS_URL uses unencrypted redis:// protocol in production. " +
+      "Use rediss:// (TLS) for encrypted communication.",
+  );
+}
+
 export const redis = globalForRedis.redis ?? createRedisClient(redisUrl);
 
 if (process.env.NODE_ENV !== "production") globalForRedis.redis = redis;
