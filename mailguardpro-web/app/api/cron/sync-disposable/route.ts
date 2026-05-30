@@ -1,10 +1,10 @@
 // Cron: Sync disposable email domains
 // Runs weekly to update the disposable domains list
 
+import { NextRequest, NextResponse } from "next/server";
 import { verifyCronRequest } from "@/lib/cronAuth";
 import { AuditAction, AuditResource, logAudit } from "@/services/auditLogger";
 import { syncDisposableDomains } from "@/services/disposableChecker";
-import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(req: NextRequest) {
   // Verify cron authorization with rate limiting and failed-attempt logging

@@ -1,5 +1,5 @@
-import { validateEmail, validateEmailQuick } from "@/services/emailValidator";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { validateEmail, validateEmailQuick } from "@/services/emailValidator";
 
 // Mock all the checker services
 vi.mock("@/services/formatChecker", () => ({
@@ -46,8 +46,8 @@ vi.mock("dns/promises", () => ({
 }));
 
 import { checkDisposable } from "@/services/disposableChecker";
-import { checkDMARC, checkMX, checkSPF } from "@/services/dnsChecker";
 import { checkDNSBL } from "@/services/dnsblChecker";
+import { checkDMARC, checkMX, checkSPF } from "@/services/dnsChecker";
 import { checkFormat } from "@/services/formatChecker";
 import { checkFreeProvider } from "@/services/freeProviderChecker";
 import { checkGeneric } from "@/services/genericChecker";

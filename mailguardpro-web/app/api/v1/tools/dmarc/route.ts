@@ -1,11 +1,11 @@
 // API Route: Outil DMARC Lookup
 // GET /api/v1/tools/dmarc?domain=xxx
 
-import { checkRateLimit } from "@/lib/redis";
-import { getClientIp } from "@/lib/ssrf";
 import dns from "dns/promises";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import { checkRateLimit } from "@/lib/redis";
+import { getClientIp } from "@/lib/ssrf";
 
 const querySchema = z.object({
   domain: z.string().min(1).max(253),

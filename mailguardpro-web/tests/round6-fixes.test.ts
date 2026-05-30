@@ -152,12 +152,18 @@ vi.mock("next/server", () => {
 // IMPORTS (after vi.mock hoisting)
 // =============================================================================
 
-// Type imports
-import type { CheckResult } from "@/services/types";
-
+// H3
+import { GET } from "@/app/api/v1/validate/route";
+import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+// M2
+import { checkRateLimitByPlan, type Plan } from "@/lib/rateLimits";
+import { checkRateLimit as checkRateLimitFn, redis } from "@/lib/redis";
+// H2
+import { processBulkUpload } from "@/services/bulkProcessor";
 import { checkDisposable } from "@/services/disposableChecker";
-import { checkDMARC, checkMX, checkSPF } from "@/services/dnsChecker";
 import { checkDNSBL } from "@/services/dnsblChecker";
+import { checkDMARC, checkMX, checkSPF } from "@/services/dnsChecker";
 // L3b
 import { validateEmail } from "@/services/emailValidator";
 import { checkFormat } from "@/services/formatChecker";
@@ -165,20 +171,9 @@ import { checkFreeProvider } from "@/services/freeProviderChecker";
 import { checkGeneric } from "@/services/genericChecker";
 import { getDomainReputation } from "@/services/reputationScorer";
 import { checkSMTP } from "@/services/smtpChecker";
+// Type imports
+import type { CheckResult } from "@/services/types";
 import { checkTypo } from "@/services/typoChecker";
-
-import { prisma } from "@/lib/prisma";
-import { redis } from "@/lib/redis";
-// H2
-import { processBulkUpload } from "@/services/bulkProcessor";
-
-// M2
-import { type Plan, checkRateLimitByPlan } from "@/lib/rateLimits";
-
-// H3
-import { GET } from "@/app/api/v1/validate/route";
-import { auth } from "@/lib/auth";
-import { checkRateLimit as checkRateLimitFn } from "@/lib/redis";
 
 // =============================================================================
 // SHARED SETUP

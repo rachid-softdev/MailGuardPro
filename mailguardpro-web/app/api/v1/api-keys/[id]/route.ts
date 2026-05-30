@@ -1,11 +1,11 @@
 // API Route: Supprimer une clé API
 // DELETE /api/v1/api-keys/[id]
 
+import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { validateCsrfOrigin } from "@/lib/csrf";
 import { prisma } from "@/lib/prisma";
 import { AuditAction, AuditResource, logAudit } from "@/services/auditLogger";
-import { NextRequest, NextResponse } from "next/server";
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {

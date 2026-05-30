@@ -8,13 +8,13 @@
 //   3. Our idempotency key mechanism (Redis SET NX) prevents replay attacks
 // See: https://docs.stripe.com/webhooks#verify-events
 
+import { headers } from "next/headers";
+import { NextRequest, NextResponse } from "next/server";
+import Stripe from "stripe";
 import { prisma } from "@/lib/prisma";
 import { checkRateLimit, redis } from "@/lib/redis";
 import { getPlanFromPriceId, stripe } from "@/lib/stripe";
 import { AuditAction, AuditResource, logAudit } from "@/services/auditLogger";
-import { headers } from "next/headers";
-import { NextRequest, NextResponse } from "next/server";
-import Stripe from "stripe";
 
 const WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET;
 if (!WEBHOOK_SECRET) {

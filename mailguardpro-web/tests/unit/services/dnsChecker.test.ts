@@ -1,6 +1,6 @@
-import { checkDMARC, checkMX, checkSPF, getDomainInfo } from "@/services/dnsChecker";
 import * as dns from "dns/promises";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { checkDMARC, checkMX, checkSPF, getDomainInfo } from "@/services/dnsChecker";
 
 // Mock dns/promises
 vi.mock("dns/promises", () => {

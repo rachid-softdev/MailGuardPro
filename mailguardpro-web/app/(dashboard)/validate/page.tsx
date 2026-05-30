@@ -1,8 +1,8 @@
 "use client";
 
+import { useCallback, useEffect, useRef, useState } from "react";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { ScoreCircle } from "@/components/validator/ScoreCircle";
-import { useCallback, useEffect, useRef, useState } from "react";
 
 interface ValidationResult {
   email: string;

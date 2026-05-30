@@ -1,3 +1,4 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   AuditAction,
   AuditResource,
@@ -6,7 +7,6 @@ import {
   logAudit,
   logAuditEvent,
 } from "@/services/auditLogger";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // Mock prisma to prevent real PrismaClient instantiation at import time
 vi.mock("@/lib/prisma", () => ({

@@ -1,5 +1,5 @@
-import { checkGeneric } from "@/services/genericChecker";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { checkGeneric } from "@/services/genericChecker";
 
 describe("genericChecker", () => {
   describe("checkGeneric", () => {

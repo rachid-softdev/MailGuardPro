@@ -55,10 +55,10 @@ vi.mock("@/services/auditLogger", () => ({
   AuditResource: { USER: "User" },
 }));
 
+import { NextRequest } from "next/server";
 import { DELETE } from "@/app/api/v1/user/route";
 import { prisma } from "@/lib/prisma";
 import { stripe } from "@/lib/stripe";
-import { NextRequest } from "next/server";
 
 function createRequest(): NextRequest {
   return new NextRequest("https://mailguard.pro/api/v1/user", {

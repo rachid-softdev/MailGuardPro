@@ -1,12 +1,12 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   createRequestLogger,
   logError,
-  logRequest,
   logger,
   loggerApi,
   loggerAuth,
+  logRequest,
 } from "@/lib/logger";
-import { beforeEach, describe, expect, it, vi } from "vitest";
 
 describe("logger", () => {
   beforeEach(() => {

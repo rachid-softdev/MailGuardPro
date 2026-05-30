@@ -9,7 +9,7 @@ vi.mock("@/services/emailValidator", () => ({
   validateEmail: mockValidateEmail,
 }));
 
-import { LeadFinderInput, findLeadEmail, findLeadEmails } from "@/services/leadFinder";
+import { findLeadEmail, findLeadEmails, LeadFinderInput } from "@/services/leadFinder";
 
 describe("leadFinder", () => {
   beforeEach(() => {

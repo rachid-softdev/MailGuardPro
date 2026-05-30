@@ -1,6 +1,6 @@
-import { GET, POST } from "@/app/api/v1/webhooks/route";
 import { NextRequest, NextResponse } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { GET, POST } from "@/app/api/v1/webhooks/route";
 
 // Mock dependencies
 vi.mock("@/lib/auth", () => ({

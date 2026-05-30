@@ -1,4 +1,3 @@
-import { VALID_SCOPES, hasScope } from "@/lib/auth/require-scope";
 /**
  * Unit tests for L-03 — Scope-based authorization for API keys.
  *
@@ -6,6 +5,7 @@ import { VALID_SCOPES, hasScope } from "@/lib/auth/require-scope";
  * No external dependencies — pure logic tests.
  */
 import { describe, expect, it } from "vitest";
+import { hasScope, VALID_SCOPES } from "@/lib/auth/require-scope";
 
 describe("hasScope() [L-03]", () => {
   // ────────────────────────────────────────────

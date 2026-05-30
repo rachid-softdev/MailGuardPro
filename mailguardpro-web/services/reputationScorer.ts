@@ -1,10 +1,10 @@
 // Score de réputation de domaine - Optimisé pour la performance avec fallbacks multiples
 
+import dns from "dns/promises";
+import whois from "whois";
 import { redis } from "@/lib/redis";
 import { safeJsonParse } from "@/lib/safeJson";
 import { validateResolvedIp } from "@/lib/ssrf";
-import dns from "dns/promises";
-import whois from "whois";
 import { DomainInfo } from "./types";
 
 // Timeouts pour éviter de bloquer sur une API lente

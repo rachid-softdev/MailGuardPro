@@ -1,5 +1,5 @@
-import { validateCsrfOrigin } from "@/lib/csrf";
 import { describe, expect, it } from "vitest";
+import { validateCsrfOrigin } from "@/lib/csrf";
 
 describe("validateCsrfOrigin", () => {
   it("rejects requests without Origin and Referer", () => {

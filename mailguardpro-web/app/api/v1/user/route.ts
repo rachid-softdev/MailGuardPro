@@ -1,12 +1,12 @@
 // API Route: Account management
 // DELETE /api/v1/user — Delete/anonymize account (GDPR compliance)
 
+import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { validateCsrfOrigin } from "@/lib/csrf";
 import { prisma } from "@/lib/prisma";
 import { stripe } from "@/lib/stripe";
 import { AuditAction, AuditResource, logAudit } from "@/services/auditLogger";
-import { NextRequest, NextResponse } from "next/server";
 
 export async function DELETE(req: NextRequest) {
   try {

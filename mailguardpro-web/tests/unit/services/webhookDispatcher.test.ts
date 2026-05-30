@@ -26,9 +26,9 @@ vi.mock("@/lib/crypto", () => ({
 }));
 
 import {
+  createBulkJobCompletedPayload,
   WEBHOOK_EVENTS,
   WebhookDispatcher,
-  createBulkJobCompletedPayload,
 } from "@/services/webhookDispatcher";
 
 describe("webhookDispatcher", () => {

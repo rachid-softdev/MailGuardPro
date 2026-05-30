@@ -1,8 +1,8 @@
-import { StatusBadge } from "@/components/ui/StatusBadge";
-import { auth } from "@/lib/auth";
 import { formatDistanceToNow } from "date-fns";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { StatusBadge } from "@/components/ui/StatusBadge";
+import { auth } from "@/lib/auth";
 import { getDashboardData } from "./actions";
 
 export default async function DashboardPage() {

@@ -1,5 +1,5 @@
-import { AUTH_SECRET_MIN_LENGTH, validateAuthSecret } from "@/lib/authSecretValidator";
 import { beforeEach, describe, expect, it } from "vitest";
+import { AUTH_SECRET_MIN_LENGTH, validateAuthSecret } from "@/lib/authSecretValidator";
 
 describe("validateAuthSecret", () => {
   const ORIGINAL_SECRET = process.env.AUTH_SECRET;

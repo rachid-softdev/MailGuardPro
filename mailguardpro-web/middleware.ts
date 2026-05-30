@@ -1,8 +1,8 @@
 // NextAuth Middleware - Protection des routes + CSP with nonce
 
+import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { checkMemoryRateLimit } from "@/lib/rateLimitMemory";
-import { NextResponse } from "next/server";
 
 function generateNonce(): string {
   const array = new Uint8Array(16);

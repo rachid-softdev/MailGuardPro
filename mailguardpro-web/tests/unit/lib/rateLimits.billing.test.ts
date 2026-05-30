@@ -44,7 +44,7 @@ vi.mock("@/lib/redis", async () => {
   };
 });
 
-import { PLAN_LIMITS, checkRateLimitByPlan, getPlanLimits } from "@/lib/rateLimits";
+import { checkRateLimitByPlan, getPlanLimits, PLAN_LIMITS } from "@/lib/rateLimits";
 
 describe("PLAN_LIMITS — billing action type", () => {
   beforeEach(() => {

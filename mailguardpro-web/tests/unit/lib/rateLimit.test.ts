@@ -38,10 +38,10 @@ vi.mock("@/lib/redis", async () => {
 
 // Import actual functions from lib/rateLimits - they will use the mocked redis
 import {
-  PLAN_LIMITS,
-  RateLimitExceededError,
   checkRateLimitByPlan,
   getPlanLimits,
+  PLAN_LIMITS,
+  RateLimitExceededError,
 } from "@/lib/rateLimits";
 
 describe("rateLimits", () => {

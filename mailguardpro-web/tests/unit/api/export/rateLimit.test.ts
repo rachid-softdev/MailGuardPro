@@ -95,11 +95,11 @@ vi.mock("@/lib/prisma", () => ({
   },
 }));
 
+import { NextRequest } from "next/server";
 import { GET } from "@/app/api/v1/bulk/[jobId]/export/route";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { checkRateLimitByPlan } from "@/lib/rateLimits";
-import { NextRequest } from "next/server";
 
 describe("Export rate limit [M-02]", () => {
   beforeEach(() => {

@@ -1,6 +1,6 @@
-import { GET } from "@/app/api/v1/validate/route";
 import { NextRequest, NextResponse } from "next/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { GET } from "@/app/api/v1/validate/route";
 
 // Mock dependencies
 vi.mock("@/lib/auth", () => ({

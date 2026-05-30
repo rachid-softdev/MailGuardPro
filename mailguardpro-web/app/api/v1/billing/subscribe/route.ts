@@ -2,14 +2,14 @@
 // POST /api/v1/billing/subscribe
 
 import crypto from "node:crypto";
+import { NextRequest, NextResponse } from "next/server";
+import Stripe from "stripe";
 import { auth } from "@/lib/auth";
 import { validateCsrfOrigin } from "@/lib/csrf";
 import { prisma } from "@/lib/prisma";
 import { parseJsonBody } from "@/lib/request";
 import { getPlanFromPriceId, stripe } from "@/lib/stripe";
 import { AuditAction, AuditResource, logAudit } from "@/services/auditLogger";
-import { NextRequest, NextResponse } from "next/server";
-import Stripe from "stripe";
 
 export async function POST(req: NextRequest) {
   try {

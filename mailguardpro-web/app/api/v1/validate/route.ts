@@ -1,12 +1,15 @@
 // API Route: Email validation
 // GET /api/v1/validate?email=xxx
 
+import { NextRequest, NextResponse } from "next/server";
+import { v4 as uuidv4 } from "uuid";
+import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { hasScope } from "@/lib/auth/require-scope";
 import { hashApiKey, hashApiKeyLegacy } from "@/lib/crypto";
 import { hashEmail } from "@/lib/emailHash";
 import { prisma } from "@/lib/prisma";
-import { type Plan, checkRateLimitByPlan } from "@/lib/rateLimits";
+import { checkRateLimitByPlan, type Plan } from "@/lib/rateLimits";
 import { checkRateLimit } from "@/lib/redis";
 import { getClientIp } from "@/lib/ssrf";
 import { enforceTimingSafeResponse } from "@/lib/timingSafe";
@@ -14,9 +17,6 @@ import { AuditAction, AuditResource, logAudit } from "@/services/auditLogger";
 import { checkDisposable } from "@/services/disposableChecker";
 import { validateEmail } from "@/services/emailValidator";
 import { checkFormat } from "@/services/formatChecker";
-import { NextRequest, NextResponse } from "next/server";
-import { v4 as uuidv4 } from "uuid";
-import { z } from "zod";
 
 // Schema de validation
 const validateQuerySchema = z.object({

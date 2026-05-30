@@ -2,15 +2,15 @@
 // DELETE /api/v1/webhooks/[id]
 // PATCH /api/v1/webhooks/[id]
 
+import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { validateCsrfOrigin } from "@/lib/csrf";
 import { prisma } from "@/lib/prisma";
-import { type Plan, checkRateLimitByPlan } from "@/lib/rateLimits";
+import { checkRateLimitByPlan, type Plan } from "@/lib/rateLimits";
 import { parseJsonBody } from "@/lib/request";
 import { resolveWebhookIps, validateWebhookUrlWithDns } from "@/lib/ssrf";
 import { AuditAction, AuditResource, logAudit } from "@/services/auditLogger";
-import { NextRequest, NextResponse } from "next/server";
-import { z } from "zod";
 
 const updateWebhookSchema = z.object({
   url: z.string().url().optional(),

@@ -1,10 +1,10 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   getClientIp,
   validateResolvedIp,
   validateWebhookUrl,
   validateWebhookUrlWithDns,
 } from "@/lib/ssrf";
-import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // Mock dns/promises to control DNS resolution in validateWebhookUrlWithDns
 // Source uses: import dns from "dns/promises"  (default import)

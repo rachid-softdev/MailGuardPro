@@ -1,12 +1,12 @@
 // API Route: Outil SPF Lookup
 // GET /api/v1/tools/spf?domain=xxx
 
-import { isIP } from "net";
-import { checkRateLimit } from "@/lib/redis";
-import { getClientIp } from "@/lib/ssrf";
 import dns from "dns/promises";
+import { isIP } from "net";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import { checkRateLimit } from "@/lib/redis";
+import { getClientIp } from "@/lib/ssrf";
 
 const querySchema = z.object({
   domain: z.string().min(1).max(253),

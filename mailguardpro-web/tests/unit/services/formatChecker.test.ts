@@ -1,5 +1,5 @@
-import { checkFormat } from "@/services/formatChecker";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { checkFormat } from "@/services/formatChecker";
 
 describe("formatChecker", () => {
   describe("checkFormat", () => {

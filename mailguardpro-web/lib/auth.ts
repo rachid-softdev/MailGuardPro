@@ -1,11 +1,11 @@
-import { AuditAction, AuditResource, logAudit } from "@/services/auditLogger";
 import { PrismaAdapter } from "@auth/prisma-adapter";
-import NextAuth from "next-auth";
 import type { Account } from "next-auth";
+import NextAuth from "next-auth";
 import type { AdapterUser } from "next-auth/adapters";
 import type { JWT } from "next-auth/jwt";
 import Google from "next-auth/providers/google";
 import Resend from "next-auth/providers/resend";
+import { AuditAction, AuditResource, logAudit } from "@/services/auditLogger";
 import { validateAuthSecret } from "./authSecretValidator";
 import { prisma } from "./prisma";
 import { redis } from "./redis";

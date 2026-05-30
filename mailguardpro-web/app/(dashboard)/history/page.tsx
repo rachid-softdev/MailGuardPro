@@ -1,9 +1,9 @@
 "use client";
 
-import { StatusBadge } from "@/components/ui/StatusBadge";
 import { formatDistanceToNow } from "date-fns";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
+import { StatusBadge } from "@/components/ui/StatusBadge";
 
 interface Validation {
   id: string;

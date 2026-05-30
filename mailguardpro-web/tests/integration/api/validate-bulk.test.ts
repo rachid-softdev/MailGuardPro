@@ -1,6 +1,6 @@
-import { POST } from "@/app/api/v1/validate/bulk/route";
 import { NextRequest, NextResponse } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { POST } from "@/app/api/v1/validate/bulk/route";
 
 // Mock dependencies
 vi.mock("@/lib/auth", () => ({

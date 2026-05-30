@@ -3,8 +3,8 @@
 import { SCORING_WEIGHTS } from "@/config/scoringWeights";
 import { checkCatchAll } from "./catchAllChecker";
 import { checkDisposable } from "./disposableChecker";
-import { checkDMARC, checkMX, checkSPF } from "./dnsChecker";
 import { checkDNSBL } from "./dnsblChecker";
+import { checkDMARC, checkMX, checkSPF } from "./dnsChecker";
 import { checkFormat } from "./formatChecker";
 import { checkFreeProvider } from "./freeProviderChecker";
 import { checkGeneric } from "./genericChecker";

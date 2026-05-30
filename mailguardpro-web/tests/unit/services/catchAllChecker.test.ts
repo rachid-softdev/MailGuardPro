@@ -1,6 +1,6 @@
-import { checkCatchAll, checkCatchAllQuick } from "@/services/catchAllChecker";
 import * as dns from "dns/promises";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { checkCatchAll, checkCatchAllQuick } from "@/services/catchAllChecker";
 
 // Mock the dns module
 vi.mock("dns/promises", () => {

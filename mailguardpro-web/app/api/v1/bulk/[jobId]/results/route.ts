@@ -1,11 +1,11 @@
 // API Route: Résultats paginés d'un job bulk
 // GET /api/v1/bulk/[jobId]/results?page=1&limit=50&status=valid,invalid
 
+import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getBulkJobResults } from "@/services/bulkProcessor";
-import { NextRequest, NextResponse } from "next/server";
-import { z } from "zod";
 
 const querySchema = z.object({
   page: z.coerce.number().min(1).default(1),

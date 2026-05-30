@@ -34,12 +34,12 @@ vi.mock("@/lib/redis", () => ({
 }));
 
 import {
-  InMemoryRateLimit,
   checkEmailRateLimit,
   clearAllValidationCaches,
   getCachedDomainChecks,
   getCachedValidation,
   getRecentValidationCount,
+  InMemoryRateLimit,
   incrementRecentValidation,
   invalidateValidationCache,
   setCachedDomainChecks,

@@ -1,11 +1,11 @@
 // Bulk processing service - CSV upload and job management
 
-import { sanitizeForHtml } from "@/lib/emailSanitizer";
-import { prisma } from "@/lib/prisma";
-import { redis } from "@/lib/redis";
 import { Queue } from "bullmq";
 import { parse } from "csv-parse/sync";
 import { v4 as uuidv4 } from "uuid";
+import { sanitizeForHtml } from "@/lib/emailSanitizer";
+import { prisma } from "@/lib/prisma";
+import { redis } from "@/lib/redis";
 
 // BullMQ queue singleton (reused across all uploads)
 const bulkQueue = new Queue("bulk-validation", {

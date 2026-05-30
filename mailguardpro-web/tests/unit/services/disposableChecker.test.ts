@@ -1,5 +1,5 @@
-import { checkDisposable, syncDisposableDomains } from "@/services/disposableChecker";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { checkDisposable, syncDisposableDomains } from "@/services/disposableChecker";
 
 describe("disposableChecker", () => {
   describe("syncDisposableDomains", () => {

@@ -1,10 +1,10 @@
 // Health Check API Endpoint
 // Returns the health status of all services
 
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { checkRateLimit, redis } from "@/lib/redis";
 import { getClientIp } from "@/lib/ssrf";
-import { NextRequest, NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
 

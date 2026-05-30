@@ -12,8 +12,8 @@
  * "iv:authTag:ciphertext" (i.e., ne contient pas de ":").
  */
 
-import { createCipheriv, randomBytes } from "crypto";
 import { PrismaClient } from "@prisma/client";
+import { createCipheriv, randomBytes } from "crypto";
 
 const ALGORITHM = "aes-256-gcm";
 const IV_LENGTH = 16;

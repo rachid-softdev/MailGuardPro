@@ -1,10 +1,10 @@
 // SMTP check - actual connection to mail server
 
+import dns from "dns/promises";
 import net from "net";
 import { redis } from "@/lib/redis";
 import { safeJsonParse } from "@/lib/safeJson";
 import { validateResolvedIp } from "@/lib/ssrf";
-import dns from "dns/promises";
 import { CheckResult } from "./types";
 
 interface SMTPResult extends CheckResult {

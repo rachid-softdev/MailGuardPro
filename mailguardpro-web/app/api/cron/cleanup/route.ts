@@ -1,10 +1,10 @@
 // Cron: Cleanup old validation records
 // Runs daily to remove old validations for free users (keep only 90 days)
 
+import { NextRequest, NextResponse } from "next/server";
 import { verifyCronRequest } from "@/lib/cronAuth";
 import { prisma } from "@/lib/prisma";
 import { AuditAction, AuditResource, logAudit } from "@/services/auditLogger";
-import { NextRequest, NextResponse } from "next/server";
 
 const RETENTION_DAYS = 90;
 

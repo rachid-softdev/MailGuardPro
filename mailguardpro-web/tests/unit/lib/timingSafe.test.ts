@@ -1,5 +1,5 @@
-import { enforceTimingSafeResponse, timingSafeEqual } from "@/lib/timingSafe";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { enforceTimingSafeResponse, timingSafeEqual } from "@/lib/timingSafe";
 
 describe("timingSafeEqual", () => {
   it("returns true for identical strings", () => {

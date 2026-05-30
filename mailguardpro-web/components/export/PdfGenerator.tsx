@@ -1,8 +1,8 @@
 "use client";
 
-import { sanitizeForHtml } from "@/lib/emailSanitizer";
 import DOMPurify from "dompurify";
 import { useState } from "react";
+import { sanitizeForHtml } from "@/lib/emailSanitizer";
 
 interface ValidationResult {
   email: string;

@@ -116,12 +116,12 @@ vi.mock("@/lib/ssrf", () => ({
   validateResolvedIp: vi.fn(),
 }));
 
+import dns from "dns/promises";
 import { validateResolvedIp } from "@/lib/ssrf";
 // ---------------------------------------------------------------------------
 // Subject under test
 // ---------------------------------------------------------------------------
 import { checkSMTP } from "@/services/smtpChecker";
-import dns from "dns/promises";
 
 // ---------------------------------------------------------------------------
 // Tests

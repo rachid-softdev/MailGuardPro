@@ -3,8 +3,8 @@
 // H-02: CSV field sanitization (tested via bulkProcessor.test.ts)
 // H-03: File type validation on bulk upload
 
-import { validateCsrfOrigin } from "@/lib/csrf";
 import { describe, expect, it } from "vitest";
+import { validateCsrfOrigin } from "@/lib/csrf";
 
 // ============================================================================
 // H-01: CSRF on bulk upload

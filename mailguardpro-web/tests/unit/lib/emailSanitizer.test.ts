@@ -1,10 +1,10 @@
+import { describe, expect, it } from "vitest";
 import {
   sanitizeEmailForDisplay,
   sanitizeForAttr,
   sanitizeForCsv,
   sanitizeForHtml,
 } from "@/lib/emailSanitizer";
-import { describe, expect, it } from "vitest";
 
 describe("sanitizeEmailForDisplay", () => {
   it("allows normal email addresses", () => {

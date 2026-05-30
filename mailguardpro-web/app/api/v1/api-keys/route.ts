@@ -2,17 +2,17 @@
 // GET /api/v1/api-keys - List keys
 // POST /api/v1/api-keys - Create a key
 
+import { NextRequest, NextResponse } from "next/server";
+import { v4 as uuidv4 } from "uuid";
 import { auth } from "@/lib/auth";
 import { VALID_SCOPES } from "@/lib/auth/require-scope";
 import { hashApiKey } from "@/lib/crypto";
 import { validateCsrfOrigin } from "@/lib/csrf";
 import { prisma } from "@/lib/prisma";
-import { type Plan, checkRateLimitByPlan } from "@/lib/rateLimits";
+import { checkRateLimitByPlan, type Plan } from "@/lib/rateLimits";
 import { parseJsonBody } from "@/lib/request";
 import { getClientIp } from "@/lib/ssrf";
 import { AuditAction, AuditResource, logAudit } from "@/services/auditLogger";
-import { NextRequest, NextResponse } from "next/server";
-import { v4 as uuidv4 } from "uuid";
 
 // Helper pour générer une clé API
 function generateApiKey(prefix: string = "mg_live"): string {

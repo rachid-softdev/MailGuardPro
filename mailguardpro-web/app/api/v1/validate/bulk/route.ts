@@ -1,12 +1,12 @@
 // API Route: Upload CSV pour traitement bulk
 // POST /api/v1/validate/bulk
 
+import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { validateCsrfOrigin } from "@/lib/csrf";
 import { prisma } from "@/lib/prisma";
-import { Plan, checkRateLimitByPlan } from "@/lib/rateLimits";
+import { checkRateLimitByPlan, Plan } from "@/lib/rateLimits";
 import { processBulkUpload } from "@/services/bulkProcessor";
-import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(req: NextRequest) {
   try {

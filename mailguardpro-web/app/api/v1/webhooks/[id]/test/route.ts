@@ -2,12 +2,12 @@
 // POST /api/v1/webhooks/[id]/test
 
 import crypto from "crypto";
+import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { decryptToken } from "@/lib/crypto";
 import { validateCsrfOrigin } from "@/lib/csrf";
 import { prisma } from "@/lib/prisma";
 import { validateWebhookUrlWithDns } from "@/lib/ssrf";
-import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {

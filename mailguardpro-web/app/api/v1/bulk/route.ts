@@ -1,10 +1,10 @@
 // API Route: List bulk jobs for the user
 // GET /api/v1/bulk
 
-import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 
 const bulkQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(10),

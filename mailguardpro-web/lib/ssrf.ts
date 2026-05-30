@@ -1,5 +1,5 @@
-import { isIP } from "net";
 import dns from "dns/promises";
+import { isIP } from "net";
 
 const IPV4_MAPPED_IPV6_RE = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/;
 

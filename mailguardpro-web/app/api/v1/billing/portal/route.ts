@@ -1,11 +1,11 @@
 // API Route: Stripe Customer Portal
 // POST /api/v1/billing/portal
 
+import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { validateCsrfOrigin } from "@/lib/csrf";
 import { prisma } from "@/lib/prisma";
 import { stripe } from "@/lib/stripe";
-import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(req: NextRequest) {
   try {

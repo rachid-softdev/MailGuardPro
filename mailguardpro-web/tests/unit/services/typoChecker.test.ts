@@ -1,5 +1,5 @@
-import { checkTypo } from "@/services/typoChecker";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { checkTypo } from "@/services/typoChecker";
 
 // Mock the dynamic import of fast-levenshtein
 vi.mock("fast-levenshtein", async () => {

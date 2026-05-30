@@ -6,9 +6,9 @@ import { prisma } from "../lib/prisma";
 import { safeJsonParse } from "../lib/safeJson";
 import { validateEmail } from "../services/emailValidator";
 import {
+  createBulkJobCompletedPayload,
   WEBHOOK_EVENTS,
   WebhookDispatcher,
-  createBulkJobCompletedPayload,
 } from "../services/webhookDispatcher";
 
 // Configuration Redis pour le worker

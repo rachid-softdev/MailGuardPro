@@ -1,10 +1,10 @@
 // Service d'export multi-format (CSV, JSON, XLSX)
 // PDF généré côté client avec jsPDF pour compatibilité Serverless
 
-import { sanitizeForCsv } from "@/lib/emailSanitizer";
-import { prisma } from "@/lib/prisma";
 import { stringify } from "csv-stringify/sync";
 import ExcelJS from "exceljs";
+import { sanitizeForCsv } from "@/lib/emailSanitizer";
+import { prisma } from "@/lib/prisma";
 import { ExportOptions, ValidationResult } from "./types";
 
 // NOTE: PDF est maintenant généré côté client via components/export/PdfGenerator.tsx
