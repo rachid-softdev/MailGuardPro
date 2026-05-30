@@ -17,10 +17,7 @@ if (!EMAIL_HASH_SALT) {
 
 export function hashEmail(email: string): string {
   const salt = EMAIL_HASH_SALT || "dev-only-do-not-use-in-production";
-  return crypto
-    .createHash("sha256")
-    .update(salt + email.toLowerCase().trim())
-    .digest("hex");
+  return crypto.createHmac("sha256", salt).update(email.toLowerCase().trim()).digest("hex");
 }
 
 export function maskEmail(email: string): string {

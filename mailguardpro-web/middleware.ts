@@ -1,6 +1,7 @@
 // NextAuth Middleware - Protection des routes + CSP with nonce
 
 import { auth } from "@/lib/auth";
+import { checkMemoryRateLimit } from "@/lib/rateLimitMemory";
 import { NextResponse } from "next/server";
 
 function generateNonce(): string {
@@ -28,9 +29,27 @@ function buildCsp(nonce: string): string {
   ].join("; ");
 }
 
-export default auth((req) => {
-  const nonce = generateNonce();
+export default auth(async (req) => {
   const requestHeaders = new Headers(req.headers);
+
+  // Rate limiting for auth routes (20 req/min per IP — uses in-memory limiter
+  // to avoid Redis dependency at the edge)
+  if (req.nextUrl.pathname.startsWith("/api/auth")) {
+    const ip =
+      requestHeaders.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+      requestHeaders.get("x-real-ip") ||
+      "unknown";
+    const rateCheck = checkMemoryRateLimit(`auth:${ip}`, 20, 60);
+    if (!rateCheck.success) {
+      console.warn(`[Auth] Rate limited IP: ${ip}`);
+      return NextResponse.json(
+        { error: "Too many requests", retryAfter: rateCheck.resetAt },
+        { status: 429 },
+      );
+    }
+  }
+
+  const nonce = generateNonce();
 
   const isLoggedIn = !!req.auth;
 

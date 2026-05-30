@@ -132,9 +132,21 @@ export async function initializeDisposableDomains(): Promise<void> {
 }
 
 // Function to sync the blocklist (called by cron)
-export async function syncDisposableDomains(): Promise<{ added: number }> {
+export async function syncDisposableDomains(url?: string): Promise<{ added: number }> {
+  const targetUrl = url || DISPOSABLE_LIST_URL;
+
+  // SSRF protection: si l'URL est personnalisée, valider avec DNS
+  if (url) {
+    const { validateWebhookUrlWithDns } = await import("@/lib/ssrf");
+    const validation = await validateWebhookUrlWithDns(url);
+    if (!validation.valid) {
+      console.error(`[Disposable] SSRF validation failed for custom URL: ${validation.error}`);
+      return { added: 0 };
+    }
+  }
+
   try {
-    const response = await fetch(DISPOSABLE_LIST_URL, {
+    const response = await fetch(targetUrl, {
       signal: AbortSignal.timeout(10000),
     });
     if (!response.ok) {

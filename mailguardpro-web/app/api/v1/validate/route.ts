@@ -241,7 +241,7 @@ export async function GET(req: NextRequest) {
             error: "Insufficient credits",
             code: "INSUFFICIENT_CREDITS",
           },
-          { status: 402 },
+          { status: 403 },
         );
       }
     }

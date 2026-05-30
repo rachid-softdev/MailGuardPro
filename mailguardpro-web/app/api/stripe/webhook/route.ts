@@ -72,6 +72,19 @@ export async function POST(req: NextRequest) {
 
   const body = await req.text();
 
+  // Rate limiting (defense in depth — Stripe already verifies signature)
+  try {
+    const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+    const { checkRateLimit } = await import("@/lib/redis");
+    const rateCheck = await checkRateLimit(`stripe:webhook:ip:${ip}`, 60, 60);
+    if (!rateCheck.success) {
+      console.warn(`[Stripe] Rate limit exceeded for IP ${ip}`);
+      return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+    }
+  } catch {
+    // Redis down — allow through (signature verification is primary defense)
+  }
+
   // Double-check actual body size (content-length can be spoofed)
   if (body.length > STRIPE_MAX_BYTES) {
     return NextResponse.json({ error: "Request body too large" }, { status: 413 });

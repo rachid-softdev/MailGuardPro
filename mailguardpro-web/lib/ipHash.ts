@@ -15,8 +15,10 @@ if (!IP_HASH_KEY) {
 
 export function hashIp(ip: string): string {
   if (!IP_HASH_KEY) {
-    // Fallback : SHA-256 simple (moins sécurisé mais évite le stockage en clair)
-    return crypto.createHash("sha256").update(ip).digest("hex").substring(0, 16);
+    // Fallback : HMAC-SHA256 avec une clé aléatoire par lancement
+    const fallbackKey = crypto.randomBytes(16).toString("hex");
+    console.warn("[IPHash] IP_HASH_KEY not defined — using per-run random key");
+    return crypto.createHmac("sha256", fallbackKey).update(ip).digest("hex").substring(0, 16);
   }
   return crypto.createHmac("sha256", IP_HASH_KEY).update(ip).digest("hex").substring(0, 16);
 }
