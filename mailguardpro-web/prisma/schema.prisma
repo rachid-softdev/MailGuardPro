@@ -12,6 +12,17 @@ enum Role {
   ADMIN
 }
 
+model UserRole {
+  id     String @id @default(cuid())
+  userId String
+  role   Role
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, role])
+  @@index([userId])
+}
+
 enum Plan {
   FREE
   STARTER
@@ -47,6 +58,7 @@ model User {
   bulkJobs    BulkJob[]
   webhooks    Webhook[]
   validations Validation[]
+  userRoles   UserRole[]
 }
 
 model Account {

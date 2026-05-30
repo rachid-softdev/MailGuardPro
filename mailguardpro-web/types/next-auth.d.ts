@@ -11,11 +11,13 @@ declare module "next-auth" {
       role: "USER" | "ADMIN";
       isActive: boolean;
       tokenVersion: number;
+      roles: ("USER" | "ADMIN")[];
     } & DefaultSession["user"];
   }
 
   interface User {
     tokenVersion: number;
+    roles?: ("USER" | "ADMIN")[];
   }
 }
 
@@ -25,5 +27,6 @@ declare module "next-auth/jwt" {
     plan?: "FREE" | "STARTER" | "PRO" | "BUSINESS";
     credits?: number;
     role?: "USER" | "ADMIN";
+    roles?: ("USER" | "ADMIN")[];
   }
 }

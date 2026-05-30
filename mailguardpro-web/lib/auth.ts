@@ -121,6 +121,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             role: true,
             tokenVersion: true,
             isActive: true,
+            userRoles: { select: { role: true } },
           },
         });
 
@@ -148,6 +149,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           session.user.credits = dbUser.credits;
           session.user.role = dbUser.role;
           session.user.tokenVersion = dbUser.tokenVersion;
+          session.user.roles = dbUser.userRoles.map((ur) => ur.role);
         }
       }
       return session;
