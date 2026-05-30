@@ -3,16 +3,17 @@
 
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { type Plan, checkRateLimitByPlan } from "@/lib/rateLimits";
 import { exportResults } from "@/services/exportService";
 import { ExportFormat } from "@/services/types";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 const querySchema = z.object({
-  format: z.enum(["csv", "json", "xlsx", "pdf"]).default("csv"),
-  status: z.string().optional(),
-  minScore: z.coerce.number().min(0).max(100).optional(),
-  maxScore: z.coerce.number().min(0).max(100).optional(),
+  format: z.enum(["csv", "json", "xlsx", "pdf"]).nullish().default("csv"),
+  status: z.string().nullish(),
+  minScore: z.coerce.number().min(0).max(100).nullish(),
+  maxScore: z.coerce.number().min(0).max(100).nullish(),
 });
 
 const FORMAT_MIME_TYPES: Record<ExportFormat, string> = {
@@ -69,6 +70,23 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ jobI
       );
     }
 
+    // Rate limiting export
+    const rateCheck = await checkRateLimitByPlan(
+      session.user.id,
+      (session.user.plan as Plan) || "FREE",
+      "export",
+    );
+    if (!rateCheck.success) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Rate limit exceeded. Please try again later.",
+          retryAfter: rateCheck.resetAt,
+        },
+        { status: 429 },
+      );
+    }
+
     // Vérifier le plan
     const user = await prisma.user.findUnique({
       where: { id: session.user.id },
@@ -99,6 +117,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ jobI
     });
 
     if (!job) {
+      return NextResponse.json({ success: false, error: "Job not found" }, { status: 404 });
+    }
+
+    if (job.userId !== session.user.id) {
       return NextResponse.json({ success: false, error: "Job not found" }, { status: 404 });
     }
 

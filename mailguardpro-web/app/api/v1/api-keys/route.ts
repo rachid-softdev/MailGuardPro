@@ -1,10 +1,15 @@
-// API Route: Gestion des clés API
-// GET /api/v1/api-keys - Lister les clés
-// POST /api/v1/api-keys - Créer une clé
+// API Route: API key management
+// GET /api/v1/api-keys - List keys
+// POST /api/v1/api-keys - Create a key
 
 import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { VALID_SCOPES } from "@/lib/auth/require-scope";
 import { hashApiKey } from "@/lib/crypto";
+import { validateCsrfOrigin } from "@/lib/csrf";
+import { prisma } from "@/lib/prisma";
+import { type Plan, checkRateLimitByPlan } from "@/lib/rateLimits";
+import { parseJsonBody } from "@/lib/request";
+import { getClientIp } from "@/lib/ssrf";
 import { AuditAction, AuditResource, logAudit } from "@/services/auditLogger";
 import { NextRequest, NextResponse } from "next/server";
 import { v4 as uuidv4 } from "uuid";
@@ -32,6 +37,7 @@ export async function GET(req: NextRequest) {
         id: true,
         keyPrefix: true,
         name: true,
+        scopes: true,
         isActive: true,
         lastUsedAt: true,
         createdAt: true,
@@ -50,6 +56,12 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    // CSRF protection
+    const csrf = validateCsrfOrigin(req);
+    if (!csrf.valid) {
+      return NextResponse.json({ success: false, error: csrf.error }, { status: 403 });
+    }
+
     const session = await auth();
     if (!session?.user?.id) {
       return NextResponse.json(
@@ -58,8 +70,27 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const body = await req.json();
-    const { name } = body;
+    // Rate limit check
+    const rateCheck = await checkRateLimitByPlan(
+      session.user.id,
+      (session.user.plan as Plan) || "FREE",
+      "apiKeys",
+    );
+    if (!rateCheck.success) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Rate limit exceeded. Please try again later.",
+          retryAfter: rateCheck.resetAt,
+        },
+        { status: 429 },
+      );
+    }
+
+    const { data: body, error: bodyError } = await parseJsonBody(req);
+    if (bodyError) return bodyError;
+    const { name, scope } = body;
+    const effectiveScope = scope || "full";
 
     // Validation
     if (!name || typeof name !== "string" || name.trim().length === 0) {
@@ -69,6 +100,13 @@ export async function POST(req: NextRequest) {
     if (name.length > 50) {
       return NextResponse.json(
         { success: false, error: "Name must be less than 50 characters" },
+        { status: 400 },
+      );
+    }
+
+    if (scope && !VALID_SCOPES.includes(scope as any)) {
+      return NextResponse.json(
+        { success: false, error: "Invalid scope. Must be one of: full, read, validate, export" },
         { status: 400 },
       );
     }
@@ -96,31 +134,36 @@ export async function POST(req: NextRequest) {
         keyHash,
         keyPrefix,
         name: name.trim(),
+        scopes: effectiveScope,
         userId: session.user.id,
       },
     });
 
     // Audit log
-    logAudit({
+    void logAudit({
       userId: session.user.id,
       action: AuditAction.API_KEY_CREATED,
       resource: AuditResource.API_KEY,
       resourceId: newKey.id,
-      ipAddress: req.headers.get("x-forwarded-for") || undefined,
-      metadata: { keyName: name.trim(), keyPrefix },
+      ipAddress: getClientIp(req) !== "unknown" ? getClientIp(req) : undefined,
+      metadata: { keyName: name.trim() },
     });
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        id: newKey.id,
-        key: apiKey, // Retourner seulement une fois!
-        keyPrefix: newKey.keyPrefix,
-        name: newKey.name,
-        isActive: newKey.isActive,
-        createdAt: newKey.createdAt,
+    return NextResponse.json(
+      {
+        success: true,
+        data: {
+          id: newKey.id,
+          key: apiKey, // Retourner seulement une fois!
+          keyPrefix: newKey.keyPrefix,
+          name: newKey.name,
+          scopes: newKey.scopes,
+          isActive: newKey.isActive,
+          createdAt: newKey.createdAt,
+        },
       },
-    });
+      { status: 201 },
+    );
   } catch (error) {
     console.error("[API] API key create error:", error);
     return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 });

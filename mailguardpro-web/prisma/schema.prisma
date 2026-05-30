@@ -38,25 +38,27 @@ enum JobStatus {
 }
 
 model User {
-  id                String    @id @default(cuid())
-  name              String?
-  email             String?   @unique
-  emailVerified     DateTime?
-  image             String?
-  plan              Plan      @default(FREE)
-  credits           Int       @default(100)
-  createdAt         DateTime  @default(now())
-  role              Role      @default(USER)
-  stripeCustomerId  String?   @unique
+  id                   String    @id @default(cuid())
+  name                 String?
+  email                String?   @unique
+  emailVerified        DateTime?
+  image                String?
+  plan                 Plan      @default(FREE)
+  credits              Int       @default(100)
+  createdAt            DateTime  @default(now())
+  role                 Role      @default(USER)
+  isActive             Boolean   @default(true)
+  stripeCustomerId     String?   @unique
   stripeSubscriptionId String?
+  tokenVersion         Int       @default(0) // Incremented on API key revocation
 
-  accounts          Account[]
-  sessions          Session[]
-  apiKeys           ApiKey[]
-  bulkJobs          BulkJob[]
-  webhooks          Webhook[]
-  validations       Validation[]
-  userRoles         UserRole[]
+  accounts    Account[]
+  sessions    Session[]
+  apiKeys     ApiKey[]
+  bulkJobs    BulkJob[]
+  webhooks    Webhook[]
+  validations Validation[]
+  userRoles   UserRole[]
 }
 
 model Account {
@@ -73,7 +75,7 @@ model Account {
   id_token          String? @db.Text
   session_state     String?
 
-  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
 }
@@ -84,7 +86,7 @@ model Session {
   userId       String
   expires      DateTime
 
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model VerificationToken {
@@ -96,54 +98,59 @@ model VerificationToken {
 }
 
 model ApiKey {
-  id          String   @id @default(cuid())
-  keyHash     String   @unique // Hash de la clé pour sécurité
-  keyPrefix   String   // Prefixe pour affichage (ex: mg_live_abc1...)
-  name        String
-  userId      String
-  user        User     @relation(fields: [userId], references: [id])
-  lastUsedAt  DateTime?
-  createdAt   DateTime @default(now())
-  isActive    Boolean  @default(true)
+  id         String    @id @default(cuid())
+  keyHash    String    @unique // Hash de la clé pour sécurité
+  keyPrefix  String // Prefixe pour affichage (ex: mg_live_abc1...)
+  name       String
+  scopes     String    @default("full") // Comma-separated: "full" | "read" | "validate" | "export"
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lastUsedAt DateTime?
+  createdAt  DateTime  @default(now())
+  isActive   Boolean   @default(true)
 }
 
 model Validation {
-  id              String   @id @default(cuid())
-  email           String   @db.VarChar(255)
-  score           Int
-  status          String
-  checksJson      Json
+  id               String   @id @default(cuid())
+  email            String   @db.VarChar(255)
+  emailHash        String?  @db.VarChar(64) // SHA-256 hash of email for PII privacy
+  score            Int
+  status           String
+  checksJson       Json
   processingTimeMs Int
-  userId          String?
-  apiKeyId        String?
-  bulkJobId       String?
-  createdAt       DateTime @default(now())
+  userId           String?
+  apiKeyId         String?
+  bulkJobId        String?
+  createdAt        DateTime @default(now())
 
-  user            User?    @relation(fields: [userId], references: [id])
-  bulkJob         BulkJob? @relation(fields: [bulkJobId], references: [id])
+  user    User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  bulkJob BulkJob? @relation(fields: [bulkJobId], references: [id])
 
   // Performance indexes
   @@index([email])
+  @@index([emailHash])
   @@index([userId, createdAt])
   @@index([bulkJobId])
+  @@index([bulkJobId, score])
   @@index([status, createdAt])
 }
 
 model BulkJob {
-  id            String      @id @default(cuid())
-  userId        String
-  user          User        @relation(fields: [userId], references: [id])
-  filename      String
-  totalEmails   Int
-  processed     Int         @default(0)
-  status        JobStatus   @default(PENDING)
-  resultUrl     String?
-  reportUrl     String?
-  startedAt     DateTime?
-  completedAt   DateTime?
-  createdAt     DateTime    @default(now())
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  filename    String
+  totalEmails Int
+  processed   Int       @default(0)
+  status      JobStatus @default(PENDING)
+  emailsJson  String?   @db.Text // Outbox pattern: email data stored in DB, not Redis
+  resultUrl   String?
+  reportUrl   String?
+  startedAt   DateTime?
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
 
-  validations   Validation[]
+  validations Validation[]
 
   // Performance indexes
   @@index([userId, createdAt])
@@ -151,34 +158,44 @@ model BulkJob {
 }
 
 model Webhook {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id])
-  url       String
-  events    String[] // ['bulk_job_completed', 'daily_report']
-  secret    String   // Secret pour HMAC signing
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  url             String
+  name            String?
+  events          String[] // ['bulk_job_completed', 'daily_report']
+  encryptedSecret String   @db.Text // Secret pour HMAC signing (AES-256-GCM encrypted)
+  isActive        Boolean  @default(true)
+  privacyMode     Boolean  @default(false) // If true, mask email addresses in webhook payload
+  pinnedIps       String?  @db.Text // JSON ["1.2.3.4", "::1"] — IPs résolues au moment de la création
+  createdAt       DateTime @default(now())
 }
 
 model RateLimit {
-  key       String   @id // Clé de rate limiting (ip:endpoint ou apiKey:endpoint)
-  count     Int      @default(0)
-  resetAt   DateTime // Quand le compteur sera réinitialisé
+  key     String   @id // Clé de rate limiting (ip:endpoint ou apiKey:endpoint)
+  count   Int      @default(0)
+  resetAt DateTime // Quand le compteur sera réinitialisé
 
   @@index([resetAt])
 }
 
+model StripeEvent {
+  id          String   @id
+  processedAt DateTime @default(now())
+
+  @@index([processedAt])
+}
+
 model AuditLog {
-  id          String   @id @default(cuid())
-  userId      String?
-  action      String   // AuditAction enum value
-  resource    String   // AuditResource enum value
-  resourceId  String?
-  ipAddress   String?
-  userAgent   String?
-  metadata    Json?
-  createdAt   DateTime @default(now())
+  id         String   @id @default(cuid())
+  userId     String?
+  action     String // AuditAction enum value
+  resource   String // AuditResource enum value
+  resourceId String?
+  ipAddress  String?
+  userAgent  String?
+  metadata   Json?
+  createdAt  DateTime @default(now())
 
   @@index([userId, createdAt])
   @@index([resource, resourceId])

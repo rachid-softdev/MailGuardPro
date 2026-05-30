@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // Mock stripe
 vi.mock("stripe", () => ({
@@ -64,50 +64,21 @@ describe("stripe", () => {
       expect(getPlanFromPriceId(PRICES.BUSINESS)).toBe("BUSINESS");
     });
 
-    it("should return FREE for unknown price", async () => {
+    it("should return null for unknown price", async () => {
       const { getPlanFromPriceId } = await import("@/lib/stripe");
-      expect(getPlanFromPriceId("unknown_price")).toBe("FREE");
-    });
-  });
-
-  describe("Plan type", () => {
-    it("should allow FREE plan", async () => {
-      const { getPlanFromPriceId, Plan } = await import("@/lib/stripe");
-
-      // Type checking
-      const plan: Plan = "FREE";
-      expect(plan).toBe("FREE");
-    });
-
-    it("should allow STARTER plan", async () => {
-      const { Plan } = await import("@/lib/stripe");
-      const plan: Plan = "STARTER";
-      expect(plan).toBe("STARTER");
-    });
-
-    it("should allow PRO plan", async () => {
-      const { Plan } = await import("@/lib/stripe");
-      const plan: Plan = "PRO";
-      expect(plan).toBe("PRO");
-    });
-
-    it("should allow BUSINESS plan", async () => {
-      const { Plan } = await import("@/lib/stripe");
-      const plan: Plan = "BUSINESS";
-      expect(plan).toBe("BUSINESS");
+      expect(getPlanFromPriceId("unknown_price")).toBeNull();
     });
   });
 
   describe("default price IDs", () => {
-    it("should use default if env vars not set", async () => {
+    it("should throw if env vars not set", async () => {
+      vi.resetModules();
       delete process.env.STRIPE_STARTER_PRICE_ID;
       delete process.env.STRIPE_PRO_PRICE_ID;
       delete process.env.STRIPE_BUSINESS_PRICE_ID;
 
-      // Re-import would fail because stripe is already imported
-      // This test just confirms the structure
-      const { PRICES } = await import("@/lib/stripe");
-      expect(PRICES.STARTER).toBeDefined();
+      // Use vi.importActual to bypass the module mock and load the real module
+      await expect(vi.importActual("@/lib/stripe")).rejects.toThrow("STRIPE_STARTER_PRICE_ID");
     });
   });
 });

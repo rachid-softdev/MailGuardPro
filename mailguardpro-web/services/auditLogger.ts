@@ -1,6 +1,8 @@
 // Audit Logger Service - Log toutes les actions sensibles
 
+import { hashIp } from "@/lib/ipHash";
 import { prisma } from "@/lib/prisma";
+import type { Prisma } from "@prisma/client";
 
 export enum AuditAction {
   // User actions
@@ -34,6 +36,7 @@ export enum AuditAction {
   CREDITS_PURCHASED = "CREDITS_PURCHASED",
   CREDITS_CONSUMED = "CREDITS_CONSUMED",
   CREDITS_ADJUSTED = "CREDITS_ADJUSTED",
+  CREDITS_LOW_WARNING = "CREDITS_LOW_WARNING",
 
   // Subscription actions
   SUBSCRIPTION_CREATED = "SUBSCRIPTION_CREATED",
@@ -78,9 +81,9 @@ export async function logAuditEvent(params: AuditLogParams): Promise<void> {
         action: params.action,
         resource: params.resource,
         resourceId: params.resourceId,
-        ipAddress: params.ipAddress,
+        ipAddress: params.ipAddress ? hashIp(params.ipAddress) : undefined,
         userAgent: params.userAgent,
-        metadata: params.metadata as any,
+        metadata: params.metadata as Prisma.InputJsonValue,
       },
     });
   } catch (error) {
@@ -93,9 +96,8 @@ export async function logAuditEvent(params: AuditLogParams): Promise<void> {
  * Log audit event synchronously (for use in API routes)
  * Wraps the async function
  */
-export function logAudit(params: AuditLogParams): void {
-  // Fire and forget - don't await
-  logAuditEvent(params).catch(console.error);
+export function logAudit(params: AuditLogParams): Promise<void> {
+  return logAuditEvent(params).catch(console.error);
 }
 
 /**

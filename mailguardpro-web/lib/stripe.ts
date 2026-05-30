@@ -11,14 +11,21 @@ export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
 
 // Price IDs (à configurer dans le dashboard Stripe)
 export const PRICES = {
-  STARTER: process.env.STRIPE_STARTER_PRICE_ID || "price_starter_monthly",
-  PRO: process.env.STRIPE_PRO_PRICE_ID || "price_pro_monthly",
-  BUSINESS: process.env.STRIPE_BUSINESS_PRICE_ID || "price_business_monthly",
+  STARTER: process.env.STRIPE_STARTER_PRICE_ID,
+  PRO: process.env.STRIPE_PRO_PRICE_ID,
+  BUSINESS: process.env.STRIPE_BUSINESS_PRICE_ID,
 } as const;
+
+// Valider que tous les price IDs sont configurés
+if (!PRICES.STARTER || !PRICES.PRO || !PRICES.BUSINESS) {
+  throw new Error(
+    "STRIPE_STARTER_PRICE_ID, STRIPE_PRO_PRICE_ID, and STRIPE_BUSINESS_PRICE_ID must be defined",
+  );
+}
 
 export type Plan = "FREE" | "STARTER" | "PRO" | "BUSINESS";
 
-export function getPlanFromPriceId(priceId: string): Plan {
+export function getPlanFromPriceId(priceId: string): Plan | null {
   switch (priceId) {
     case PRICES.STARTER:
       return "STARTER";
@@ -27,7 +34,7 @@ export function getPlanFromPriceId(priceId: string): Plan {
     case PRICES.BUSINESS:
       return "BUSINESS";
     default:
-      return "FREE";
+      return null;
   }
 }
 

@@ -1,6 +1,6 @@
-// Moteur de validation email - Orchestrateur de tous les checks
+// Email validation engine - Orchestrator of all checks
 
-import { validate as validateEmailLib } from "uuid";
+import { SCORING_WEIGHTS } from "@/config/scoringWeights";
 import { checkCatchAll } from "./catchAllChecker";
 import { checkDisposable } from "./disposableChecker";
 import { checkDMARC, checkMX, checkSPF } from "./dnsChecker";
@@ -12,12 +12,52 @@ import { getDomainReputation } from "./reputationScorer";
 import { checkSMTP } from "./smtpChecker";
 import { ValidationChecks, ValidationResult } from "./types";
 import { checkTypo } from "./typoChecker";
+import { checkEmailRateLimit, getCachedValidation, setCachedValidation } from "./validationCache";
 
 export async function validateEmail(email: string): Promise<ValidationResult> {
   const startTime = Date.now();
+
+  // Check cache first
+  const cacheKey = email.toLowerCase().trim();
+  const cached = await getCachedValidation(cacheKey);
+  if (cached) {
+    return {
+      ...cached,
+      processingTimeMs: Date.now() - startTime,
+    };
+  }
+
   const domain = email.split("@")[1] || "";
 
-  // Exécuter tous les checks en parallèle pour optimiser le temps total
+  // Rate limit check for anti-enumeration
+  const withinLimit = await checkEmailRateLimit(email);
+  if (!withinLimit) {
+    return {
+      email,
+      score: 0,
+      status: "unknown",
+      checks: {
+        format: {
+          passed: false,
+          message: "Rate limited",
+          detail: "Too many requests for this email",
+        },
+        mx: { passed: false, message: "Not checked", detail: "" },
+        smtp: { passed: false, message: "Not checked", detail: "" },
+        catchAll: { passed: false, message: "Not checked", detail: "" },
+        disposable: { passed: false, message: "Not checked", detail: "" },
+        generic: { passed: false, message: "Not checked", detail: "" },
+        freeProvider: { passed: false, message: "Not checked", detail: "" },
+        dnsbl: { passed: true, message: "Not checked", detail: "" },
+        spf: { passed: false, message: "Not checked", detail: "" },
+        dmarc: { passed: false, message: "Not checked", detail: "" },
+        typo: { passed: true, message: "Not checked", detail: "" },
+      },
+      processingTimeMs: 0,
+    };
+  }
+
+  // Run all checks in parallel to optimize total time
   const [
     formatResult,
     mxResult,
@@ -54,44 +94,44 @@ export async function validateEmail(email: string): Promise<ValidationResult> {
     checkTypo(email),
   ]);
 
-  // Calculer le score
+  // Calculate score
   let score = 0;
 
-  // Points positifs
-  if (formatResult.passed) score += 15;
-  if (mxResult.passed) score += 25;
-  if (smtpResult.passed) score += 30;
-  if (catchAllResult.passed) score += 10;
-  if (disposableResult.passed) score += 10;
-  if (genericResult.passed) score += 5;
+  // Positive points
+  if (formatResult.passed) score += SCORING_WEIGHTS.format.pass;
+  if (mxResult.passed) score += SCORING_WEIGHTS.mx.pass;
+  if (smtpResult.passed) score += SCORING_WEIGHTS.smtp.pass;
+  if (catchAllResult.passed) score += SCORING_WEIGHTS.catchAll.pass;
+  if (disposableResult.passed) score += SCORING_WEIGHTS.disposable.pass;
+  if (genericResult.passed) score += SCORING_WEIGHTS.generic.pass;
 
-  // Bonus SPF/DMARC
-  if (spfResult.passed) score += 5;
-  if (dmarcResult.passed) score += 5;
+  // SPF/DMARC bonus
+  if (spfResult.passed) score += SCORING_WEIGHTS.spf.pass;
+  if (dmarcResult.passed) score += SCORING_WEIGHTS.dmarc.pass;
 
-  // Bonus domaine ancien (si dispo)
+  // Old domain bonus (if available)
   const reputation = await getDomainReputation(domain);
   if (reputation.ageInDays && reputation.ageInDays > 365) {
-    score += 5;
+    score += SCORING_WEIGHTS.domainAge.pass;
   }
 
-  // Pénalités
-  if (!dnsblResult.passed) score -= 20;
-  if (!typoResult.passed) score -= 10;
+  // Penalties (SCORING_WEIGHTS values are already negative)
+  if (!dnsblResult.passed) score += SCORING_WEIGHTS.dnsbl.fail;
+  if (!typoResult.passed) score += SCORING_WEIGHTS.typo.fail;
 
-  // S'assurer que le score est entre 0 et 100
+  // Ensure score is between 0 and 100
   score = Math.max(0, Math.min(100, score));
 
-  // Déterminer le statut final
+  // Determine final status
   let status: "valid" | "invalid" | "risky" | "unknown";
 
-  // Logique de détermination du statut
+  // Status determination logic
   if (!formatResult.passed) {
     status = "invalid";
   } else if (!disposableResult.passed) {
     status = "invalid";
   } else if (!typoResult.passed) {
-    status = "risky"; // Suggestion disponible
+    status = "risky"; // Suggestion available
   } else if (score >= 75 && smtpResult.passed) {
     status = "valid";
   } else if (score < 40 || !smtpResult.passed) {
@@ -102,7 +142,7 @@ export async function validateEmail(email: string): Promise<ValidationResult> {
     status = "unknown";
   }
 
-  // Construire le résultat
+  // Build result
   const result: ValidationResult = {
     email,
     score,
@@ -128,10 +168,13 @@ export async function validateEmail(email: string): Promise<ValidationResult> {
     processingTimeMs: Date.now() - startTime,
   };
 
+  // Cache the result
+  await setCachedValidation(cacheKey, result);
+
   return result;
 }
 
-// Fonction de validation simple (sans tous les checks, plus rapide)
+// Quick validation function (without full checks, faster)
 export async function validateEmailQuick(
   email: string,
 ): Promise<{ valid: boolean; reason?: string }> {

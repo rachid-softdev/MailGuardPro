@@ -3,12 +3,20 @@
 
 import crypto from "crypto";
 import { auth } from "@/lib/auth";
+import { decryptToken } from "@/lib/crypto";
+import { validateCsrfOrigin } from "@/lib/csrf";
 import { prisma } from "@/lib/prisma";
-import { validateWebhookUrl } from "@/lib/ssrf";
+import { validateWebhookUrlWithDns } from "@/lib/ssrf";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    // CSRF protection
+    const csrf = validateCsrfOrigin(req);
+    if (!csrf.valid) {
+      return NextResponse.json({ success: false, error: csrf.error }, { status: 403 });
+    }
+
     const session = await auth();
     if (!session?.user?.id) {
       return NextResponse.json(
@@ -31,8 +39,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       return NextResponse.json({ success: false, error: "Webhook not found" }, { status: 404 });
     }
 
-    // SSRF check before sending test request
-    const ssrfCheck = validateWebhookUrl(webhook.url);
+    // SSRF check with DNS resolution before sending test request
+    const ssrfCheck = await validateWebhookUrlWithDns(webhook.url);
     if (!ssrfCheck.valid) {
       return NextResponse.json(
         { success: false, error: `Webhook URL blocked: ${ssrfCheck.error}` },
@@ -50,9 +58,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       },
     };
 
+    // Decrypt the stored secret before signing
+    const rawSecret = decryptToken(webhook.encryptedSecret);
+
     // Signer le payload avec le secret
     const signature = crypto
-      .createHmac("sha256", webhook.secret)
+      .createHmac("sha256", rawSecret)
       .update(JSON.stringify(testPayload))
       .digest("hex");
 

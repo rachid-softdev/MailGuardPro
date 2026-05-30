@@ -43,7 +43,6 @@ export async function checkTypo(email: string): Promise<CheckResult> {
   if (!localPart || !domain) {
     return {
       passed: true,
-      weight: 10,
       message: "Format invalide",
     };
   }
@@ -71,7 +70,6 @@ export async function checkTypo(email: string): Promise<CheckResult> {
 
     return {
       passed: false,
-      weight: 10,
       message: "Erreur de frappe détectée",
       detail: `Vouliez-vous dire ${suggestedEmail} ?`,
       // Stocker la suggestion pour l'afficher
@@ -87,7 +85,7 @@ export async function checkTypo(email: string): Promise<CheckResult> {
     gmai: "gmail.com",
     gamil: "gmail.com",
     gmal: "gmail.com",
-    gamil: "gmail.com",
+    gmali: "gmail.com",
     goggle: "googlemail.com",
     yaho: "yahoo.com",
     hotmial: "hotmail.com",
@@ -100,7 +98,6 @@ export async function checkTypo(email: string): Promise<CheckResult> {
     const suggestedEmail = `${localPart}@${commonTypos[typoMatch]}`;
     return {
       passed: false,
-      weight: 10,
       message: "Erreur de frappe détectée",
       detail: `Vouliez-vous dire ${suggestedEmail} ?`,
       // @ts-expect-error
@@ -110,7 +107,6 @@ export async function checkTypo(email: string): Promise<CheckResult> {
 
   return {
     passed: true,
-    weight: 10,
     message: "Aucune erreur détectée",
     detail: undefined,
   };

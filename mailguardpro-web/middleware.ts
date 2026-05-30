@@ -1,44 +1,92 @@
-// NextAuth Middleware - Protection des routes
+// NextAuth Middleware - Protection des routes + CSP with nonce
 
 import { auth } from "@/lib/auth";
+import { checkMemoryRateLimit } from "@/lib/rateLimitMemory";
 import { NextResponse } from "next/server";
 
-export default auth((req) => {
-  const isLoggedIn = !!req.auth;
-  const isOnDashboard = req.nextUrl.pathname.startsWith("/dashboard");
-  const isOnValidate = req.nextUrl.pathname.startsWith("/validate");
-  const isOnBulk = req.nextUrl.pathname.startsWith("/bulk");
-  const isOnApiKeys = req.nextUrl.pathname.startsWith("/api-keys");
-  const isOnWebhooks = req.nextUrl.pathname.startsWith("/webhooks");
-  const isOnSettings = req.nextUrl.pathname.startsWith("/settings");
+function generateNonce(): string {
+  const array = new Uint8Array(16);
+  crypto.getRandomValues(array);
+  return btoa(String.fromCharCode(...array))
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
+}
 
-  // Routes publiques qui ne nécessitent pas d'auth
-  const isPublicRoute =
-    req.nextUrl.pathname === "/" ||
-    req.nextUrl.pathname === "/login" ||
-    req.nextUrl.pathname === "/verify" ||
-    req.nextUrl.pathname.startsWith("/docs") ||
-    req.nextUrl.pathname.startsWith("/pricing") ||
-    req.nextUrl.pathname.startsWith("/api/v1/tools") ||
-    req.nextUrl.pathname.startsWith("/api/auth");
+function buildCsp(nonce: string): string {
+  return [
+    `default-src 'self'`,
+    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'`,
+    `style-src 'self' 'unsafe-inline'`,
+    `img-src 'self' data: blob: https:`,
+    `font-src 'self' data:`,
+    `connect-src 'self' https:`,
+    `frame-ancestors 'none'`,
+    `form-action 'self'`,
+    `base-uri 'self'`,
+    `object-src 'none'`,
+    `upgrade-insecure-requests`,
+  ].join("; ");
+}
 
-  if (
-    !isPublicRoute &&
-    (isOnDashboard || isOnValidate || isOnBulk || isOnApiKeys || isOnWebhooks || isOnSettings)
-  ) {
-    if (!isLoggedIn) {
-      const loginUrl = new URL("/login", req.url);
-      loginUrl.searchParams.set("callbackUrl", req.url);
-      return NextResponse.redirect(loginUrl);
+export default auth(async (req) => {
+  const requestHeaders = new Headers(req.headers);
+
+  // Rate limiting for auth routes (20 req/min per IP — uses in-memory limiter
+  // to avoid Redis dependency at the edge)
+  if (req.nextUrl.pathname.startsWith("/api/auth")) {
+    const ip =
+      requestHeaders.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+      requestHeaders.get("x-real-ip") ||
+      "unknown";
+    const rateCheck = await checkMemoryRateLimit(`auth:${ip}`, 20, 60);
+    if (!rateCheck.success) {
+      console.warn(`[Auth] Rate limited IP: ${ip}`);
+      return NextResponse.json(
+        { error: "Too many requests", retryAfter: rateCheck.resetAt },
+        { status: 429 },
+      );
     }
   }
 
-  // Rediriger vers dashboard si déjà connecté et sur login
-  if (isLoggedIn && (req.nextUrl.pathname === "/login" || req.nextUrl.pathname === "/")) {
+  const nonce = generateNonce();
+
+  const isLoggedIn = !!req.auth;
+
+  const PROTECTED_ROUTES = [
+    "/dashboard",
+    "/validate",
+    "/bulk",
+    "/api-keys",
+    "/webhooks",
+    "/settings",
+  ];
+
+  const PUBLIC_ROUTES = ["/", "/login", "/verify"];
+
+  const PUBLIC_API_PREFIXES = ["/docs", "/pricing", "/api/v1/tools", "/api/auth"];
+
+  const isProtectedRoute = PROTECTED_ROUTES.some(
+    (route) => req.nextUrl.pathname === route || req.nextUrl.pathname.startsWith(route + "/"),
+  );
+
+  const isPublicRoute =
+    PUBLIC_ROUTES.includes(req.nextUrl.pathname) ||
+    PUBLIC_API_PREFIXES.some((prefix) => req.nextUrl.pathname.startsWith(prefix));
+
+  if (!isPublicRoute && isProtectedRoute && !isLoggedIn) {
+    const loginUrl = new URL("/login", req.url);
+    loginUrl.searchParams.set("callbackUrl", req.url);
+    return NextResponse.redirect(loginUrl);
+  }
+
+  if (isLoggedIn && req.nextUrl.pathname === "/login") {
     return NextResponse.redirect(new URL("/dashboard", req.url));
   }
 
-  return NextResponse.next();
+  const response = NextResponse.next({ request: { headers: requestHeaders } });
+  response.headers.set("Content-Security-Policy", buildCsp(nonce));
+  return response;
 });
 
 export const config = {

@@ -1,7 +1,8 @@
-// Service de traitement bulk - Upload CSV et gestion des jobs
+// Bulk processing service - CSV upload and job management
 
+import { sanitizeForHtml } from "@/lib/emailSanitizer";
 import { prisma } from "@/lib/prisma";
-import { publishProgress, redis } from "@/lib/redis";
+import { redis } from "@/lib/redis";
 import { Queue } from "bullmq";
 import { parse } from "csv-parse/sync";
 import { v4 as uuidv4 } from "uuid";
@@ -41,7 +42,7 @@ export async function processBulkUpload(
   userId: string,
   onProgress?: (processed: number, total: number) => void,
 ): Promise<BulkUploadResult> {
-  // Vérifier la taille du fichier
+  // Check file size
   if (file.size > MAX_FILE_SIZE) {
     return {
       success: false,
@@ -49,7 +50,7 @@ export async function processBulkUpload(
     };
   }
 
-  // Lire le contenu du fichier
+  // Read file content
   let content: string;
   try {
     content = await file.text();
@@ -60,7 +61,7 @@ export async function processBulkUpload(
     };
   }
 
-  // Parser le CSV
+  // Parse CSV
   let records: Record<string, string>[];
   try {
     records = parse(content, {
@@ -76,7 +77,7 @@ export async function processBulkUpload(
     };
   }
 
-  // Extraire les emails
+  // Extract emails
   const emails: ParsedEmail[] = [];
   const errors: string[] = [];
 
@@ -89,7 +90,7 @@ export async function processBulkUpload(
       continue;
     }
 
-    // Validation basique de l'email
+    // Basic email validation
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       errors.push(`Row ${i + 1}: Invalid email format: ${email}`);
       continue;
@@ -97,13 +98,19 @@ export async function processBulkUpload(
 
     emails.push({
       email: email.toLowerCase().trim(),
-      firstName: record.firstName || record.first_name || record.firstname || record.prenom,
-      lastName: record.lastName || record.last_name || record.lastname || record.nom,
-      company: record.company || record.Company || record.company || record.entreprise,
+      firstName: sanitizeForHtml(
+        record.firstName || record.first_name || record.firstname || record.prenom || "",
+      ),
+      lastName: sanitizeForHtml(
+        record.lastName || record.last_name || record.lastname || record.nom || "",
+      ),
+      company: sanitizeForHtml(
+        record.company || record.Company || record.societe || record.entreprise || "",
+      ),
     });
   }
 
-  // Vérifier la limite
+  // Check limit
   if (emails.length > MAX_BULK_ROWS) {
     return {
       success: false,
@@ -118,37 +125,59 @@ export async function processBulkUpload(
     };
   }
 
-  // Créer le job en base de données
+  // Calculate credit cost
+  const creditCost = emails.length;
+
   const jobId = uuidv4();
+  let dbCommitted = false;
 
   try {
-    await prisma.bulkJob.create({
-      data: {
-        id: jobId,
-        userId,
-        filename: file.name,
-        totalEmails: emails.length,
-        status: "PENDING",
-      },
+    // 1. DB transaction first — credit deduction + job creation
+    await prisma.$transaction(async (tx) => {
+      const deduction = await tx.user.updateMany({
+        where: { id: userId, credits: { gte: creditCost } },
+        data: { credits: { decrement: creditCost } },
+      });
+      if (deduction.count === 0) throw new Error("Insufficient credits");
+      await tx.bulkJob.create({
+        data: {
+          id: jobId,
+          userId,
+          filename: file.name,
+          totalEmails: emails.length,
+          status: "PENDING",
+          emailsJson: JSON.stringify(emails), // Store email data in DB (outbox pattern)
+        },
+      });
     });
+    dbCommitted = true;
 
-    // Stocker les données du job dans Redis pour le worker
-    await redis.setex(`bulk:job:${jobId}:data`, 3600, JSON.stringify(emails));
+    // 2. Queue — submit job for processing
+    await bulkQueue.add("process", { jobId, totalEmails: emails.length, userId });
 
-    // Ajouter à la queue BullMQ (singleton)
-    await bulkQueue.add("process", {
-      jobId,
-      totalEmails: emails.length,
-      userId,
-    });
-
-    return {
-      success: true,
-      jobId,
-      totalEmails: emails.length,
-    };
+    return { success: true, jobId, totalEmails: emails.length };
   } catch (error) {
     console.error("Failed to create bulk job:", error);
+
+    if (error instanceof Error && error.message === "Insufficient credits") {
+      return {
+        success: false,
+        errors: [`Insufficient credits. Required: ${creditCost}`],
+      };
+    }
+
+    // Compensating rollback: if DB committed but Redis/Queue failed, refund credits and delete job
+    if (dbCommitted) {
+      await prisma.user
+        .update({ where: { id: userId }, data: { credits: { increment: creditCost } } })
+        .catch((e: unknown) => console.error("[BulkProcessor] Rollback refund failed:", e));
+      await prisma.bulkJob
+        .delete({ where: { id: jobId } })
+        .catch((e: unknown) =>
+          console.error("[BulkProcessor] Compensating rollback: job deletion failed:", e),
+        );
+    }
+
     return {
       success: false,
       errors: ["Failed to create processing job"],
@@ -156,10 +185,13 @@ export async function processBulkUpload(
   }
 }
 
-// Fonction pour récupérer le statut d'un job
-export async function getBulkJobStatus(jobId: string) {
-  const job = await prisma.bulkJob.findUnique({
-    where: { id: jobId },
+// Function to get job status
+export async function getBulkJobStatus(jobId: string, userId?: string) {
+  const where: any = { id: jobId };
+  if (userId) where.userId = userId;
+
+  const job = await prisma.bulkJob.findFirst({
+    where,
     select: {
       id: true,
       status: true,
@@ -182,7 +214,7 @@ export async function getBulkJobStatus(jobId: string) {
   };
 }
 
-// Fonction pour récupérer les résultats paginés
+// Function to get paginated results
 export async function getBulkJobResults(
   jobId: string,
   page = 1,
@@ -228,10 +260,10 @@ export async function getBulkJobResults(
   };
 }
 
-// Fonction pour obtenir les statistiques du job - Version optimisée SQL
-// Au lieu de charger tous les résultats en mémoire, on utilise des agrégations SQL
+// Function to get job stats - Optimized SQL version
+// Instead of loading all results in memory, use SQL aggregations
 export async function getBulkJobStats(jobId: string) {
-  // Requête 1: Count total + group by status
+  // Query 1: Count total + group by status
   const statusCounts = await prisma.validation.groupBy({
     by: ["status"],
     where: { bulkJobId: jobId },
@@ -240,7 +272,7 @@ export async function getBulkJobStats(jobId: string) {
     },
   });
 
-  // Requête 2: Moyenne des scores
+  // Query 2: Average scores
   const scoreStats = await prisma.validation.aggregate({
     where: { bulkJobId: jobId },
     _avg: {
@@ -251,8 +283,8 @@ export async function getBulkJobStats(jobId: string) {
     },
   });
 
-  // Requête 3: Distribution des scores via raw query PostgreSQL
-  // Utilise CASE pour grouper par range
+  // Query 3: Score distribution via raw PostgreSQL query
+  // Uses CASE to group by range
   let scoreDistribution: Record<string, number> = {
     "0-20": 0,
     "21-40": 0,
@@ -282,12 +314,12 @@ export async function getBulkJobStats(jobId: string) {
       scoreDistribution[row.range] = Number(row.count);
     }
   } catch (error) {
-    // Fallback: utiliser les données de statusCounts si la query échoue
+    // Fallback: use statusCounts data if query fails
     // (ou si ce n'est pas PostgreSQL)
     console.warn("SQL distribution query failed, using fallback:", error);
   }
 
-  // Transformer les résultats en objet
+  // Transform results into object
   const statusMap = statusCounts.reduce(
     (acc, item) => {
       acc[item.status] = item._count.status;
@@ -307,16 +339,16 @@ export async function getBulkJobStats(jobId: string) {
   };
 }
 
-// Fonction pour récupérer les résultats avec cursor-based pagination
-// Plus performant que offset pour grandes tables
+// Function to get results with cursor-based pagination
+// More performant than offset for large tables
 export async function getBulkJobResultsCursor(jobId: string, cursor?: string, limit = 50) {
-  // Si pas de cursor, récupérer les premiers éléments
+  // If no cursor, fetch first items
   const results = await prisma.validation.findMany({
     where: {
       bulkJobId: jobId,
       ...(cursor
         ? {
-            id: { lt: cursor }, //假设 cursor est l'ID du dernier élément
+            id: { lt: cursor }, // assuming cursor is the ID of the last element
           }
         : {}),
     },

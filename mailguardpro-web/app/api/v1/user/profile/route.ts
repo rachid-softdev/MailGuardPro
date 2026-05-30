@@ -3,8 +3,15 @@
 // PATCH /api/v1/user/profile
 
 import { auth } from "@/lib/auth";
+import { validateCsrfOrigin } from "@/lib/csrf";
 import { prisma } from "@/lib/prisma";
+import { parseJsonBody } from "@/lib/request";
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
+
+const updateProfileSchema = z.object({
+  name: z.string().min(1).max(100).optional(),
+});
 
 export async function GET(req: NextRequest) {
   try {
@@ -44,6 +51,12 @@ export async function GET(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   try {
+    // CSRF protection
+    const csrf = validateCsrfOrigin(req);
+    if (!csrf.valid) {
+      return NextResponse.json({ success: false, error: csrf.error }, { status: 403 });
+    }
+
     const session = await auth();
     if (!session?.user?.id) {
       return NextResponse.json(
@@ -52,8 +65,14 @@ export async function PATCH(req: NextRequest) {
       );
     }
 
-    const body = await req.json();
-    const { name } = body;
+    const { data: body, error: bodyError } = await parseJsonBody(req);
+    if (bodyError) return bodyError;
+    const validation = updateProfileSchema.safeParse(body);
+    if (!validation.success) {
+      console.warn("[Validation] Input validation failed:", validation.error.errors);
+      return NextResponse.json({ success: false, error: "Invalid input" }, { status: 400 });
+    }
+    const { name } = validation.data;
 
     // Update user
     const updated = await prisma.user.update({

@@ -64,7 +64,6 @@ export async function checkDNSBL(domain: string): Promise<CheckResult> {
       // Impossible de résoudre → pas de blacklist check
       return {
         passed: true,
-        weight: 20,
         message: "Vérification impossible",
         detail: "Impossible de résoudre les IP du domaine",
       };
@@ -73,7 +72,6 @@ export async function checkDNSBL(domain: string): Promise<CheckResult> {
     if (!addresses || addresses.length === 0) {
       return {
         passed: true,
-        weight: 0,
         message: "Aucune IP trouvée",
       };
     }
@@ -86,7 +84,6 @@ export async function checkDNSBL(domain: string): Promise<CheckResult> {
         if (result.listed) {
           return {
             passed: false,
-            weight: 20,
             message: `IP blacklistée sur ${dnsbl.name}`,
             detail: `${ip} est listée sur ${dnsbl.host}: ${result.details}`,
           };
@@ -96,14 +93,12 @@ export async function checkDNSBL(domain: string): Promise<CheckResult> {
 
     return {
       passed: true,
-      weight: 0,
       message: "Non blacklisté",
       detail: undefined,
     };
   } catch (error) {
     return {
       passed: true,
-      weight: 0,
       message: "Vérification échouée",
       detail: error instanceof Error ? error.message : "Erreur inconnue",
     };

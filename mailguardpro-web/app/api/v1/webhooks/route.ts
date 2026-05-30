@@ -1,10 +1,15 @@
-// API Route: Gestion des webhooks
-// GET /api/v1/webhooks - Lister les webhooks
-// POST /api/v1/webhooks - Créer un webhook
+// API Route: Webhook management
+// GET /api/v1/webhooks - List webhooks
+// POST /api/v1/webhooks - Create a webhook
 
+import crypto from "crypto";
 import { auth } from "@/lib/auth";
+import { encryptToken } from "@/lib/crypto";
+import { validateCsrfOrigin } from "@/lib/csrf";
 import { prisma } from "@/lib/prisma";
-import { validateWebhookUrl } from "@/lib/ssrf";
+import { type Plan, checkRateLimitByPlan } from "@/lib/rateLimits";
+import { parseJsonBody } from "@/lib/request";
+import { validateWebhookUrlWithDns } from "@/lib/ssrf";
 import { AuditAction, AuditResource, logAudit } from "@/services/auditLogger";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
@@ -50,6 +55,12 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    // CSRF protection
+    const csrf = validateCsrfOrigin(req);
+    if (!csrf.valid) {
+      return NextResponse.json({ success: false, error: csrf.error }, { status: 403 });
+    }
+
     const session = await auth();
     if (!session?.user?.id) {
       return NextResponse.json(
@@ -58,15 +69,33 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const body = await req.json();
+    // Rate limit check
+    const rateCheck = await checkRateLimitByPlan(
+      session.user.id,
+      (session.user.plan as Plan) || "FREE",
+      "webhooks",
+    );
+    if (!rateCheck.success) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Rate limit exceeded. Please try again later.",
+          retryAfter: rateCheck.resetAt,
+        },
+        { status: 429 },
+      );
+    }
+
+    const { data: body, error: bodyError } = await parseJsonBody(req);
+    if (bodyError) return bodyError;
     const validation = createWebhookSchema.safeParse(body);
 
     if (!validation.success) {
+      console.warn("[Validation] Input validation failed:", validation.error.errors);
       return NextResponse.json(
         {
           success: false,
           error: "Invalid input",
-          details: validation.error.errors,
         },
         { status: 400 },
       );
@@ -74,14 +103,23 @@ export async function POST(req: NextRequest) {
 
     const { url, name, events } = validation.data;
 
-    // SSRF validation + HTTPS enforcement
-    const ssrfCheck = validateWebhookUrl(url);
+    // SSRF validation + DNS resolution (single call — prevents DNS rebinding window)
+    const ssrfCheck = await validateWebhookUrlWithDns(url);
     if (!ssrfCheck.valid) {
       return NextResponse.json(
         { success: false, error: `Webhook URL rejected: ${ssrfCheck.error}` },
         { status: 400 },
       );
     }
+
+    // DNS Pinning: reuse IPs already resolved during SSRF validation
+    if (!ssrfCheck.resolvedIps || ssrfCheck.resolvedIps.length === 0) {
+      return NextResponse.json(
+        { success: false, error: "Webhook URL rejected: no IPs resolved" },
+        { status: 400 },
+      );
+    }
+    const pinnedIps = JSON.stringify(ssrfCheck.resolvedIps);
 
     // Vérifier le nombre de webhooks existants
     const existingWebhooksCount = await prisma.webhook.count({
@@ -95,22 +133,23 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Générer un secret pour le webhook
-    const crypto = await import("crypto");
-    const secret = crypto.randomBytes(32).toString("hex");
+    // Générer un secret pour le webhook et le chiffrer avant stockage
+    const rawSecret = crypto.randomBytes(32).toString("hex");
+    const encryptedSecret = encryptToken(rawSecret);
 
     const webhook = await prisma.webhook.create({
       data: {
         url,
         name,
         events,
-        secret,
+        encryptedSecret,
+        pinnedIps,
         userId: session.user.id,
       },
     });
 
     // Audit log
-    logAudit({
+    void logAudit({
       userId: session.user.id,
       action: AuditAction.WEBHOOK_CREATED,
       resource: AuditResource.WEBHOOK,
@@ -119,17 +158,25 @@ export async function POST(req: NextRequest) {
       metadata: { webhookName: name, url, events },
     });
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        id: webhook.id,
-        url: webhook.url,
-        name: webhook.name,
-        events: webhook.events,
-        isActive: webhook.isActive,
-        createdAt: webhook.createdAt,
+    return NextResponse.json(
+      {
+        success: true,
+        data: {
+          id: webhook.id,
+          url: webhook.url,
+          name: webhook.name,
+          events: webhook.events,
+          rawSecretPrefix: rawSecret.substring(0, 4),
+          isActive: webhook.isActive,
+          createdAt: webhook.createdAt,
+        },
+        warning:
+          "IMPORTANT: The rawSecret is shown only once at creation. " +
+          "Save it securely — it will never be returned again. " +
+          "If lost, you must regenerate the webhook secret.",
       },
-    });
+      { status: 201 },
+    );
   } catch (error) {
     console.error("[API] Webhook create error:", error);
     return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 });

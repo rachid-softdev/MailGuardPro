@@ -2,6 +2,7 @@
 // GET /api/v1/bulk/[jobId]/results?page=1&limit=50&status=valid,invalid
 
 import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 import { getBulkJobResults } from "@/services/bulkProcessor";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
@@ -43,6 +44,15 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ jobI
         { success: false, error: "Authentication required" },
         { status: 401 },
       );
+    }
+
+    // Ownership check
+    const job = await prisma.bulkJob.findFirst({
+      where: { id: jobId, userId: session.user.id },
+      select: { id: true },
+    });
+    if (!job) {
+      return NextResponse.json({ success: false, error: "Job not found" }, { status: 404 });
     }
 
     // Parser les filtres

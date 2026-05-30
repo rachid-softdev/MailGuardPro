@@ -11,6 +11,7 @@ const { mockRedisInstance } = vi.hoisted(() => {
     expire: vi.fn().mockResolvedValue(1),
     ttl: vi.fn().mockResolvedValue(60),
     publish: vi.fn().mockResolvedValue(1),
+    eval: vi.fn().mockResolvedValue([1, 60]),
     duplicate: vi.fn(),
     disconnect: vi.fn(),
     subscribe: vi.fn(),
@@ -47,9 +48,7 @@ describe("rateLimits", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     // Reset all mock implementations
-    mockRedisInstance.incr.mockResolvedValue(1);
-    mockRedisInstance.expire.mockResolvedValue(1);
-    mockRedisInstance.ttl.mockResolvedValue(60);
+    mockRedisInstance.eval.mockResolvedValue([1, 60]);
   });
 
   describe("PLAN_LIMITS", () => {
@@ -112,7 +111,7 @@ describe("rateLimits", () => {
 
   describe("checkRateLimitByPlan", () => {
     it("should allow request when under limit for FREE plan", async () => {
-      mockRedisInstance.incr.mockResolvedValue(1);
+      mockRedisInstance.eval.mockResolvedValue([1, 60]);
 
       const result = await checkRateLimitByPlan("user-123", "FREE", "validate");
 
@@ -122,7 +121,7 @@ describe("rateLimits", () => {
     });
 
     it("should block request when over limit for FREE plan", async () => {
-      mockRedisInstance.incr.mockResolvedValue(21); // Over 20 limit
+      mockRedisInstance.eval.mockResolvedValue([21, 1]); // 21 > 20 limit
 
       const result = await checkRateLimitByPlan("user-123", "FREE", "validate");
 
@@ -131,7 +130,7 @@ describe("rateLimits", () => {
     });
 
     it("should allow request for STARTER plan with higher limit", async () => {
-      mockRedisInstance.incr.mockResolvedValue(50);
+      mockRedisInstance.eval.mockResolvedValue([50, 60]);
 
       const result = await checkRateLimitByPlan("user-123", "STARTER", "validate");
 
@@ -141,7 +140,7 @@ describe("rateLimits", () => {
     });
 
     it("should allow request for PRO plan", async () => {
-      mockRedisInstance.incr.mockResolvedValue(200);
+      mockRedisInstance.eval.mockResolvedValue([200, 60]);
 
       const result = await checkRateLimitByPlan("user-123", "PRO", "validate");
 
@@ -151,15 +150,15 @@ describe("rateLimits", () => {
     });
 
     it("should return unlimited for BUSINESS validate", async () => {
-      mockRedisInstance.incr.mockResolvedValue(1);
+      mockRedisInstance.eval.mockResolvedValue([1, 60]);
       const result = await checkRateLimitByPlan("user-123", "BUSINESS", "validate");
       expect(result.success).toBe(true);
-      expect(result.limit).toBe(100000); // Was 999999
+      expect(result.limit).toBe(100000); // Effective limit
       expect(result.remaining).toBe(99999); // 100000 - 1
     });
 
     it("should return unlimited for BUSINESS bulk action", async () => {
-      mockRedisInstance.incr.mockResolvedValue(1);
+      mockRedisInstance.eval.mockResolvedValue([1, 60]);
       const result = await checkRateLimitByPlan("user-123", "BUSINESS", "bulk");
       expect(result.success).toBe(true);
       expect(result.limit).toBe(5000);
@@ -167,7 +166,7 @@ describe("rateLimits", () => {
     });
 
     it("should block BUSINESS user when effective limit is exceeded", async () => {
-      mockRedisInstance.incr.mockResolvedValue(100001);
+      mockRedisInstance.eval.mockResolvedValue([100001, 60]);
       const result = await checkRateLimitByPlan("user-123", "BUSINESS", "validate");
       expect(result.success).toBe(false);
     });
@@ -186,7 +185,7 @@ describe("rateLimits", () => {
 
     it("should track different action types separately", async () => {
       // Test that checkRateLimitByPlan works for different actions
-      mockRedisInstance.incr.mockResolvedValue(1);
+      mockRedisInstance.eval.mockResolvedValue([1, 60]);
 
       const result1 = await checkRateLimitByPlan("user-123", "FREE", "validate");
       const result2 = await checkRateLimitByPlan("user-123", "FREE", "bulk");
@@ -196,6 +195,18 @@ describe("rateLimits", () => {
       expect(result2.success).toBe(true);
       expect(result1.limit).toBe(20); // validate limit
       expect(result2.limit).toBe(1); // bulk limit
+    });
+
+    it("should call redis.eval with correct arguments", async () => {
+      await checkRateLimitByPlan("user-123", "FREE", "validate");
+
+      expect(mockRedisInstance.eval).toHaveBeenCalledWith(
+        expect.any(String), // Lua script
+        1,
+        "ratelimit:user:user-123:validate",
+        "20",
+        "60",
+      );
     });
   });
 
@@ -207,7 +218,8 @@ describe("rateLimits", () => {
       expect(error.name).toBe("RateLimitExceededError");
       expect(error.limit).toBe(10);
       expect(error.windowSeconds).toBe(60);
-      expect(error.resetAt).toBe(resetAt);
+      // resetAt is rounded to nearest 10s (ceil) to prevent precise timing leakage
+      expect(error.resetAt).toBe(Math.ceil(resetAt / 10000) * 10000);
       expect(error.message).toContain("Rate limit exceeded");
     });
 

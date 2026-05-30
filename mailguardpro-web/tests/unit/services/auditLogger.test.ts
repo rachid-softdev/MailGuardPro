@@ -6,7 +6,20 @@ import {
   logAudit,
   logAuditEvent,
 } from "@/services/auditLogger";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+// Mock prisma to prevent real PrismaClient instantiation at import time
+vi.mock("@/lib/prisma", () => ({
+  prisma: {
+    auditLog: {
+      create: vi.fn(),
+      findMany: vi.fn(),
+    },
+    user: {
+      findUnique: vi.fn(),
+    },
+  },
+}));
 
 describe("auditLogger", () => {
   beforeEach(() => {
@@ -30,7 +43,7 @@ describe("auditLogger", () => {
           userId: "user-123",
           action: AuditAction.USER_LOGIN,
           resource: AuditResource.USER,
-          ipAddress: "192.168.1.1",
+          ipAddress: expect.stringMatching(/^[0-9a-f]{16}$/),
           userAgent: undefined,
           metadata: undefined,
         },
@@ -108,6 +121,37 @@ describe("auditLogger", () => {
           }),
         }),
       );
+    });
+
+    it("should hash IP addresses before storing when IP_HASH_KEY is set", async () => {
+      // Set IP_HASH_KEY so hashIp actually hashes (instead of returning raw IP)
+      vi.stubEnv("IP_HASH_KEY", "test-ip-hash-key-for-audit");
+      // Re-import with the env set
+      vi.resetModules();
+      const {
+        logAuditEvent: logAuditEventWithHash,
+        AuditAction: AA,
+        AuditResource: AR,
+      } = await import("@/services/auditLogger");
+
+      const { prisma } = await import("@/lib/prisma");
+      vi.mocked(prisma.auditLog.create).mockResolvedValue({ id: "1" } as any);
+
+      await logAuditEventWithHash({
+        action: AA.USER_LOGIN,
+        resource: AR.USER,
+        userId: "user-123",
+        ipAddress: "203.0.113.42",
+      });
+
+      // Verify the stored ipAddress is NOT the raw IP (it should be hashed)
+      const callArg = vi.mocked(prisma.auditLog.create).mock.calls[0][0];
+      expect(callArg.data.ipAddress).not.toBe("203.0.113.42");
+      // Should still be defined
+      expect(callArg.data.ipAddress).toBeDefined();
+      expect(typeof callArg.data.ipAddress).toBe("string");
+
+      vi.unstubAllEnvs();
     });
   });
 
