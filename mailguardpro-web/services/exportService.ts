@@ -1,6 +1,7 @@
 // Service d'export multi-format (CSV, JSON, XLSX)
 // PDF généré côté client avec jsPDF pour compatibilité Serverless
 
+import { sanitizeForCsv } from "@/lib/emailSanitizer";
 import { prisma } from "@/lib/prisma";
 import { stringify } from "csv-stringify/sync";
 import ExcelJS from "exceljs";
@@ -71,9 +72,9 @@ export async function exportResults(options: ExportOptions): Promise<Buffer> {
 
 function exportCSV(results: any[]): Buffer {
   const rows = results.map((r) => ({
-    email: r.email,
+    email: sanitizeForCsv(r.email),
     score: r.score,
-    status: r.status,
+    status: sanitizeForCsv(r.status),
     format_valid: r.formatValid,
     mx_valid: r.mxValid,
     smtp_valid: r.smtpValid,
@@ -85,8 +86,8 @@ function exportCSV(results: any[]): Buffer {
     spf_valid: r.spfValid,
     dmarc_valid: r.dmarcValid,
     typo: r.typo,
-    suggestion: r.suggestion || "",
-    domain_reputation: r.domainReputation || "",
+    suggestion: sanitizeForCsv(r.suggestion || ""),
+    domain_reputation: sanitizeForCsv(r.domainReputation || ""),
     processing_time_ms: r.processingTimeMs,
   }));
 

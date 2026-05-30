@@ -36,6 +36,7 @@ model User {
   credits              Int       @default(100)
   createdAt            DateTime  @default(now())
   role                 Role      @default(USER)
+  isActive             Boolean   @default(true)
   stripeCustomerId     String?   @unique
   stripeSubscriptionId String?
   tokenVersion         Int       @default(0) // Incremented on API key revocation

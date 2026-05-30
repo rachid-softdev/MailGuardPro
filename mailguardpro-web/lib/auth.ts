@@ -3,8 +3,18 @@ import { PrismaAdapter } from "@auth/prisma-adapter";
 import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
 import Resend from "next-auth/providers/resend";
+import { validateAuthSecret } from "./authSecretValidator";
 import { prisma } from "./prisma";
 import { redis } from "./redis";
+
+// Validate AUTH_SECRET at module load time
+const secretCheck = validateAuthSecret();
+if (!secretCheck.valid) {
+  console.error("[Auth] " + secretCheck.message);
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("Startup validation failed: " + secretCheck.message);
+  }
+}
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: PrismaAdapter(prisma) as any,
@@ -71,10 +81,21 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (session.user?.email) {
         const dbUser = await prisma.user.findUnique({
           where: { email: session.user.email },
-          select: { id: true, plan: true, credits: true, role: true, tokenVersion: true },
+          select: {
+            id: true,
+            plan: true,
+            credits: true,
+            role: true,
+            tokenVersion: true,
+            isActive: true,
+          },
         });
 
         if (dbUser) {
+          // Reject sessions for deactivated users
+          if (dbUser.isActive === false) {
+            return { ...session, user: null as any, expires: new Date(0).toISOString() };
+          }
           // Enforce session invalidation (tokenVersion was incremented via key revocation)
           if (dbUser.tokenVersion > 0 && dbUser.tokenVersion !== (user as any)?.tokenVersion) {
             console.warn(

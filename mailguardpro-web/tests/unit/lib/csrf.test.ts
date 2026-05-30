@@ -70,7 +70,7 @@ describe("validateCsrfOrigin", () => {
     });
     const result = validateCsrfOrigin(req);
     expect(result.valid).toBe(false);
-    expect(result.error).toContain("Invalid Origin");
+    expect(result.error).toContain("Origin not allowed");
   });
 
   it("rejects request with empty string Origin (treated as missing)", () => {
@@ -116,5 +116,58 @@ describe("validateCsrfOrigin", () => {
     const result = validateCsrfOrigin(req);
     expect(result.valid).toBe(false);
     expect(result.error).toContain("Referer not allowed");
+  });
+
+  it("returns valid when origin matches app origin in production", () => {
+    process.env.NODE_ENV = "production";
+    process.env.APP_ORIGIN = "https://app.mailguardpro.com";
+    const req = new Request("https://app.mailguardpro.com/api/v1/validate", {
+      headers: { origin: "https://app.mailguardpro.com" },
+    });
+    const result = validateCsrfOrigin(req);
+    expect(result.valid).toBe(true);
+    delete process.env.APP_ORIGIN;
+  });
+
+  it("returns invalid when origin does not match in production", () => {
+    process.env.NODE_ENV = "production";
+    process.env.APP_ORIGIN = "https://app.mailguardpro.com";
+    const req = new Request("https://app.mailguardpro.com/api/v1/validate", {
+      headers: { origin: "https://evil.com" },
+    });
+    const result = validateCsrfOrigin(req);
+    expect(result.valid).toBe(false);
+    delete process.env.APP_ORIGIN;
+  });
+
+  it("allows any localhost origin in development", () => {
+    process.env.NODE_ENV = "development";
+    process.env.APP_ORIGIN = "https://app.mailguardpro.com";
+    const req = new Request("http://localhost:3000/api/v1/validate", {
+      headers: { origin: "http://localhost:3000" },
+    });
+    const result = validateCsrfOrigin(req);
+    expect(result.valid).toBe(true);
+    delete process.env.APP_ORIGIN;
+  });
+
+  it("allows localhost:3001 in development (different port)", () => {
+    process.env.NODE_ENV = "development";
+    process.env.APP_ORIGIN = "https://app.mailguardpro.com";
+    const req = new Request("http://localhost:3000/api/v1/validate", {
+      headers: { origin: "http://localhost:3001" },
+    });
+    const result = validateCsrfOrigin(req);
+    expect(result.valid).toBe(true);
+    delete process.env.APP_ORIGIN;
+  });
+
+  it("allows 127.0.0.1 in development", () => {
+    process.env.NODE_ENV = "development";
+    const req = new Request("http://127.0.0.1:3000/api/v1/validate", {
+      headers: { origin: "http://127.0.0.1:3000" },
+    });
+    const result = validateCsrfOrigin(req);
+    expect(result.valid).toBe(true);
   });
 });
