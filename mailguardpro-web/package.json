@@ -18,6 +18,7 @@
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
     "db:studio": "prisma studio",
+    "typecheck": "tsc --noEmit",
     "test": "vitest",
     "test:run": "vitest --run",
     "test:e2e": "playwright test",

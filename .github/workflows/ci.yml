@@ -55,7 +55,7 @@ jobs:
         run: pnpm run db:generate
 
       - name: Run TypeScript check
-        run: npx tsc --noEmit
+        run: pnpm run typecheck
 
   test-unit:
     name: Unit Tests
