@@ -9,6 +9,7 @@ import { prisma } from "@/lib/prisma";
 import { type Plan, checkRateLimitByPlan } from "@/lib/rateLimits";
 import { checkRateLimit } from "@/lib/redis";
 import { getClientIp } from "@/lib/ssrf";
+import { enforceTimingSafeResponse } from "@/lib/timingSafe";
 import { AuditAction, AuditResource, logAudit } from "@/services/auditLogger";
 import { checkDisposable } from "@/services/disposableChecker";
 import { validateEmail } from "@/services/emailValidator";
@@ -22,28 +23,24 @@ const validateQuerySchema = z.object({
   email: z.string().email().min(1).max(254),
 });
 
-// Anti-enumeration: enforce a minimum response time to prevent timing-based
-// email enumeration attacks (distinguishing cached vs uncached SMTP results).
-// This is called before every response to ensure uniform timing.
-const MIN_RESPONSE_MS = 2000;
-
-async function enforceMinResponseTime(startTime: number): Promise<void> {
-  const elapsed = Date.now() - startTime;
-  if (elapsed < MIN_RESPONSE_MS) {
-    await new Promise((r) => setTimeout(r, MIN_RESPONSE_MS - elapsed));
-  }
-}
-
 // Helper pour extraire l'utilisateur (session ou API key)
 async function getAuthenticatedUser(req: NextRequest) {
   // 1. Essayer avec la session
   const session = await auth();
   if (session?.user) {
+    // Vérifier que l'utilisateur est actif
+    const dbUser = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { isActive: true },
+    });
+    if (dbUser?.isActive === false) return null;
     return { type: "session", user: session.user };
   }
 
   // 2. Essayer avec l'API key
   const apiKey = req.headers.get("X-API-Key");
+  // Minimum length check to reject obviously invalid keys early
+  if (apiKey && apiKey.length < 8) return null;
   if (apiKey) {
     // Compute both hashes simultaneously to prevent timing oracle (VF-14)
     const [keyHash, legacyHash] = await Promise.all([hashApiKey(apiKey), hashApiKeyLegacy(apiKey)]);
@@ -60,7 +57,10 @@ async function getAuthenticatedUser(req: NextRequest) {
       });
     }
 
-    if (keyRecord?.isActive) {
+    // Check for orphaned keys (deleted user)
+    if (keyRecord && !keyRecord.user) return null;
+
+    if (keyRecord?.isActive && keyRecord.user?.isActive) {
       if (!hasScope(keyRecord.scopes || "full", "validate")) {
         return null;
       }
@@ -76,6 +76,7 @@ async function getAuthenticatedUser(req: NextRequest) {
 }
 
 export async function GET(req: NextRequest) {
+  const startTime = Date.now();
   try {
     const { searchParams } = new URL(req.url);
     const email = searchParams.get("email");
@@ -83,6 +84,7 @@ export async function GET(req: NextRequest) {
     // Validation de l'email
     const validated = validateQuerySchema.safeParse({ email });
     if (!validated.success) {
+      await enforceTimingSafeResponse(startTime);
       return NextResponse.json({ success: false, error: "Invalid email format" }, { status: 400 });
     }
 
@@ -95,6 +97,7 @@ export async function GET(req: NextRequest) {
       const anonIp = getClientIp(req);
       const anonRateCheck = await checkRateLimit(`anon:validate:${anonIp}`, 5, 60);
       if (!anonRateCheck.success) {
+        await enforceTimingSafeResponse(startTime);
         return NextResponse.json(
           { success: false, error: "Rate limit exceeded. Authenticate for higher limits." },
           { status: 429 },
@@ -102,10 +105,9 @@ export async function GET(req: NextRequest) {
       }
 
       // Retour rapide avec checks limités (format + disposable seulement)
-      const startTime = Date.now();
       const formatCheck = checkFormat(email!);
       if (!formatCheck.passed) {
-        await enforceMinResponseTime(startTime);
+        await enforceTimingSafeResponse(startTime);
         return NextResponse.json({
           success: true,
           data: {
@@ -119,7 +121,7 @@ export async function GET(req: NextRequest) {
         });
       }
       const disposableCheck = await checkDisposable(email!);
-      await enforceMinResponseTime(startTime);
+      await enforceTimingSafeResponse(startTime);
       return NextResponse.json({
         success: true,
         data: {
@@ -142,6 +144,7 @@ export async function GET(req: NextRequest) {
     const plan = ((user as any).plan as Plan) || "FREE";
     const rateLimit = await checkRateLimitByPlan(userId, plan, "validate");
     if (!rateLimit.success) {
+      await enforceTimingSafeResponse(startTime);
       return NextResponse.json(
         { success: false, error: "Rate limit exceeded", retryAfter: rateLimit.resetAt },
         { status: 429 },
@@ -150,11 +153,10 @@ export async function GET(req: NextRequest) {
 
     // Quick pre-deduction gate: format + disposable checks
     // Don't charge users for emails that fail basic validation
-    const startTime = Date.now();
     if (user) {
       const formatCheck = checkFormat(email!);
       if (!formatCheck.passed) {
-        await enforceMinResponseTime(startTime);
+        await enforceTimingSafeResponse(startTime);
         const remaining =
           (await prisma.user.findUnique({ where: { id: user.id }, select: { credits: true } }))
             ?.credits ?? null;
@@ -188,7 +190,7 @@ export async function GET(req: NextRequest) {
 
       const disposableCheck = await checkDisposable(email!);
       if (!disposableCheck.passed) {
-        await enforceMinResponseTime(startTime);
+        await enforceTimingSafeResponse(startTime);
         const remaining =
           (await prisma.user.findUnique({ where: { id: user.id }, select: { credits: true } }))
             ?.credits ?? null;
@@ -232,6 +234,7 @@ export async function GET(req: NextRequest) {
       });
 
       if (deduction.count === 0) {
+        await enforceTimingSafeResponse(startTime);
         return NextResponse.json(
           {
             success: false,
@@ -271,9 +274,9 @@ export async function GET(req: NextRequest) {
       creditsRemaining = updatedUser?.credits ?? null;
     }
 
-    // Anti-enumeration: enforce minimum response time to prevent timing-based
-    // email enumeration attacks (attacker distinguishes cached vs uncached results)
-    await enforceMinResponseTime(startTime);
+    // Anti-enumeration: enforce timing-safe response with jitter to prevent
+    // timing-based email enumeration attacks
+    await enforceTimingSafeResponse(startTime);
 
     const requestId = uuidv4();
     const processingTimeMs = Date.now() - startTime;
