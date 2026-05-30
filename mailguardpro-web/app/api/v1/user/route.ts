@@ -42,69 +42,62 @@ export async function DELETE(req: NextRequest) {
       }
     }
 
-    // 2. Anonymize user data (GDPR: keep minimal records for compliance)
-    //    Increment tokenVersion to invalidate all active JWTs
-    await prisma.user.update({
-      where: { id: userId },
-      data: {
-        email: `deleted-${userId}@mailguard.pro`,
-        name: "Deleted User",
-        image: null,
-        emailVerified: null,
-        isActive: false,
-        credits: 0,
-        plan: "FREE",
-        stripeCustomerId: null,
-        stripeSubscriptionId: null,
-        tokenVersion: { increment: 1 },
-      },
-    });
+    // 2-8. Anonymize & clean up all user data atomiquement (transaction Prisma)
+    //       Stripe cancellation (étape 1) est déjà faite — c'est un appel externe.
+    await prisma.$transaction([
+      prisma.user.update({
+        where: { id: userId },
+        data: {
+          email: `deleted-${userId}@mailguard.pro`,
+          name: "Deleted User",
+          image: null,
+          emailVerified: null,
+          isActive: false,
+          credits: 0,
+          plan: "FREE",
+          stripeCustomerId: null,
+          stripeSubscriptionId: null,
+          tokenVersion: { increment: 1 },
+        },
+      }),
+      prisma.session.deleteMany({ where: { userId } }),
+      prisma.account.updateMany({
+        where: { userId },
+        data: {
+          access_token: null,
+          id_token: null,
+          refresh_token: null,
+        },
+      }),
+      prisma.validation.updateMany({
+        where: { userId },
+        data: {
+          userId: null,
+          apiKeyId: null,
+          emailHash: null,
+        },
+      }),
+      prisma.bulkJob.updateMany({
+        where: { userId },
+        data: {
+          emailsJson: null,
+        },
+      }),
+      prisma.apiKey.deleteMany({ where: { userId } }),
+      prisma.webhook.deleteMany({ where: { userId } }),
+    ]);
 
-    // 3. Delete all sessions (force logout everywhere)
-    await prisma.session.deleteMany({ where: { userId } });
-
-    // 4. Nullify PII on Account records (OAuth tokens)
-    await prisma.account.updateMany({
-      where: { userId },
-      data: {
-        access_token: null,
-        id_token: null,
-        refresh_token: null,
-      },
-    });
-
-    // 5. Disconnect validations from user + clear emailHash (email kept for
-    //    integrity — schema requires non-null value)
-    await prisma.validation.updateMany({
-      where: { userId },
-      data: {
-        userId: null,
-        apiKeyId: null,
-        emailHash: null,
-      },
-    });
-
-    // 6. Clear outbox data in BulkJobs (emailsJson may contain PII)
-    await prisma.bulkJob.updateMany({
-      where: { userId },
-      data: {
-        emailsJson: null,
-      },
-    });
-
-    // 7. Delete API keys
-    await prisma.apiKey.deleteMany({ where: { userId } });
-
-    // 8. Delete webhooks
-    await prisma.webhook.deleteMany({ where: { userId } });
-
-    // 9. Audit log
-    await logAudit({
-      userId,
-      action: AuditAction.USER_DELETED as any,
-      resource: AuditResource.USER,
-      metadata: { reason: "user_requested_deletion", timestamp: now.toISOString() },
-    }).catch(() => {});
+    // 9. Audit log (hors transaction — ne doit pas bloquer la suppression)
+    try {
+      await logAudit({
+        userId,
+        action: AuditAction.USER_DELETED,
+        resource: AuditResource.USER,
+        metadata: { reason: "user_requested_deletion", timestamp: now.toISOString() },
+      });
+    } catch (err) {
+      console.error("[API] Audit log failed (non-fatal):", err);
+    }
 
     return NextResponse.json({ success: true, message: "Account deleted successfully" });
   } catch (error) {

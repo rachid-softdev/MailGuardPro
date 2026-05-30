@@ -6,8 +6,6 @@ const globalForRedis = globalThis as unknown as {
   redis: Redis | undefined;
 };
 
-const rawRedisUrl = process.env.REDIS_URL || "redis://localhost:6379";
-
 function createRedisClient(url: string, extraOpts: Record<string, unknown> = {}): Redis {
   const parsedUrl = new URL(url);
 
