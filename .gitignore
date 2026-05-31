@@ -33,3 +33,7 @@ Thumbs.db
 .turbo/
 .turbo/**
 
+# TypeScript
+tsconfig.tsbuildinfo
+*.tsbuildinfo
+
