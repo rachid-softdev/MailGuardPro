@@ -47,11 +47,23 @@ import {
 } from "@/services/validationCache";
 
 describe("validationCache", () => {
-  const mockValidationResult = {
+  const mockValidationResult: any = {
     email: "test@example.com",
     score: 85,
-    status: "valid" as const,
-    checks: {},
+    status: "valid",
+    checks: {
+      format: { passed: true, weight: 15, message: "Valid format", detail: "" },
+      mx: { passed: true, weight: 25, message: "MX OK", detail: "" },
+      smtp: { passed: true, weight: 30, message: "SMTP OK", detail: "" },
+      catchAll: { passed: true, weight: 10, message: "Not catch-all", detail: "" },
+      disposable: { passed: true, weight: 10, message: "Not disposable", detail: "" },
+      generic: { passed: true, weight: 5, message: "Not generic", detail: "" },
+      freeProvider: { passed: true, weight: 0, message: "Business email", detail: "" },
+      dnsbl: { passed: true, weight: 0, message: "Not blacklisted", detail: "" },
+      spf: { passed: true, weight: 5, message: "SPF OK", detail: "" },
+      dmarc: { passed: true, weight: 5, message: "DMARC OK", detail: "" },
+      typo: { passed: true, weight: 0, message: "No typo", detail: "" },
+    },
     domain: {},
     processingTimeMs: 100,
   };
@@ -295,7 +307,6 @@ describe("validationCache", () => {
     });
 
     it("should reset after window expires", () => {
-      const now = Date.now();
       for (let i = 0; i < 5; i++) {
         limiter.check("window-key", 5, 60000);
       }

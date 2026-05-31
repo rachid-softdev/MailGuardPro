@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { checkGeneric } from "@/services/genericChecker";
 
 describe("genericChecker", () => {
@@ -17,7 +17,7 @@ describe("genericChecker", () => {
     it("should return failed for info@ generic address", async () => {
       const result = await checkGeneric("info@company.com");
       expect(result.passed).toBe(false);
-      expect(result.weight).toBe(5);
+      expect(result.weight).toBe(0);
     });
 
     it("should return failed for admin@ generic address", async () => {

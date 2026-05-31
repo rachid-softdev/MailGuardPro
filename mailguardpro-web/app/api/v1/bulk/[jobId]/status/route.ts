@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { getBulkJobStatus } from "@/services/bulkProcessor";
 
-export async function GET(req: NextRequest, { params }: { params: Promise<{ jobId: string }> }) {
+export async function GET(_req: NextRequest, { params }: { params: Promise<{ jobId: string }> }) {
   try {
     const { jobId } = await params;
 

@@ -73,6 +73,7 @@ export function checkFreeProvider(email: string): CheckResult {
   if (!domain) {
     return {
       passed: true,
+      weight: 0,
       message: "Domaine invalide",
     };
   }
@@ -81,6 +82,7 @@ export function checkFreeProvider(email: string): CheckResult {
 
   return {
     passed: !isFree,
+    weight: 0,
     message: isFree ? `Fournisseur gratuit: ${domain}` : "Email professionnel",
     detail: isFree ? `L'email utilise un fournisseur gratuit (pas de domaine propre)` : undefined,
   };

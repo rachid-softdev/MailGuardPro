@@ -49,7 +49,6 @@ test.describe("Billing", () => {
     await page.goto("/pricing");
 
     // The Starter plan should be highlighted as "Popular"
-    const planCards = page.locator(".card");
     const popularBadge = page.locator("text=Popular");
 
     if (await popularBadge.isVisible()) {

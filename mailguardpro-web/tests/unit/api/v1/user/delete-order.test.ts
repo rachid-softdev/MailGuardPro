@@ -4,7 +4,7 @@
  * H-2 fix: Verifies that the Prisma transaction (GDPR deletion) runs
  * BEFORE the Stripe cancellation call.
  */
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -75,8 +75,19 @@ describe("DELETE /api/v1/user (H-2 fix)", () => {
   it("should run DB transaction BEFORE Stripe cancellation (H-2 fix)", async () => {
     // Simulate user with active Stripe subscription
     vi.mocked(prisma.user.findUnique).mockResolvedValue({
-      stripeSubscriptionId: "sub_123",
+      id: "user-123",
+      name: null,
+      email: "test@example.com",
+      emailVerified: null,
+      image: null,
+      plan: "FREE",
+      credits: 100,
+      role: "USER",
+      isActive: true,
       stripeCustomerId: "cus_456",
+      stripeSubscriptionId: "sub_123",
+      tokenVersion: 0,
+      createdAt: new Date(),
     });
 
     // Track call order
@@ -100,8 +111,19 @@ describe("DELETE /api/v1/user (H-2 fix)", () => {
 
   it("should still delete account when Stripe cancel fails (best-effort)", async () => {
     vi.mocked(prisma.user.findUnique).mockResolvedValue({
-      stripeSubscriptionId: "sub_123",
+      id: "user-123",
+      name: null,
+      email: "test@example.com",
+      emailVerified: null,
+      image: null,
+      plan: "FREE",
+      credits: 100,
+      role: "USER",
+      isActive: true,
       stripeCustomerId: "cus_456",
+      stripeSubscriptionId: "sub_123",
+      tokenVersion: 0,
+      createdAt: new Date(),
     });
     vi.mocked(prisma.$transaction).mockResolvedValue([]);
     vi.mocked(stripe.subscriptions.cancel).mockRejectedValue(new Error("Stripe API error"));
@@ -118,8 +140,19 @@ describe("DELETE /api/v1/user (H-2 fix)", () => {
 
   it("should not attempt Stripe cancel when user has no subscription", async () => {
     vi.mocked(prisma.user.findUnique).mockResolvedValue({
-      stripeSubscriptionId: null,
+      id: "user-123",
+      name: null,
+      email: "test@example.com",
+      emailVerified: null,
+      image: null,
+      plan: "FREE",
+      credits: 100,
+      role: "USER",
+      isActive: true,
       stripeCustomerId: null,
+      stripeSubscriptionId: null,
+      tokenVersion: 0,
+      createdAt: new Date(),
     });
     vi.mocked(prisma.$transaction).mockResolvedValue([]);
 
@@ -130,7 +163,7 @@ describe("DELETE /api/v1/user (H-2 fix)", () => {
 
   it("should return 401 when not authenticated", async () => {
     const { auth } = await import("@/lib/auth");
-    vi.mocked(auth).mockResolvedValueOnce(null);
+    vi.mocked(auth).mockResolvedValueOnce(null as any);
 
     const response = await DELETE(createRequest());
     expect(response.status).toBe(401);

@@ -103,10 +103,7 @@ test.describe("Email Validation", () => {
     await page.waitForTimeout(2000);
 
     // Should either show an error message or still have the form available
-    const pageContent = await page.content();
-    const hasFeedback =
-      pageContent.match(/error|invalid|not a valid|enter a valid/i) !== null ||
-      pageContent.match(/score|result/i) !== null;
+    await page.content();
     expect(true).toBe(true); // Informational check — both paths are acceptable
   });
 

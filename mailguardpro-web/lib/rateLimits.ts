@@ -1,6 +1,6 @@
 // Rate limiting par plan - Configuration et helper
 
-import { checkRateLimit, redis } from "./redis";
+import { checkRateLimit } from "./redis";
 
 export type Plan = "FREE" | "STARTER" | "PRO" | "BUSINESS";
 

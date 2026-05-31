@@ -3,7 +3,7 @@
 import crypto from "crypto";
 import { decryptToken } from "@/lib/crypto";
 import { prisma } from "@/lib/prisma";
-import { resolveWebhookIps, validateWebhookUrlWithDns } from "@/lib/ssrf";
+import { resolveWebhookIps } from "@/lib/ssrf";
 
 export interface WebhookPayload {
   event: string;
@@ -137,7 +137,7 @@ export class WebhookDispatcher {
             secret: webhook.encryptedSecret,
             events: webhook.events,
             isActive: webhook.isActive,
-            pinnedIps: webhook.pinnedIps,
+            pinnedIps: webhook.pinnedIps ?? undefined,
           },
           event,
           data,

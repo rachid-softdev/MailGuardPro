@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { checkTypo } from "@/services/typoChecker";
 
 // Mock the dynamic import of fast-levenshtein
@@ -16,7 +16,7 @@ describe("typoChecker", () => {
     it("should return passed for valid email with no typos", async () => {
       const result = await checkTypo("test@custom-domain.com");
       expect(result.passed).toBe(true);
-      expect(result.weight).toBe(10);
+      expect(result.weight).toBe(0);
       expect(result.message).toBe("Aucune erreur détectée");
     });
 

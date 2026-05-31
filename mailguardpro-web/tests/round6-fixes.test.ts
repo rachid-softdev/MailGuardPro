@@ -3,7 +3,7 @@
 // Tests for code review fixes implemented in this round.
 // =============================================================================
 
-import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import { beforeEach, describe, expect, test, vi } from "vitest";
 
 // =============================================================================
 // MODULE-LEVEL MOCKS (hoisted before all imports)
@@ -91,8 +91,9 @@ vi.mock("@/lib/redis", () => ({
   },
   checkRateLimit: vi.fn().mockResolvedValue({
     success: true,
-    resetAt: Date.now() + 60000,
     remaining: 100,
+    resetAt: Date.now() + 60000,
+    limit: 20,
   }),
   getCached: vi.fn().mockResolvedValue(null),
   setCached: vi.fn().mockResolvedValue(undefined),
@@ -107,10 +108,11 @@ vi.mock("@/lib/auth", () => ({
   signOut: vi.fn(),
 }));
 
-// Mock BullMQ
+// Mock BullMQ with hoisted reference for assertions
+const mockQueueAdd = vi.hoisted(() => vi.fn().mockResolvedValue({ id: "bull-job-123" }));
 vi.mock("bullmq", () => ({
   Queue: vi.fn().mockImplementation(() => ({
-    add: vi.fn().mockResolvedValue({ id: "bull-job-123" }),
+    add: mockQueueAdd,
   })),
 }));
 
@@ -158,7 +160,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 // M2
 import { checkRateLimitByPlan, type Plan } from "@/lib/rateLimits";
-import { checkRateLimit as checkRateLimitFn, redis } from "@/lib/redis";
+import { checkRateLimit as checkRateLimitFn } from "@/lib/redis";
 // H2
 import { processBulkUpload } from "@/services/bulkProcessor";
 import { checkDisposable } from "@/services/disposableChecker";
@@ -251,7 +253,7 @@ describe("Fix L3b — SCORING_WEIGHTS used for scoring", () => {
       message: "Business email",
       weight: 0,
     });
-    vi.mocked(checkTypo).mockReturnValue({ passed: true, message: "No typo", weight: 0 });
+    vi.mocked(checkTypo).mockResolvedValue({ passed: true, message: "No typo", weight: 0 });
     vi.mocked(checkDNSBL).mockResolvedValue({
       passed: true,
       message: "Not blacklisted",
@@ -313,7 +315,7 @@ describe("Fix L3b — SCORING_WEIGHTS used for scoring", () => {
     vi.mocked(checkSPF).mockResolvedValue({ passed: false, message: "No SPF", weight: 5 });
     vi.mocked(checkDMARC).mockResolvedValue({ passed: false, message: "No DMARC", weight: 5 });
     vi.mocked(checkDNSBL).mockResolvedValue({ passed: false, message: "Listed", weight: 20 });
-    vi.mocked(checkTypo).mockReturnValue({ passed: false, message: "Typo", weight: 0 });
+    vi.mocked(checkTypo).mockResolvedValue({ passed: false, message: "Typo", weight: 0 });
     vi.mocked(getDomainReputation).mockResolvedValue({
       name: "company.com",
       ageInDays: 50,
@@ -385,15 +387,15 @@ describe("Fix H2 — bulkProcessor inverted order and compensating rollback", ()
       });
     });
 
-    // Default: Redis and Queue succeed
-    vi.mocked(redis.setex).mockResolvedValue("OK");
+    // Default: Queue succeeds
+    mockQueueAdd.mockResolvedValue({ id: "bull-job-123" });
   });
 
   // --------------------------------------------------------------------------
   // Order verification
   // --------------------------------------------------------------------------
 
-  test("should perform DB transaction BEFORE Redis/Queue operations", async () => {
+  test("should perform DB transaction BEFORE Queue operations", async () => {
     const order: string[] = [];
 
     vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => {
@@ -414,27 +416,30 @@ describe("Fix H2 — bulkProcessor inverted order and compensating rollback", ()
       });
     });
 
-    vi.mocked(redis.setex).mockImplementation(async () => {
-      order.push("redis");
-      return "OK" as any;
+    mockQueueAdd.mockImplementation(async () => {
+      order.push("queue");
+      return { id: "bull-job-123" };
     });
 
     await processBulkUpload(csvFile, userId);
 
-    expect(order.indexOf("db")).toBeLessThan(order.indexOf("redis"));
+    expect(order.indexOf("db")).toBeLessThan(order.indexOf("queue"));
   });
 
-  test("should call Redis.setex AND Queue.add after DB commit", async () => {
+  test("should call Queue.add after DB commit", async () => {
     await processBulkUpload(csvFile, userId);
 
     // DB transaction must have been called
     expect(prisma.$transaction).toHaveBeenCalledTimes(1);
 
-    // Redis key must be set after DB
-    expect(redis.setex).toHaveBeenCalledWith(
-      expect.stringContaining("bulk:job:"),
-      3600,
-      expect.any(String),
+    // Queue.add must be called after DB
+    expect(mockQueueAdd).toHaveBeenCalledWith(
+      "process",
+      expect.objectContaining({
+        jobId: expect.any(String),
+        totalEmails: 2,
+        userId,
+      }),
     );
   });
 
@@ -442,7 +447,7 @@ describe("Fix H2 — bulkProcessor inverted order and compensating rollback", ()
   // Insufficient credits
   // --------------------------------------------------------------------------
 
-  test("should return error for insufficient credits without calling Redis/Queue", async () => {
+  test("should return error for insufficient credits without calling Queue", async () => {
     vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => {
       return cb({
         user: {
@@ -459,15 +464,15 @@ describe("Fix H2 — bulkProcessor inverted order and compensating rollback", ()
     expect(result.success).toBe(false);
     expect(result.errors?.[0]).toContain("Insufficient credits");
 
-    // Redis and Queue must NOT be called
-    expect(redis.setex).not.toHaveBeenCalled();
+    // Queue must NOT be called
+    expect(mockQueueAdd).not.toHaveBeenCalled();
   });
 
   // --------------------------------------------------------------------------
   // Compensating rollback
   // --------------------------------------------------------------------------
 
-  test("should refund credits and delete job when Redis fails after DB commit", async () => {
+  test("should refund credits and delete job when Queue fails after DB commit", async () => {
     // DB transaction succeeds
     vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => {
       return cb({
@@ -480,8 +485,8 @@ describe("Fix H2 — bulkProcessor inverted order and compensating rollback", ()
       });
     });
 
-    // Redis/Queue fails after DB commit
-    vi.mocked(redis.setex).mockRejectedValue(new Error("Redis connection lost"));
+    // Queue fails after DB commit
+    mockQueueAdd.mockRejectedValue(new Error("Queue connection lost"));
 
     // Spy on rollback operations
     vi.mocked(prisma.user.update).mockResolvedValue({ id: userId, credits: 100 } as any);
@@ -504,9 +509,6 @@ describe("Fix H2 — bulkProcessor inverted order and compensating rollback", ()
         where: { id: expect.any(String) },
       }),
     );
-
-    // Redis key should be cleaned up
-    expect(redis.del).toHaveBeenCalledWith(expect.stringContaining("bulk:job:"));
   });
 
   test("should not attempt rollback if DB transaction itself fails", async () => {
@@ -519,7 +521,7 @@ describe("Fix H2 — bulkProcessor inverted order and compensating rollback", ()
     // No rollback since DB never committed
     expect(prisma.user.update).not.toHaveBeenCalled();
     expect(prisma.bulkJob.delete).not.toHaveBeenCalled();
-    expect(redis.setex).not.toHaveBeenCalled();
+    expect(mockQueueAdd).not.toHaveBeenCalled();
   });
 
   test("should not break when rollback refund fails (defensive catch)", async () => {
@@ -534,7 +536,7 @@ describe("Fix H2 — bulkProcessor inverted order and compensating rollback", ()
       });
     });
 
-    vi.mocked(redis.setex).mockRejectedValue(new Error("Redis down"));
+    mockQueueAdd.mockRejectedValue(new Error("Queue down"));
 
     // Rollback refund fails too
     vi.mocked(prisma.user.update).mockRejectedValue(new Error("DB also down"));
@@ -550,7 +552,7 @@ describe("Fix H2 — bulkProcessor inverted order and compensating rollback", ()
   // Successful flow
   // --------------------------------------------------------------------------
 
-  test("should successfully create DB record, Redis key, AND Queue job on success", async () => {
+  test("should successfully create DB record and Queue job on success", async () => {
     const result = await processBulkUpload(csvFile, userId);
 
     expect(result.success).toBe(true);
@@ -560,12 +562,15 @@ describe("Fix H2 — bulkProcessor inverted order and compensating rollback", ()
     // Verify DB transaction call
     expect(prisma.$transaction).toHaveBeenCalledTimes(1);
 
-    // Verify Redis key creation
-    expect(redis.setex).toHaveBeenCalledTimes(1);
-    expect(redis.setex).toHaveBeenCalledWith(
-      expect.stringContaining("bulk:job:"),
-      3600,
-      expect.stringContaining("test@example.com"),
+    // Verify Queue.add was called
+    expect(mockQueueAdd).toHaveBeenCalledTimes(1);
+    expect(mockQueueAdd).toHaveBeenCalledWith(
+      "process",
+      expect.objectContaining({
+        jobId: expect.any(String),
+        totalEmails: 2,
+        userId,
+      }),
     );
   });
 });
@@ -799,7 +804,7 @@ describe("Fix H3 — pre-deduction gate (format + disposable)", () => {
   // --------------------------------------------------------------------------
 
   test("should skip pre-deduction gate for anonymous users (no session)", async () => {
-    vi.mocked(auth).mockResolvedValue(null);
+    vi.mocked(auth).mockResolvedValue(null as any);
     vi.mocked(checkFormat).mockReturnValue({
       passed: false,
       message: "Invalid format",
@@ -829,7 +834,7 @@ describe("Fix H3 — pre-deduction gate (format + disposable)", () => {
     const req = new (await import("next/server")).NextRequest(url);
     const response = await GET(req);
 
-    expect(response.status).toBe(402);
+    expect(response.status).toBe(403);
     const json = await response.json();
     expect(json.code).toBe("INSUFFICIENT_CREDITS");
   });

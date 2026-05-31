@@ -407,7 +407,7 @@ describe("bulkProcessor", () => {
         { id: "val-99", email: "test99@example.com", score: 50 },
       ]);
 
-      const result = await getBulkJobResultsCursor("job-123", "val-100", 50);
+      await getBulkJobResultsCursor("job-123", "val-100", 50);
 
       expect(mockPrisma.validation.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -465,11 +465,10 @@ describe("bulkProcessor", () => {
 
       await processBulkUpload(csvFile, "user-123");
 
-      expect(mockRedis.setex).toHaveBeenCalledWith(
-        expect.stringContaining("bulk:job:"),
-        3600,
-        expect.stringContaining('"firstName":"John"'),
-      );
+      const callArg = mockPrisma.bulkJob.create.mock.calls[0][0];
+      const emailsJson = JSON.parse(callArg.data.emailsJson);
+      expect(emailsJson[0].firstName).toBe("John");
+      expect(emailsJson[0].lastName).toBe("Doe");
     });
 
     it("should extract company from CSV", async () => {
@@ -485,11 +484,9 @@ describe("bulkProcessor", () => {
 
       await processBulkUpload(csvFile, "user-123");
 
-      expect(mockRedis.setex).toHaveBeenCalledWith(
-        expect.stringContaining("bulk:job:"),
-        3600,
-        expect.stringContaining('"company":"Acme Inc"'),
-      );
+      const callArg = mockPrisma.bulkJob.create.mock.calls[0][0];
+      const emailsJson = JSON.parse(callArg.data.emailsJson);
+      expect(emailsJson[0].company).toBe("Acme Inc");
     });
 
     it("should handle alternative column names", async () => {
@@ -522,11 +519,9 @@ describe("bulkProcessor", () => {
 
       await processBulkUpload(csvFile, "user-123");
 
-      expect(mockRedis.setex).toHaveBeenCalledWith(
-        expect.any(String),
-        3600,
-        expect.stringContaining("test@example.com"),
-      );
+      const callArg = mockPrisma.bulkJob.create.mock.calls[0][0];
+      const emailsJson = JSON.parse(callArg.data.emailsJson);
+      expect(emailsJson[0].email).toBe("test@example.com");
     });
 
     it("should process valid emails and skip invalid ones", async () => {

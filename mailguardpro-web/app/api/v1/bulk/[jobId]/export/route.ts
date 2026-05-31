@@ -7,7 +7,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { checkRateLimitByPlan, type Plan } from "@/lib/rateLimits";
 import { exportResults } from "@/services/exportService";
-import { ExportFormat } from "@/services/types";
+import { EmailStatus, ExportFormat } from "@/services/types";
 
 const querySchema = z.object({
   format: z.enum(["csv", "json", "xlsx", "pdf"]).nullish().default("csv"),
@@ -126,9 +126,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ jobI
 
     // Préparer les filtres
     const exportFilters = {
-      status: validated.data.status?.split(","),
-      minScore: validated.data.minScore,
-      maxScore: validated.data.maxScore,
+      status: validated.data.status?.split(",") as EmailStatus[] | undefined,
+      minScore: validated.data.minScore ?? undefined,
+      maxScore: validated.data.maxScore ?? undefined,
     };
 
     // Générer l'export
@@ -139,7 +139,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ jobI
     });
 
     // Retourner le fichier
-    return new NextResponse(buffer, {
+    return new NextResponse(new Uint8Array(buffer), {
       headers: {
         "Content-Type": FORMAT_MIME_TYPES[format],
         "Content-Disposition": `attachment; filename="mailguard-${jobId}.${FORMAT_EXTENSION[format]}"`,

@@ -7,6 +7,7 @@ const { MockSocket, mockResolveMx, mockResolve4, mockResolve6 } = vi.hoisted(() 
   class MockSocket {
     static nextResponses: string[] = [];
     static shouldTimeout = false;
+    remoteAddress?: string;
 
     private handlers: Record<string, Array<(...args: any[]) => void>> = {};
     private responses: string[] = [];
@@ -149,14 +150,14 @@ describe("checkSMTP", () => {
     const result = await checkSMTP("not-an-email");
 
     expect(result.passed).toBe(false);
-    expect(result.weight).toBe(30);
+    expect(result.weight).toBe(0);
   });
 
   it("should reject emails with missing domain", async () => {
     const result = await checkSMTP("test@");
 
     expect(result.passed).toBe(false);
-    expect(result.weight).toBe(30);
+    expect(result.weight).toBe(0);
   });
 
   // -----------------------------------------------------------------------

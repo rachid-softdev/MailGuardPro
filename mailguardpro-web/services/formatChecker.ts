@@ -1,5 +1,6 @@
 // Vérification du format de l'email (Regex RFC 5322)
 
+import { SCORING_WEIGHTS } from "@/config/scoringWeights";
 import { CheckResult } from "./types";
 
 export function checkFormat(email: string): CheckResult {
@@ -11,6 +12,7 @@ export function checkFormat(email: string): CheckResult {
   if (!email || email.length === 0) {
     return {
       passed: false,
+      weight: SCORING_WEIGHTS.format.fail,
       message: "Email vide",
       detail: "L'email ne peut pas être vide",
     };
@@ -19,6 +21,7 @@ export function checkFormat(email: string): CheckResult {
   if (email.length > 254) {
     return {
       passed: false,
+      weight: SCORING_WEIGHTS.format.fail,
       message: "Email trop long",
       detail: "L'email dépasse la longueur maximale de 254 caractères",
     };
@@ -28,6 +31,7 @@ export function checkFormat(email: string): CheckResult {
   if (parts.length !== 2) {
     return {
       passed: false,
+      weight: SCORING_WEIGHTS.format.fail,
       message: "Format invalide",
       detail: "L'email doit contenir un seul signe @",
     };
@@ -38,6 +42,7 @@ export function checkFormat(email: string): CheckResult {
   if (!localPart || !domain) {
     return {
       passed: false,
+      weight: SCORING_WEIGHTS.format.fail,
       message: "Format invalide",
       detail: "Le local part ou le domaine ne peut pas être vide",
     };
@@ -47,6 +52,7 @@ export function checkFormat(email: string): CheckResult {
   if (domain.length > 63) {
     return {
       passed: false,
+      weight: SCORING_WEIGHTS.format.fail,
       message: "Domaine trop long",
       detail: "Le domaine ne peut pas dépasser 63 caractères par label",
     };
@@ -56,6 +62,7 @@ export function checkFormat(email: string): CheckResult {
 
   return {
     passed,
+    weight: passed ? SCORING_WEIGHTS.format.pass : SCORING_WEIGHTS.format.fail,
     message: passed ? "Format valide" : "Format email invalide",
     detail: passed ? undefined : "L'email ne respecte pas le format standard RFC 5322",
   };

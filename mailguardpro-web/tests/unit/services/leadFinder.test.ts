@@ -108,7 +108,7 @@ describe("leadFinder", () => {
         } as any;
       });
 
-      const result = await findLeadEmail(baseInput);
+      await findLeadEmail(baseInput);
 
       // Should not have tried contact@ or info@ patterns
       expect(

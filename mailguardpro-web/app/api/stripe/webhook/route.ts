@@ -42,7 +42,7 @@ const STRIPE_MAX_BYTES = 1024 * 1024; // 1MB
 async function checkIdempotency(eventId: string): Promise<"new" | "duplicate" | "error"> {
   // Layer 1: Redis (fast path)
   try {
-    const acquired = await redis.set(`stripe:event:${eventId}`, "1", "NX", "EX", 86400);
+    const acquired = await redis.set(`stripe:event:${eventId}`, "1", "EX", 86400, "NX");
     if (acquired === null) return "duplicate";
     return "new";
   } catch {
@@ -98,7 +98,7 @@ export async function POST(req: NextRequest) {
   let event: Stripe.Event;
 
   try {
-    event = stripe.webhooks.constructEvent(body, signature, WEBHOOK_SECRET);
+    event = stripe.webhooks.constructEvent(body, signature, WEBHOOK_SECRET || "");
   } catch (err) {
     console.error("[Stripe] Webhook signature verification failed:", err);
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 });

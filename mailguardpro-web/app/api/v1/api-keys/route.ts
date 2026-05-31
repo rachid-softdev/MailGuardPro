@@ -20,7 +20,7 @@ function generateApiKey(prefix: string = "mg_live"): string {
   return `${prefix}_${uuid.substring(0, 32)}`;
 }
 
-export async function GET(req: NextRequest) {
+export async function GET(_req: NextRequest) {
   try {
     const session = await auth();
     if (!session?.user?.id) {
@@ -89,7 +89,7 @@ export async function POST(req: NextRequest) {
 
     const { data: body, error: bodyError } = await parseJsonBody(req);
     if (bodyError) return bodyError;
-    const { name, scope } = body;
+    const { name, scope } = body as { name?: string; scope?: string };
     const effectiveScope = scope || "full";
 
     // Validation

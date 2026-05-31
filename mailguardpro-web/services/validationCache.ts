@@ -134,10 +134,7 @@ export async function clearAllValidationCaches(): Promise<number> {
     for (const pattern of patterns) {
       let cursor = 0;
       do {
-        const [nextCursor, keys] = await redis.scan(cursor, {
-          match: pattern,
-          count: 100,
-        });
+        const [nextCursor, keys] = await redis.scan(cursor, "MATCH", pattern, "COUNT", 100);
         cursor = parseInt(nextCursor, 10);
 
         if (keys.length > 0) {

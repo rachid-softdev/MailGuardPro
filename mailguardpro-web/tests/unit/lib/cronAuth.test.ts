@@ -148,7 +148,7 @@ describe("verifyCronRequest", () => {
 
     await verifyCronRequest(req as any, "my-cron-job");
 
-    expect(mockRedis.set).toHaveBeenCalledWith("cron:ratelimit:my-cron-job", "1", "NX", "EX", 300);
+    expect(mockRedis.set).toHaveBeenCalledWith("cron:ratelimit:my-cron-job", "1", "EX", 300, "NX");
   });
 
   it("should reject request with missing Authorization header", async () => {

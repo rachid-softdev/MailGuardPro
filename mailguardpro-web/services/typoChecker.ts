@@ -1,6 +1,7 @@
 // Détection des fautes de frappe dans les domaines email
 // Utilise la distance de Levenshtein pour trouver les domaines similaires
 
+import { SCORING_WEIGHTS } from "@/config/scoringWeights";
 import { CheckResult } from "./types";
 
 // Liste des domaines populaires à vérifier
@@ -31,8 +32,8 @@ let levenshtein: ((a: string, b: string) => number) | null = null;
 
 async function getLevenshtein(): Promise<(a: string, b: string) => number> {
   if (!levenshtein) {
-    const mod = await import("fast-levenshtein");
-    levenshtein = mod.default;
+    const { default: levenshteinFn } = await import("fast-levenshtein");
+    levenshtein = levenshteinFn as unknown as (a: string, b: string) => number;
   }
   return levenshtein!;
 }
@@ -43,6 +44,7 @@ export async function checkTypo(email: string): Promise<CheckResult> {
   if (!localPart || !domain) {
     return {
       passed: true,
+      weight: SCORING_WEIGHTS.typo.pass,
       message: "Format invalide",
     };
   }
@@ -70,6 +72,7 @@ export async function checkTypo(email: string): Promise<CheckResult> {
 
     return {
       passed: false,
+      weight: SCORING_WEIGHTS.typo.fail,
       message: "Erreur de frappe détectée",
       detail: `Vouliez-vous dire ${suggestedEmail} ?`,
       // Stocker la suggestion pour l'afficher
@@ -98,6 +101,7 @@ export async function checkTypo(email: string): Promise<CheckResult> {
     const suggestedEmail = `${localPart}@${commonTypos[typoMatch]}`;
     return {
       passed: false,
+      weight: SCORING_WEIGHTS.typo.fail,
       message: "Erreur de frappe détectée",
       detail: `Vouliez-vous dire ${suggestedEmail} ?`,
       // @ts-expect-error
@@ -107,6 +111,7 @@ export async function checkTypo(email: string): Promise<CheckResult> {
 
   return {
     passed: true,
+    weight: SCORING_WEIGHTS.typo.pass,
     message: "Aucune erreur détectée",
     detail: undefined,
   };

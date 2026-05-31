@@ -13,7 +13,6 @@ import { checkRateLimitByPlan, type Plan } from "@/lib/rateLimits";
 import { checkRateLimit } from "@/lib/redis";
 import { getClientIp } from "@/lib/ssrf";
 import { enforceTimingSafeResponse } from "@/lib/timingSafe";
-import { AuditAction, AuditResource, logAudit } from "@/services/auditLogger";
 import { checkDisposable } from "@/services/disposableChecker";
 import { validateEmail } from "@/services/emailValidator";
 import { checkFormat } from "@/services/formatChecker";

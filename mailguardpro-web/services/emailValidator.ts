@@ -10,7 +10,7 @@ import { checkFreeProvider } from "./freeProviderChecker";
 import { checkGeneric } from "./genericChecker";
 import { getDomainReputation } from "./reputationScorer";
 import { checkSMTP } from "./smtpChecker";
-import { ValidationChecks, ValidationResult } from "./types";
+import type { ValidationResult } from "./types";
 import { checkTypo } from "./typoChecker";
 import { checkEmailRateLimit, getCachedValidation, setCachedValidation } from "./validationCache";
 
@@ -34,6 +34,7 @@ export async function validateEmail(email: string): Promise<ValidationResult> {
   if (!withinLimit) {
     return {
       email,
+      domain: { name: domain, reputation: "neutral" },
       score: 0,
       status: "unknown",
       checks: {

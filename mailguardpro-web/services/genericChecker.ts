@@ -1,5 +1,6 @@
 // Détection des emails génériques (info@, contact@, support@, etc.)
 
+import { SCORING_WEIGHTS } from "@/config/scoringWeights";
 import { CheckResult } from "./types";
 
 // Liste des local parts génériques courante
@@ -46,6 +47,7 @@ export function checkGeneric(email: string): CheckResult {
   if (!localPart) {
     return {
       passed: true,
+      weight: SCORING_WEIGHTS.generic.pass,
       message: "Format invalide",
     };
   }
@@ -54,6 +56,7 @@ export function checkGeneric(email: string): CheckResult {
   if (GENERIC_LOCALES.has(localPart)) {
     return {
       passed: false,
+      weight: SCORING_WEIGHTS.generic.fail,
       message: "Email générique détecté",
       detail: `${localPart} est une adresse générique d'entreprise`,
     };
@@ -65,6 +68,7 @@ export function checkGeneric(email: string): CheckResult {
     if (GENERIC_LOCALES.has(part)) {
       return {
         passed: false,
+        weight: SCORING_WEIGHTS.generic.fail,
         message: "Email générique détecté",
         detail: `${localPart} contient "${part}", une adresse générique`,
       };
@@ -75,6 +79,7 @@ export function checkGeneric(email: string): CheckResult {
   if (/^(info|contact|support|admin|help|hello|team)[0-9]+$/.test(localPart)) {
     return {
       passed: false,
+      weight: SCORING_WEIGHTS.generic.fail,
       message: "Email générique détecté",
       detail: `${localPart} semble être une adresse générique avec numéro`,
     };
@@ -82,6 +87,7 @@ export function checkGeneric(email: string): CheckResult {
 
   return {
     passed: true,
+    weight: SCORING_WEIGHTS.generic.pass,
     message: "Email personnel",
     detail: undefined,
   };

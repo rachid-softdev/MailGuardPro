@@ -57,9 +57,7 @@ describe("exportService", () => {
         typo: { passed: true, suggestion: "correct@example.com" },
       },
       processingTimeMs: 200,
-      checksJson: {
-        domain: { reputation: "good" },
-      },
+      domain: { reputation: "good" },
     },
     {
       email: "risky@example.com",

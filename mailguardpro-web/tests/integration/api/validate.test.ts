@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { NextRequest } from "next/server";
+import { describe, expect, it, vi } from "vitest";
 import { GET } from "@/app/api/v1/validate/route";
 
 // Mock dependencies
@@ -87,7 +87,9 @@ describe("/api/v1/validate", () => {
       const { checkRateLimit } = await import("@/lib/redis");
       vi.mocked(checkRateLimit).mockResolvedValueOnce({
         success: false,
-        resetAt: new Date(),
+        remaining: 0,
+        resetAt: Date.now(),
+        limit: 100,
       });
 
       const url = new URL("http://localhost:3000/api/v1/validate");

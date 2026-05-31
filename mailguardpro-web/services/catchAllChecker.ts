@@ -1,11 +1,10 @@
 // Catch-all Detection - Real SMTP testing
 // Tests if the mail server accepts random/unknown addresses
 
+import type { MxRecord } from "dns";
 import dns from "dns/promises";
+import { SCORING_WEIGHTS } from "@/config/scoringWeights";
 import { CheckResult } from "./types";
-
-// Timeout for SMTP checks
-const SMTP_TIMEOUT_MS = 5000;
 
 /**
  * Test if a domain is a catch-all (accepts any address)
@@ -20,12 +19,13 @@ const SMTP_TIMEOUT_MS = 5000;
 export async function checkCatchAll(domain: string): Promise<CheckResult> {
   try {
     // Get MX records
-    let mxRecords: dns.MxRecord[] = [];
+    let mxRecords: MxRecord[] = [];
     try {
       mxRecords = await dns.resolveMx(domain);
     } catch {
       return {
         passed: true, // Can't verify, assume safe
+        weight: SCORING_WEIGHTS.catchAll.pass,
         message: "Vérification impossible",
         detail: "Impossible de résoudre les MX records",
       };
@@ -34,6 +34,7 @@ export async function checkCatchAll(domain: string): Promise<CheckResult> {
     if (!mxRecords || mxRecords.length === 0) {
       return {
         passed: true,
+        weight: SCORING_WEIGHTS.catchAll.pass,
         message: "Pas de MX record",
         detail: "Domaine sans serveur mail",
       };
@@ -41,14 +42,6 @@ export async function checkCatchAll(domain: string): Promise<CheckResult> {
 
     // Sort by priority
     mxRecords.sort((a, b) => a.priority - b.priority);
-    const primaryMx = mxRecords[0].exchange;
-
-    // Test addresses - use multiple to reduce false positives
-    const testAddresses = [
-      `catchall-test-${Date.now()}@${domain}`,
-      `random-${Math.random().toString(36).substring(7)}@${domain}`,
-      `definitely-not-real-${Date.now()}@${domain}`,
-    ];
 
     // Simple test: try to verify if server accepts unknown addresses
     // Note: Full SMTP testing would require actual socket connection
@@ -62,6 +55,7 @@ export async function checkCatchAll(domain: string): Promise<CheckResult> {
     if (mxCount > 5) {
       return {
         passed: false,
+        weight: SCORING_WEIGHTS.catchAll.fail,
         message: "Domaine potentiellement catch-all",
         detail: `${mxCount} MX records détectés - comportement catch-all probable`,
       };
@@ -70,6 +64,7 @@ export async function checkCatchAll(domain: string): Promise<CheckResult> {
     // Default: not catch-all based on MX pattern
     return {
       passed: true,
+      weight: SCORING_WEIGHTS.catchAll.pass,
       message: "Non catch-all",
       detail: `Serveur mail configuré normally (${mxCount} MX record${mxCount > 1 ? "s" : ""})`,
     };
@@ -80,6 +75,7 @@ export async function checkCatchAll(domain: string): Promise<CheckResult> {
   } catch (error) {
     return {
       passed: true,
+      weight: SCORING_WEIGHTS.catchAll.pass,
       message: "Vérification échouée",
       detail: "Erreur lors de la vérification catch-all",
     };
@@ -95,21 +91,22 @@ export async function checkCatchAllQuick(domain: string): Promise<CheckResult> {
     const mxRecords = await dns.resolveMx(domain);
 
     if (!mxRecords || mxRecords.length === 0) {
-      return { passed: true, message: "Pas de MX" };
+      return { passed: true, weight: SCORING_WEIGHTS.catchAll.pass, message: "Pas de MX" };
     }
 
     // Heuristic: many MX records often indicate catch-all
     if (mxRecords.length > 4) {
       return {
         passed: false,
+        weight: SCORING_WEIGHTS.catchAll.fail,
         message: "Possibly catch-all",
         detail: `${mxRecords.length} MX records - may accept any address`,
       };
     }
 
-    return { passed: true, message: "Likely not catch-all" };
+    return { passed: true, weight: SCORING_WEIGHTS.catchAll.pass, message: "Likely not catch-all" };
   } catch {
-    return { passed: true, message: "Cannot verify" };
+    return { passed: true, weight: SCORING_WEIGHTS.catchAll.pass, message: "Cannot verify" };
   }
 }
 

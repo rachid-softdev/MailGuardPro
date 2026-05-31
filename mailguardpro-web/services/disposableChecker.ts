@@ -1,5 +1,6 @@
 // Detection of disposable email domains
 
+import { SCORING_WEIGHTS } from "@/config/scoringWeights";
 import { redis } from "@/lib/redis";
 import { safeJsonParse } from "@/lib/safeJson";
 import { validateWebhookUrlWithDns } from "@/lib/ssrf";
@@ -55,6 +56,7 @@ export async function checkDisposable(email: string): Promise<DisposableResult> 
   if (!domain) {
     return {
       passed: true,
+      weight: SCORING_WEIGHTS.disposable.pass,
       message: "Domaine invalide",
     };
   }
@@ -66,6 +68,7 @@ export async function checkDisposable(email: string): Promise<DisposableResult> 
       const isDisposable = cached === "1";
       return {
         passed: !isDisposable,
+        weight: isDisposable ? SCORING_WEIGHTS.disposable.fail : SCORING_WEIGHTS.disposable.pass,
         message: isDisposable ? "Email jetable" : "Email non-jetable",
         detail: isDisposable ? `Domaine ${domain} connu comme jetable` : undefined,
         provider: cached === "1" ? "cache" : undefined,
@@ -86,6 +89,7 @@ export async function checkDisposable(email: string): Promise<DisposableResult> 
 
     return {
       passed: false,
+      weight: SCORING_WEIGHTS.disposable.fail,
       message: "Email jetable",
       detail: `${domain} est un domaine d'email temporaire connu`,
       provider: "builtin-list",
@@ -101,6 +105,7 @@ export async function checkDisposable(email: string): Promise<DisposableResult> 
 
   return {
     passed: true,
+    weight: SCORING_WEIGHTS.disposable.pass,
     message: "Email non-jetable",
     detail: undefined,
   };

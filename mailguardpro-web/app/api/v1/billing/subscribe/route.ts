@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
 
     const { data: body, error: bodyError } = await parseJsonBody(req);
     if (bodyError) return bodyError;
-    const { priceId, paymentMethodId } = body;
+    const { priceId, paymentMethodId } = body as { priceId?: string; paymentMethodId?: string };
 
     if (!priceId || !paymentMethodId) {
       return NextResponse.json(
@@ -145,9 +145,13 @@ export async function POST(req: NextRequest) {
     }
 
     const latestInvoice = subscription.latest_invoice;
-    const clientSecret =
+    const paymentIntent =
       typeof latestInvoice === "object" && latestInvoice !== null
-        ? (latestInvoice as Stripe.Invoice).payment_intent?.client_secret
+        ? (latestInvoice as Stripe.Invoice).payment_intent
+        : undefined;
+    const clientSecret =
+      typeof paymentIntent === "object" && paymentIntent !== null
+        ? paymentIntent.client_secret
         : undefined;
 
     return NextResponse.json({

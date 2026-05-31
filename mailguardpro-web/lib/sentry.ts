@@ -23,7 +23,7 @@ export function initSentry() {
       environment: process.env.NODE_ENV,
 
       // Filter out common non-critical errors
-      beforeSend(event, hint) {
+      beforeSend(event: any, hint: any) {
         const error = hint.originalException;
 
         // Ignore network errors that are handled gracefully

@@ -1,6 +1,7 @@
 // API Route: Outil MX Lookup
 // GET /api/v1/tools/mx?domain=xxx
 
+import type { MxRecord } from "dns";
 import dns from "dns/promises";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
@@ -34,7 +35,7 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    let mxRecords: dns.MxRecord[] = [];
+    let mxRecords: MxRecord[] = [];
     let error: string | null = null;
 
     try {

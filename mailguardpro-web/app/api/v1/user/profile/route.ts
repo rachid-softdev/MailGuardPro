@@ -13,7 +13,7 @@ const updateProfileSchema = z.object({
   name: z.string().min(1).max(100).optional(),
 });
 
-export async function GET(req: NextRequest) {
+export async function GET(_req: NextRequest) {
   try {
     const session = await auth();
     if (!session?.user?.id) {

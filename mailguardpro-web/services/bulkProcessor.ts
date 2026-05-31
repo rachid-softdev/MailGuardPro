@@ -40,7 +40,7 @@ export interface ParsedEmail {
 export async function processBulkUpload(
   file: File,
   userId: string,
-  onProgress?: (processed: number, total: number) => void,
+  _onProgress?: (processed: number, total: number) => void,
 ): Promise<BulkUploadResult> {
   // Check file size
   if (file.size > MAX_FILE_SIZE) {

@@ -95,14 +95,14 @@ vi.mock("dns/promises", () => {
 vi.mock("dns", () => ({
   __esModule: true,
   default: {
-    resolve: vi.fn((hostname, rrtype, callback) => callback(null, [])),
-    resolveMx: vi.fn((hostname, callback) => callback(null, [])),
-    resolveTxt: vi.fn((hostname, callback) => callback(null, [])),
+    resolve: vi.fn((_hostname, _rrtype, callback) => callback(null, [])),
+    resolveMx: vi.fn((_hostname, callback) => callback(null, [])),
+    resolveTxt: vi.fn((_hostname, callback) => callback(null, [])),
     setServers: vi.fn(),
   },
-  resolve: vi.fn((hostname, rrtype, callback) => callback(null, [])),
-  resolveMx: vi.fn((hostname, callback) => callback(null, [])),
-  resolveTxt: vi.fn((hostname, callback) => callback(null, [])),
+  resolve: vi.fn((_hostname, _rrtype, callback) => callback(null, [])),
+  resolveMx: vi.fn((_hostname, callback) => callback(null, [])),
+  resolveTxt: vi.fn((_hostname, callback) => callback(null, [])),
   setServers: vi.fn(),
 }));
 

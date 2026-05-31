@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 // ===========================================================================
@@ -94,7 +94,7 @@ const cryptoMock = {
   randomBytes: vi.fn((size: number) => Buffer.alloc(size, "a")),
   createHmac: vi.fn(() => ({
     update: vi.fn().mockReturnThis(),
-    digest: vi.fn(() => Buffer.from("mock-signature")),
+    digest: vi.fn(() => "abcdef0123456789abcdef0123456789"), // hex string for hashIp.substring()
   })),
   createHash: vi.fn(() => ({
     update: vi.fn().mockReturnThis(),

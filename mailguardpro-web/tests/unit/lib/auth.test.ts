@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 // Mock next-auth to return a proper Auth object with callbacks
 vi.mock("next-auth", () => ({

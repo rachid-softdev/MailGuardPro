@@ -70,7 +70,7 @@ describe("Rate limit logging [M-04]", () => {
     const warnArg = warnSpy.mock.calls[0];
     expect(warnArg[0]).toBe("[RateLimit] REJECTED");
 
-    const logged = JSON.parse(warnArg[1]);
+    const logged = JSON.parse(warnArg[1] as string);
     expect(logged.userId).toBe("user-1");
     expect(logged.plan).toBe("FREE");
     expect(logged.action).toBe("validate");
@@ -84,7 +84,7 @@ describe("Rate limit logging [M-04]", () => {
     await checkRateLimitByPlan("user-pro", "PRO", "bulk");
 
     expect(warnSpy).toHaveBeenCalledTimes(1);
-    const logged = JSON.parse(warnSpy.mock.calls[0][1]);
+    const logged = JSON.parse(warnSpy.mock.calls[0][1] as string);
     expect(logged.userId).toBe("user-pro");
     expect(logged.plan).toBe("PRO");
     expect(logged.action).toBe("bulk");
@@ -94,7 +94,7 @@ describe("Rate limit logging [M-04]", () => {
     await checkRateLimitByPlan("user-export", "STARTER", "export");
 
     expect(warnSpy).toHaveBeenCalledTimes(1);
-    const logged = JSON.parse(warnSpy.mock.calls[0][1]);
+    const logged = JSON.parse(warnSpy.mock.calls[0][1] as string);
     expect(logged.action).toBe("export");
     expect(logged.plan).toBe("STARTER");
   });
@@ -103,7 +103,7 @@ describe("Rate limit logging [M-04]", () => {
     await checkRateLimitByPlan("user-billing", "FREE", "billing");
 
     expect(warnSpy).toHaveBeenCalledTimes(1);
-    const logged = JSON.parse(warnSpy.mock.calls[0][1]);
+    const logged = JSON.parse(warnSpy.mock.calls[0][1] as string);
     expect(logged.action).toBe("billing");
   });
 
@@ -125,7 +125,7 @@ describe("Rate limit logging [M-04]", () => {
     const warnArg = warnSpy.mock.calls[0];
     expect(warnArg[0]).toBe("[RateLimit] REJECTED (memory fallback)");
 
-    const logged = JSON.parse(warnArg[1]);
+    const logged = JSON.parse(warnArg[1] as string);
     expect(logged.key).toBe(key);
     expect(logged.originalLimit).toBe(limit);
     expect(logged.effectiveLimit).toBe(2); // floor(5 * 0.5)
@@ -143,7 +143,7 @@ describe("Rate limit logging [M-04]", () => {
     }
 
     expect(warnSpy).toHaveBeenCalledTimes(1);
-    const logged = JSON.parse(warnSpy.mock.calls[0][1]);
+    const logged = JSON.parse(warnSpy.mock.calls[0][1] as string);
     expect(logged.key).toBe(key);
     expect(logged.originalLimit).toBe(100);
     expect(logged.effectiveLimit).toBe(50);

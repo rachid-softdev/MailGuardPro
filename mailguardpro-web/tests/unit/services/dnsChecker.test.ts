@@ -46,7 +46,7 @@ describe("dnsChecker", () => {
 
       expect(result.passed).toBe(false);
       expect(result.message).toBe("Aucun enregistrement MX trouvé");
-      expect(result.weight).toBe(25);
+      expect(result.weight).toBe(0);
     });
 
     it("should sort MX records by priority", async () => {

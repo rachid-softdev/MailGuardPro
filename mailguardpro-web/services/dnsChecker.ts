@@ -1,6 +1,7 @@
 // Vérification des enregistrements DNS (MX, SPF, DMARC)
 
 import dns from "dns/promises";
+import { SCORING_WEIGHTS } from "@/config/scoringWeights";
 import { CheckResult } from "./types";
 
 // Résolution DNS avec timeout
@@ -20,6 +21,7 @@ export async function checkMX(email: string): Promise<CheckResult> {
     if (!mxRecords || mxRecords.length === 0) {
       return {
         passed: false,
+        weight: SCORING_WEIGHTS.mx.fail,
         message: "Aucun enregistrement MX trouvé",
         detail: `Le domaine ${domain} n'a pas de serveur mail configuré`,
       };
@@ -30,12 +32,14 @@ export async function checkMX(email: string): Promise<CheckResult> {
 
     return {
       passed: true,
+      weight: SCORING_WEIGHTS.mx.pass,
       message: "MX valide",
       detail: `Serveur principal: ${mxRecords[0].exchange} (priorité: ${mxRecords[0].priority})`,
     };
   } catch (error) {
     return {
       passed: false,
+      weight: SCORING_WEIGHTS.mx.fail,
       message: "Erreur de résolution DNS",
       detail: `Impossible de résoudre les enregistrements MX pour ${domain}`,
     };
@@ -51,6 +55,7 @@ export async function checkSPF(domain: string): Promise<CheckResult> {
       if (recordStr.includes("v=spf1")) {
         return {
           passed: true,
+          weight: SCORING_WEIGHTS.spf.pass,
           message: "SPF configuré",
           detail: `${recordStr.substring(0, 100)}${recordStr.length > 100 ? "..." : ""}`,
         };
@@ -59,12 +64,14 @@ export async function checkSPF(domain: string): Promise<CheckResult> {
 
     return {
       passed: false,
+      weight: SCORING_WEIGHTS.spf.fail,
       message: "SPF non trouvé",
       detail: "Aucun enregistrement SPF trouvé",
     };
   } catch {
     return {
       passed: false,
+      weight: SCORING_WEIGHTS.spf.fail,
       message: "Erreur vérification SPF",
       detail: "Impossible de vérifier les enregistrements SPF",
     };
@@ -80,6 +87,7 @@ export async function checkDMARC(domain: string): Promise<CheckResult> {
       if (recordStr.includes("v=DMARC1")) {
         return {
           passed: true,
+          weight: SCORING_WEIGHTS.dmarc.pass,
           message: "DMARC configuré",
           detail: recordStr.substring(0, 100),
         };
@@ -88,12 +96,14 @@ export async function checkDMARC(domain: string): Promise<CheckResult> {
 
     return {
       passed: false,
+      weight: SCORING_WEIGHTS.dmarc.fail,
       message: "DMARC non trouvé",
       detail: "Aucun enregistrement DMARC trouvé",
     };
   } catch {
     return {
       passed: false,
+      weight: SCORING_WEIGHTS.dmarc.fail,
       message: "Erreur vérification DMARC",
       detail: "Impossible de vérifier les enregistrements DMARC",
     };

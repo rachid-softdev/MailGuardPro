@@ -87,7 +87,7 @@ vi.spyOn(console, "error").mockImplementation(() => {});
 // ---------------------------------------------------------------------------
 // Import the worker module (triggers module-level construction)
 // ---------------------------------------------------------------------------
-async function loadWorkerModule() {
+async function loadWorkerModule(): Promise<((job: any) => Promise<any>) | null> {
   capturedProcessor = null;
   vi.resetModules();
   await import("@/worker/index");

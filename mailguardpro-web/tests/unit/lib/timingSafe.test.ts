@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { enforceTimingSafeResponse, timingSafeEqual } from "@/lib/timingSafe";
 
 describe("timingSafeEqual", () => {
@@ -60,14 +60,17 @@ describe("enforceTimingSafeResponse", () => {
   });
 
   it("handles negative wait time gracefully (jitter causes negative)", async () => {
-    // If elapsed > target but within jitter range, should still not wait
-    vi.useFakeTimers();
-    // Target 3000, jitter up to +/-500. If elapsed = 3200, wait = max(0, 3000 + jitter - 3200)
-    // Jitter can be -500 to +500, so wait = max(0, -200 + jitter). If jitter = -500, wait = 0.
-    // Elapsed could also be 2700, so wait = max(0, 300 + jitter). If jitter = -500, wait = 0.
-    const startTime = Date.now() - 3000;
-    const promise = enforceTimingSafeResponse(startTime);
-    await vi.advanceTimersByTimeAsync(100);
-    await expect(promise).resolves.toBeUndefined();
+    // Force negative jitter: Math.random() = 0 → jitter = -500 → wait = max(0, 3000 - 500 - 3000) = 0
+    const origRandom = Math.random;
+    Math.random = vi.fn(() => 0);
+    try {
+      vi.useFakeTimers();
+      const startTime = Date.now() - 3000;
+      const promise = enforceTimingSafeResponse(startTime);
+      await vi.advanceTimersByTimeAsync(100);
+      await expect(promise).resolves.toBeUndefined();
+    } finally {
+      Math.random = origRandom;
+    }
   });
 });

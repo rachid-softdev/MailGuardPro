@@ -51,17 +51,17 @@ describe("stripe", () => {
   describe("getPlanFromPriceId", () => {
     it("should return STARTER for STARTER price", async () => {
       const { getPlanFromPriceId, PRICES } = await import("@/lib/stripe");
-      expect(getPlanFromPriceId(PRICES.STARTER)).toBe("STARTER");
+      expect(getPlanFromPriceId(PRICES.STARTER!)).toBe("STARTER");
     });
 
     it("should return PRO for PRO price", async () => {
       const { getPlanFromPriceId, PRICES } = await import("@/lib/stripe");
-      expect(getPlanFromPriceId(PRICES.PRO)).toBe("PRO");
+      expect(getPlanFromPriceId(PRICES.PRO!)).toBe("PRO");
     });
 
     it("should return BUSINESS for BUSINESS price", async () => {
       const { getPlanFromPriceId, PRICES } = await import("@/lib/stripe");
-      expect(getPlanFromPriceId(PRICES.BUSINESS)).toBe("BUSINESS");
+      expect(getPlanFromPriceId(PRICES.BUSINESS!)).toBe("BUSINESS");
     });
 
     it("should return null for unknown price", async () => {

@@ -215,7 +215,7 @@ describe("Session revocation on API key delete [M-07]", () => {
   // ────────────────────────────────────────────
 
   it("should return 401 when not authenticated", async () => {
-    vi.mocked(auth).mockResolvedValue(null);
+    vi.mocked(auth).mockResolvedValue(null as any);
 
     const url = new URL("http://localhost:3000/api/v1/api-keys/key-303");
     const req = new NextRequest(url, {

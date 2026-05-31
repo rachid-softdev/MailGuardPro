@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { validateCsrfOrigin } from "@/lib/csrf";
 
 describe("validateCsrfOrigin", () => {
@@ -118,8 +118,12 @@ describe("validateCsrfOrigin", () => {
     expect(result.error).toContain("Referer not allowed");
   });
 
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   it("returns valid when origin matches app origin in production", () => {
-    process.env.NODE_ENV = "production";
+    vi.stubEnv("NODE_ENV", "production");
     process.env.APP_ORIGIN = "https://app.mailguardpro.com";
     const req = new Request("https://app.mailguardpro.com/api/v1/validate", {
       headers: { origin: "https://app.mailguardpro.com" },
@@ -130,7 +134,7 @@ describe("validateCsrfOrigin", () => {
   });
 
   it("returns invalid when origin does not match in production", () => {
-    process.env.NODE_ENV = "production";
+    vi.stubEnv("NODE_ENV", "production");
     process.env.APP_ORIGIN = "https://app.mailguardpro.com";
     const req = new Request("https://app.mailguardpro.com/api/v1/validate", {
       headers: { origin: "https://evil.com" },
@@ -141,7 +145,7 @@ describe("validateCsrfOrigin", () => {
   });
 
   it("allows any localhost origin in development", () => {
-    process.env.NODE_ENV = "development";
+    vi.stubEnv("NODE_ENV", "development");
     process.env.APP_ORIGIN = "https://app.mailguardpro.com";
     const req = new Request("http://localhost:3000/api/v1/validate", {
       headers: { origin: "http://localhost:3000" },
@@ -152,7 +156,7 @@ describe("validateCsrfOrigin", () => {
   });
 
   it("allows localhost:3001 in development (different port)", () => {
-    process.env.NODE_ENV = "development";
+    vi.stubEnv("NODE_ENV", "development");
     process.env.APP_ORIGIN = "https://app.mailguardpro.com";
     const req = new Request("http://localhost:3000/api/v1/validate", {
       headers: { origin: "http://localhost:3001" },
@@ -163,7 +167,7 @@ describe("validateCsrfOrigin", () => {
   });
 
   it("allows 127.0.0.1 in development", () => {
-    process.env.NODE_ENV = "development";
+    vi.stubEnv("NODE_ENV", "development");
     const req = new Request("http://127.0.0.1:3000/api/v1/validate", {
       headers: { origin: "http://127.0.0.1:3000" },
     });

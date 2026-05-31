@@ -32,8 +32,6 @@ export async function POST(req: NextRequest) {
     });
 
     // Limite selon le plan
-    const maxBatchSize = user?.plan === "PRO" || user?.plan === "BUSINESS" ? 100000 : 10000;
-
     // Rate limiting par plan
     const rateCheck = await checkRateLimitByPlan(
       session.user.id,

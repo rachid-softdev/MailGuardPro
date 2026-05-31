@@ -35,7 +35,7 @@ interface Props {
   children?: React.ReactNode;
 }
 
-export function PdfGenerator({ jobId, children }: Props) {
+export function PdfGenerator({ jobId }: Props) {
   const [generating, setGenerating] = useState(false);
 
   const generatePdf = async () => {

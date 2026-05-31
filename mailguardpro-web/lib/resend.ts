@@ -27,6 +27,7 @@ export async function sendEmail({
       subject,
       html,
       text,
+      react: null as any,
     });
     return { success: true, data };
   } catch (error) {

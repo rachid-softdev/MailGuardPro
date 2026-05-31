@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { GET, POST } from "@/app/api/v1/webhooks/route";
 
@@ -23,7 +23,10 @@ vi.mock("@/lib/crypto", () => ({
 }));
 
 vi.mock("@/lib/ssrf", () => ({
-  validateWebhookUrlWithDns: vi.fn().mockResolvedValue({ valid: true }),
+  validateWebhookUrlWithDns: vi.fn().mockResolvedValue({
+    valid: true,
+    resolvedIps: ["93.184.216.34"],
+  }),
   resolveWebhookIps: vi.fn().mockResolvedValue({ valid: true, ips: ["93.184.216.34"] }),
 }));
 
@@ -72,7 +75,7 @@ describe("/api/v1/webhooks", () => {
   describe("GET", () => {
     it("should return 401 when not authenticated", async () => {
       const { auth } = await import("@/lib/auth");
-      vi.mocked(auth).mockResolvedValueOnce(null);
+      vi.mocked(auth).mockResolvedValueOnce(null as any);
 
       const req = new NextRequest("http://localhost:3000/api/v1/webhooks");
       const response = await GET(req);
@@ -88,12 +91,24 @@ describe("/api/v1/webhooks", () => {
           url: "https://example.com/hook1",
           events: ["bulk_job_completed"],
           isActive: true,
+          userId: "user-123",
+          name: null,
+          createdAt: new Date(),
+          encryptedSecret: "encrypted-xxx",
+          privacyMode: false,
+          pinnedIps: null,
         },
         {
           id: "webhook-2",
           url: "https://example.com/hook2",
           events: ["credit_low"],
           isActive: false,
+          userId: "user-123",
+          name: null,
+          createdAt: new Date(),
+          encryptedSecret: "encrypted-xxx",
+          privacyMode: false,
+          pinnedIps: null,
         },
       ]);
 
@@ -131,7 +146,7 @@ describe("/api/v1/webhooks", () => {
 
     it("should return 401 when not authenticated", async () => {
       const { auth } = await import("@/lib/auth");
-      vi.mocked(auth).mockResolvedValueOnce(null);
+      vi.mocked(auth).mockResolvedValueOnce(null as any);
 
       const body = {
         url: "https://example.com/hook",
@@ -182,8 +197,10 @@ describe("/api/v1/webhooks", () => {
         events: ["bulk_job_completed"],
         isActive: true,
         userId: "user-123",
-        createdAt: new Date().toISOString(),
+        createdAt: new Date(),
         encryptedSecret: "encrypted:generated-secret",
+        privacyMode: false,
+        pinnedIps: null,
       });
 
       const body = {
@@ -203,7 +220,6 @@ describe("/api/v1/webhooks", () => {
 
     it("should return rawSecretPrefix (first 4 chars) in creation response", async () => {
       const { prisma } = await import("@/lib/prisma");
-      const { encryptToken } = await import("@/lib/crypto");
 
       vi.mocked(prisma.webhook.create).mockResolvedValue({
         id: "webhook-123",
@@ -212,10 +228,11 @@ describe("/api/v1/webhooks", () => {
         events: ["bulk_job_completed"],
         isActive: true,
         userId: "user-123",
-        createdAt: new Date().toISOString(),
+        createdAt: new Date(),
         encryptedSecret: "encrypted:generated-secret",
+        privacyMode: false,
+        pinnedIps: null,
       });
-
       const body = {
         url: "https://example.com/hook",
         name: "My Webhook",
@@ -284,21 +301,21 @@ describe("/api/v1/webhooks", () => {
 
       expect(response.status).toBe(400);
       const json = await response.json();
-      expect(json.error).toContain("Maximum 10 webhooks");
+      expect(json.error).toContain("Maximum 10 webhooks allowed");
     });
 
     it("should encrypt the secret before storing in database", async () => {
       const { prisma } = await import("@/lib/prisma");
       const { encryptToken } = await import("@/lib/crypto");
 
-      vi.mocked(prisma.webhook.create).mockImplementation(async (args: any) => {
+      vi.mocked(prisma.webhook.create).mockImplementation((async (args: any) => {
         // Verify that the data.encryptedSecret was used (not raw secret)
         expect(args.data.encryptedSecret).toBeDefined();
         return {
           id: "webhook-enc-test",
           ...args.data,
         };
-      });
+      }) as any);
 
       const body = {
         url: "https://example.com/hook",

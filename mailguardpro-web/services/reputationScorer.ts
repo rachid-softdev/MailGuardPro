@@ -1,6 +1,7 @@
 // Score de réputation de domaine - Optimisé pour la performance avec fallbacks multiples
 
 import dns from "dns/promises";
+import type { WhoisResult } from "whois";
 import whois from "whois";
 import { redis } from "@/lib/redis";
 import { safeJsonParse } from "@/lib/safeJson";
@@ -158,12 +159,15 @@ async function fetchWHOIS(
       return null;
     }
 
-    const whoisData = await new Promise<string>((resolve, reject) => {
+    const rawData = await new Promise<string | WhoisResult[]>((resolve, reject) => {
       whois.lookup(domain, { timeout: WHOIS_TIMEOUT_MS }, (err, data) => {
         if (err) reject(err);
         else resolve(data);
       });
     });
+    const whoisData: string = Array.isArray(rawData)
+      ? rawData.map((r) => r.data).join("\n")
+      : rawData;
     const patterns = [
       /Creation Date:\s*(.+)/i,
       /created:\s*(.+)/i,

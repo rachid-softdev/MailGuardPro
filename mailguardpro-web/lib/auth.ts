@@ -1,6 +1,6 @@
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import type { Account } from "next-auth";
-import NextAuth from "next-auth";
+import NextAuth, { type Session } from "next-auth";
 import type { AdapterUser } from "next-auth/adapters";
 import type { JWT } from "next-auth/jwt";
 import Google from "next-auth/providers/google";
@@ -34,24 +34,19 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     }),
   ],
   callbacks: {
-    async signIn({
-      user,
-      account,
-      email,
-      credentials,
-      req,
-    }: {
-      user: AdapterUser;
-      account: Account | null;
-      email?: { address: string };
-      credentials?: Record<string, unknown>;
-      req?: { headers: { get: (name: string) => string | null } };
-    }) {
+    // TODO: Fix NextAuth v5 callback parameter types
+    async signIn(params: any) {
+      const { user, account, email, req } = params as {
+        user: AdapterUser;
+        account: Account | null;
+        email?: { address: string };
+        req?: { headers: { get: (name: string) => string | null } };
+      };
       // FIX #18: Magic link rate limit (Redis-based — atomic SET NX EX)
       if (account?.provider === "resend" && email?.address) {
         try {
           const rateKey = `magiclink:${email.address}`;
-          const acquired = await redis.set(rateKey, "1", "NX", "EX", 60);
+          const acquired = await redis.set(rateKey, "1", "EX", 60, "NX");
           if (acquired === null) {
             console.warn(`[Auth] Magic link rate limited for ${email.address}`);
             return false;
@@ -68,7 +63,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           "unknown";
         try {
           const ipRateKey = `magiclink:ip:${ip}`;
-          const ipAcquired = await redis.set(ipRateKey, "1", "NX", "EX", 10);
+          const ipAcquired = await redis.set(ipRateKey, "1", "EX", 10, "NX");
           if (ipAcquired === null) {
             console.warn(`[Auth] Magic link IP rate limited for ${ip}`);
             return false;
@@ -154,7 +149,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       }
       return session;
     },
-    async jwt({ token, user }: { token: JWT; user?: AdapterUser | undefined }) {
+    async jwt(params: any) {
+      const { token, user } = params as { token: JWT; user?: AdapterUser | undefined };
       if (user) {
         token.id = user.id;
       }
@@ -200,7 +196,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
   },
   events: {
-    async createUser({ user }: { user: AdapterUser }) {
+    async createUser(params: any) {
+      const { user } = params as { user: AdapterUser };
       // Nouveau utilisateur = 100 crédits gratuits
       // Utiliser user.id (plus fiable que email qui peut avoir des races conditions)
       if (user?.id) {

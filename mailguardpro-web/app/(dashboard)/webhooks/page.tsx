@@ -139,7 +139,7 @@ export default function WebhooksPage() {
     }
   };
 
-  const testWebhook = async (webhook: Webhook) => {
+  const handleTestWebhook = async (webhook: Webhook) => {
     setTestWebhook(webhook);
     setShowTestModal(true);
     setTestResult(null);
@@ -168,10 +168,6 @@ export default function WebhooksPage() {
     setFormUrl("");
     setFormName("");
     setFormEvents([]);
-  };
-
-  const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString();
   };
 
   return (
@@ -236,7 +232,10 @@ export default function WebhooksPage() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2 ml-4">
-                  <button onClick={() => testWebhook(webhook)} className="btn btn-ghost btn-sm">
+                  <button
+                    onClick={() => handleTestWebhook(webhook)}
+                    className="btn btn-ghost btn-sm"
+                  >
                     Test
                   </button>
                   <button

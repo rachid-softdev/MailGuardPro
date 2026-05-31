@@ -10,7 +10,6 @@ import { prisma } from "@/lib/prisma";
 import { checkRateLimitByPlan, type Plan } from "@/lib/rateLimits";
 import { parseJsonBody } from "@/lib/request";
 import { resolveWebhookIps, validateWebhookUrlWithDns } from "@/lib/ssrf";
-import { AuditAction, AuditResource, logAudit } from "@/services/auditLogger";
 
 const updateWebhookSchema = z.object({
   url: z.string().url().optional(),

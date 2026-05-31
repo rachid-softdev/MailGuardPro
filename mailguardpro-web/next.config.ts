@@ -82,7 +82,10 @@ let nextConfig: NextConfig = {
       // Server-side bundles should not try to bundle Node.js built-ins
       config.externals = [
         ...(Array.isArray(config.externals) ? config.externals : []),
-        ({ request }, callback) => {
+        (
+          { request }: { request: string },
+          callback: (err?: Error | null, result?: string) => void,
+        ) => {
           if (request && nodeBuiltins.includes(request)) {
             return callback(null, `commonjs ${request}`);
           }

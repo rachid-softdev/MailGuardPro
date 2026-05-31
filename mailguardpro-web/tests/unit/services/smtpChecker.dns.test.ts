@@ -273,7 +273,7 @@ describe("connectWithResolvedIp", () => {
 
     // Modify the socket to emit 'error' on connect
     const origConnect = MockSocket.prototype.connect;
-    MockSocket.prototype.connect = function (this: any, ...args: any[]) {
+    MockSocket.prototype.connect = function (this: any, ..._args: any[]) {
       const errorHandlers = this.handlers?.["error"];
       if (errorHandlers) {
         for (const h of errorHandlers) h(new Error("ECONNREFUSED"));

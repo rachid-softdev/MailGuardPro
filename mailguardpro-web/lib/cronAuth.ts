@@ -14,7 +14,7 @@ import { timingSafeEqual } from "./timingSafe";
 async function checkCronRateLimit(endpoint: string): Promise<boolean> {
   const key = `cron:ratelimit:${endpoint}`;
   try {
-    const acquired = await redis.set(key, "1", "NX", "EX", 300); // 5 minutes
+    const acquired = await redis.set(key, "1", "EX", 300, "NX"); // 5 minutes
     return acquired !== null;
   } catch {
     console.warn(`[Cron] Redis unavailable for rate limit — allowing ${endpoint}`);
