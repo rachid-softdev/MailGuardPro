@@ -12,8 +12,11 @@
  * "iv:authTag:ciphertext" (i.e., ne contient pas de ":").
  */
 
+import "dotenv/config";
+import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@prisma/client";
 import { createCipheriv, randomBytes } from "crypto";
+import pg from "pg";
 
 const ALGORITHM = "aes-256-gcm";
 const IV_LENGTH = 16;
@@ -44,7 +47,9 @@ function isLegacyToken(value: string | null): boolean {
 }
 
 async function migrateTokens() {
-  const prisma = new PrismaClient();
+  const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
+  const adapter = new PrismaPg(pool);
+  const prisma = new PrismaClient({ adapter });
 
   try {
     console.log("🔍 Searching for legacy tokens...");

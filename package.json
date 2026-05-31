@@ -41,5 +41,10 @@
     "*": [
       "biome format --write --no-errors-on-unmatched --files-ignore-unknown=true"
     ]
+  },
+  "pnpm": {
+    "overrides": {
+      "@prisma/client": "^7.8.0"
+    }
   }
 }

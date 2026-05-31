@@ -1,4 +1,7 @@
+import "dotenv/config";
+import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@prisma/client";
+import pg from "pg";
 import { decryptToken, encryptToken } from "./crypto";
 
 const TOKEN_FIELDS = ["access_token", "refresh_token", "id_token"];
@@ -78,8 +81,12 @@ function createTokenExtension() {
   } as const;
 }
 
+// Create the PrismaPg adapter
+const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
+const adapter = new PrismaPg(pool);
+
 // Create the extended client with proper typing
-const prismaClient = new PrismaClient().$extends(createTokenExtension());
+const prismaClient = new PrismaClient({ adapter }).$extends(createTokenExtension());
 type ExtendedPrismaClient = typeof prismaClient;
 
 // Fix the global type
