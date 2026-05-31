@@ -1,6 +1,6 @@
-import { GET, POST } from "@/app/api/v1/webhooks/route";
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { GET, POST } from "@/app/api/v1/webhooks/route";
 
 // Mock dependencies
 vi.mock("@/lib/auth", () => ({
@@ -23,7 +23,11 @@ vi.mock("@/lib/crypto", () => ({
 }));
 
 vi.mock("@/lib/ssrf", () => ({
-  validateWebhookUrlWithDns: vi.fn().mockResolvedValue({ valid: true }),
+  validateWebhookUrlWithDns: vi.fn().mockResolvedValue({
+    valid: true,
+    resolvedIps: ["93.184.216.34"],
+  }),
+  resolveWebhookIps: vi.fn().mockResolvedValue({ valid: true, ips: ["93.184.216.34"] }),
 }));
 
 vi.mock("@/services/auditLogger", () => ({
@@ -32,15 +36,46 @@ vi.mock("@/services/auditLogger", () => ({
   logAudit: vi.fn(),
 }));
 
+vi.mock("@/lib/redis", () => ({
+  redis: {
+    get: vi.fn(),
+    setex: vi.fn(),
+    set: vi.fn(),
+    del: vi.fn(),
+    eval: vi.fn(),
+    publish: vi.fn(),
+    duplicate: vi.fn(() => ({
+      subscribe: vi.fn(),
+      on: vi.fn(),
+      disconnect: vi.fn(),
+    })),
+  },
+  getCached: vi.fn().mockResolvedValue(null),
+  setCached: vi.fn().mockResolvedValue(undefined),
+  deleteCached: vi.fn().mockResolvedValue(undefined),
+  checkRateLimit: vi.fn().mockResolvedValue({
+    success: true,
+    remaining: 999,
+    resetAt: Date.now() + 3600000,
+    limit: 100,
+  }),
+  publishProgress: vi.fn(),
+  subscribeToProgress: vi.fn(() => vi.fn()),
+  default: {},
+}));
+
 describe("/api/v1/webhooks", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
+    // Reset count mock implementation to default 0 (vi.clearAllMocks doesn't clear implementations)
+    const { prisma } = await import("@/lib/prisma");
+    vi.mocked(prisma.webhook.count).mockResolvedValue(0);
   });
 
   describe("GET", () => {
     it("should return 401 when not authenticated", async () => {
       const { auth } = await import("@/lib/auth");
-      vi.mocked(auth).mockResolvedValueOnce(null);
+      vi.mocked(auth).mockResolvedValueOnce(null as any);
 
       const req = new NextRequest("http://localhost:3000/api/v1/webhooks");
       const response = await GET(req);
@@ -56,12 +91,24 @@ describe("/api/v1/webhooks", () => {
           url: "https://example.com/hook1",
           events: ["bulk_job_completed"],
           isActive: true,
+          userId: "user-123",
+          name: null,
+          createdAt: new Date(),
+          encryptedSecret: "encrypted-xxx",
+          privacyMode: false,
+          pinnedIps: null,
         },
         {
           id: "webhook-2",
           url: "https://example.com/hook2",
           events: ["credit_low"],
           isActive: false,
+          userId: "user-123",
+          name: null,
+          createdAt: new Date(),
+          encryptedSecret: "encrypted-xxx",
+          privacyMode: false,
+          pinnedIps: null,
         },
       ]);
 
@@ -88,18 +135,24 @@ describe("/api/v1/webhooks", () => {
   });
 
   describe("POST", () => {
+    /** Create a NextRequest with CSRF-safe Origin header */
+    function postReq(url: string, body: any, extraHeaders?: Record<string, string>): NextRequest {
+      return new NextRequest(url, {
+        method: "POST",
+        headers: { origin: "http://localhost:3000", ...extraHeaders },
+        body: JSON.stringify(body),
+      });
+    }
+
     it("should return 401 when not authenticated", async () => {
       const { auth } = await import("@/lib/auth");
-      vi.mocked(auth).mockResolvedValueOnce(null);
+      vi.mocked(auth).mockResolvedValueOnce(null as any);
 
       const body = {
         url: "https://example.com/hook",
         events: ["bulk_job_completed"],
       };
-      const req = new NextRequest("http://localhost:3000/api/v1/webhooks", {
-        method: "POST",
-        body: JSON.stringify(body),
-      });
+      const req = postReq("http://localhost:3000/api/v1/webhooks", body);
 
       const response = await POST(req);
 
@@ -107,11 +160,8 @@ describe("/api/v1/webhooks", () => {
     });
 
     it("should return 400 when url is missing", async () => {
-      const body = { events: ["bulk_job_completed"] };
-      const req = new NextRequest("http://localhost:3000/api/v1/webhooks", {
-        method: "POST",
-        body: JSON.stringify(body),
-      });
+      const body = { name: "Test Webhook", events: ["bulk_job_completed"] };
+      const req = postReq("http://localhost:3000/api/v1/webhooks", body);
 
       const response = await POST(req);
 
@@ -121,17 +171,8 @@ describe("/api/v1/webhooks", () => {
     });
 
     it("should return 400 when url is invalid", async () => {
-      const { validateWebhookUrlWithDns } = await import("@/lib/ssrf");
-      vi.mocked(validateWebhookUrlWithDns).mockResolvedValueOnce({
-        valid: false,
-        error: "Invalid URL format",
-      });
-
-      const body = { url: "not-a-url", events: ["bulk_job_completed"] };
-      const req = new NextRequest("http://localhost:3000/api/v1/webhooks", {
-        method: "POST",
-        body: JSON.stringify(body),
-      });
+      const body = { url: "not-a-url", name: "Test Webhook", events: ["bulk_job_completed"] };
+      const req = postReq("http://localhost:3000/api/v1/webhooks", body);
 
       const response = await POST(req);
 
@@ -139,11 +180,8 @@ describe("/api/v1/webhooks", () => {
     });
 
     it("should return 400 when events array is empty", async () => {
-      const body = { url: "https://example.com/hook", events: [] };
-      const req = new NextRequest("http://localhost:3000/api/v1/webhooks", {
-        method: "POST",
-        body: JSON.stringify(body),
-      });
+      const body = { url: "https://example.com/hook", name: "Test Webhook", events: [] };
+      const req = postReq("http://localhost:3000/api/v1/webhooks", body);
 
       const response = await POST(req);
 
@@ -159,8 +197,10 @@ describe("/api/v1/webhooks", () => {
         events: ["bulk_job_completed"],
         isActive: true,
         userId: "user-123",
-        createdAt: new Date().toISOString(),
+        createdAt: new Date(),
         encryptedSecret: "encrypted:generated-secret",
+        privacyMode: false,
+        pinnedIps: null,
       });
 
       const body = {
@@ -168,10 +208,7 @@ describe("/api/v1/webhooks", () => {
         name: "My Webhook",
         events: ["bulk_job_completed"],
       };
-      const req = new NextRequest("http://localhost:3000/api/v1/webhooks", {
-        method: "POST",
-        body: JSON.stringify(body),
-      });
+      const req = postReq("http://localhost:3000/api/v1/webhooks", body);
 
       const response = await POST(req);
 
@@ -181,9 +218,8 @@ describe("/api/v1/webhooks", () => {
       expect(json.data).toHaveProperty("id");
     });
 
-    it("should return rawSecret (unencrypted) in creation response", async () => {
+    it("should return rawSecretPrefix (first 4 chars) in creation response", async () => {
       const { prisma } = await import("@/lib/prisma");
-      const { encryptToken } = await import("@/lib/crypto");
 
       vi.mocked(prisma.webhook.create).mockResolvedValue({
         id: "webhook-123",
@@ -192,28 +228,26 @@ describe("/api/v1/webhooks", () => {
         events: ["bulk_job_completed"],
         isActive: true,
         userId: "user-123",
-        createdAt: new Date().toISOString(),
+        createdAt: new Date(),
         encryptedSecret: "encrypted:generated-secret",
+        privacyMode: false,
+        pinnedIps: null,
       });
-
       const body = {
         url: "https://example.com/hook",
         name: "My Webhook",
         events: ["bulk_job_completed"],
       };
-      const req = new NextRequest("http://localhost:3000/api/v1/webhooks", {
-        method: "POST",
-        body: JSON.stringify(body),
-      });
+      const req = postReq("http://localhost:3000/api/v1/webhooks", body);
 
       const response = await POST(req);
 
       expect(response.status).toBe(201);
       const json = await response.json();
-      // The response should include 'rawSecret' (the unencrypted secret shown once to the user)
-      expect(json.data).toHaveProperty("rawSecret");
-      expect(typeof json.data.rawSecret).toBe("string");
-      expect(json.data.rawSecret.length).toBe(64); // 32 bytes hex = 64 chars
+      // The response should include 'rawSecretPrefix' (first 4 chars of the unencrypted secret)
+      expect(json.data).toHaveProperty("rawSecretPrefix");
+      expect(typeof json.data.rawSecretPrefix).toBe("string");
+      expect(json.data.rawSecretPrefix.length).toBe(4); // First 4 chars
     });
 
     it("should call SSRF validation with DNS on webhook URL", async () => {
@@ -224,10 +258,7 @@ describe("/api/v1/webhooks", () => {
         name: "Test Webhook",
         events: ["bulk_job_completed"],
       };
-      const req = new NextRequest("http://localhost:3000/api/v1/webhooks", {
-        method: "POST",
-        body: JSON.stringify(body),
-      });
+      const req = postReq("http://localhost:3000/api/v1/webhooks", body);
 
       await POST(req);
 
@@ -246,10 +277,7 @@ describe("/api/v1/webhooks", () => {
         name: "Test Webhook",
         events: ["bulk_job_completed"],
       };
-      const req = new NextRequest("http://localhost:3000/api/v1/webhooks", {
-        method: "POST",
-        body: JSON.stringify(body),
-      });
+      const req = postReq("http://localhost:3000/api/v1/webhooks", body);
 
       const response = await POST(req);
 
@@ -267,40 +295,34 @@ describe("/api/v1/webhooks", () => {
         name: "Another Webhook",
         events: ["bulk_job_completed"],
       };
-      const req = new NextRequest("http://localhost:3000/api/v1/webhooks", {
-        method: "POST",
-        body: JSON.stringify(body),
-      });
+      const req = postReq("http://localhost:3000/api/v1/webhooks", body);
 
       const response = await POST(req);
 
       expect(response.status).toBe(400);
       const json = await response.json();
-      expect(json.error).toContain("Maximum 10 webhooks");
+      expect(json.error).toContain("Maximum 10 webhooks allowed");
     });
 
     it("should encrypt the secret before storing in database", async () => {
       const { prisma } = await import("@/lib/prisma");
       const { encryptToken } = await import("@/lib/crypto");
 
-      vi.mocked(prisma.webhook.create).mockImplementation(async (args: any) => {
+      vi.mocked(prisma.webhook.create).mockImplementation((async (args: any) => {
         // Verify that the data.encryptedSecret was used (not raw secret)
         expect(args.data.encryptedSecret).toBeDefined();
         return {
           id: "webhook-enc-test",
           ...args.data,
         };
-      });
+      }) as any);
 
       const body = {
         url: "https://example.com/hook",
         name: "Encryption Test",
         events: ["bulk_job_completed"],
       };
-      const req = new NextRequest("http://localhost:3000/api/v1/webhooks", {
-        method: "POST",
-        body: JSON.stringify(body),
-      });
+      const req = postReq("http://localhost:3000/api/v1/webhooks", body);
 
       await POST(req);
 

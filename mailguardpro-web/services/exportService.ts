@@ -1,10 +1,12 @@
 // Service d'export multi-format (CSV, JSON, XLSX)
 // PDF généré côté client avec jsPDF pour compatibilité Serverless
 
-import { prisma } from "@/lib/prisma";
 import { stringify } from "csv-stringify/sync";
 import ExcelJS from "exceljs";
-import { ExportOptions, ValidationResult } from "./types";
+import { sanitizeForCsv } from "@/lib/emailSanitizer";
+import { prisma } from "@/lib/prisma";
+import type { ValidationChecks } from "./types";
+import { ExportOptions } from "./types";
 
 // NOTE: PDF est maintenant généré côté client via components/export/PdfGenerator.tsx
 // pour compatibilité avec les environnements Serverless (Vercel, Netlify, Cloudflare)
@@ -33,25 +35,28 @@ export async function exportResults(options: ExportOptions): Promise<Buffer> {
   });
 
   // Formater les résultats pour l'export
-  const formattedResults = results.map((r) => ({
-    email: r.email,
-    score: r.score,
-    status: r.status,
-    formatValid: r.checksJson?.format?.passed,
-    mxValid: r.checksJson?.mx?.passed,
-    smtpValid: r.checksJson?.smtp?.passed,
-    disposable: r.checksJson?.disposable?.passed,
-    catchall: r.checksJson?.catchAll?.passed,
-    generic: r.checksJson?.generic?.passed,
-    freeProvider: r.checksJson?.freeProvider?.passed,
-    dnsbl: r.checksJson?.dnsbl?.passed,
-    spfValid: r.checksJson?.spf?.passed,
-    dmarcValid: r.checksJson?.dmarc?.passed,
-    typo: r.checksJson?.typo?.passed,
-    suggestion: r.checksJson?.typo?.suggestion,
-    domainReputation: r.checksJson?.domain?.reputation,
-    processingTimeMs: r.processingTimeMs,
-  }));
+  const formattedResults = results.map((r) => {
+    const checks = r.checksJson as unknown as ValidationChecks | null;
+    return {
+      email: r.email,
+      score: r.score,
+      status: r.status,
+      formatValid: checks?.format?.passed,
+      mxValid: checks?.mx?.passed,
+      smtpValid: checks?.smtp?.passed,
+      disposable: checks?.disposable?.passed,
+      catchall: checks?.catchAll?.passed,
+      generic: checks?.generic?.passed,
+      freeProvider: checks?.freeProvider?.passed,
+      dnsbl: checks?.dnsbl?.passed,
+      spfValid: checks?.spf?.passed,
+      dmarcValid: checks?.dmarc?.passed,
+      typo: checks?.typo?.passed,
+      suggestion: (checks?.typo as any)?.suggestion,
+      domainReputation: (checks as any)?.domain?.reputation,
+      processingTimeMs: r.processingTimeMs,
+    };
+  });
 
   switch (format) {
     case "csv":
@@ -71,9 +76,9 @@ export async function exportResults(options: ExportOptions): Promise<Buffer> {
 
 function exportCSV(results: any[]): Buffer {
   const rows = results.map((r) => ({
-    email: r.email,
+    email: sanitizeForCsv(r.email),
     score: r.score,
-    status: r.status,
+    status: sanitizeForCsv(r.status),
     format_valid: r.formatValid,
     mx_valid: r.mxValid,
     smtp_valid: r.smtpValid,
@@ -85,8 +90,8 @@ function exportCSV(results: any[]): Buffer {
     spf_valid: r.spfValid,
     dmarc_valid: r.dmarcValid,
     typo: r.typo,
-    suggestion: r.suggestion || "",
-    domain_reputation: r.domainReputation || "",
+    suggestion: sanitizeForCsv(r.suggestion || ""),
+    domain_reputation: sanitizeForCsv(r.domainReputation || ""),
     processing_time_ms: r.processingTimeMs,
   }));
 
@@ -122,7 +127,7 @@ function exportJSON(results: any[], meta: { jobId: string }): Buffer {
   );
 }
 
-async function exportXLSX(results: any[], meta: { jobId: string }): Promise<Buffer> {
+async function exportXLSX(results: any[], _meta: { jobId: string }): Promise<Buffer> {
   const workbook = new ExcelJS.Workbook();
   workbook.creator = "MailGuard Pro";
   workbook.created = new Date();
@@ -166,7 +171,7 @@ async function exportXLSX(results: any[], meta: { jobId: string }): Promise<Buff
   ];
 
   // Ajouter les données avec couleur conditionnelle sur le score
-  results.forEach((r, index) => {
+  results.forEach((r, _index) => {
     const row = resultsSheet.addRow(r);
     const scoreCell = row.getCell("score");
 

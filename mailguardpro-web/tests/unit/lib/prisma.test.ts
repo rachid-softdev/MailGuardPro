@@ -139,13 +139,23 @@ describe("prisma", () => {
         id: "user-123",
         email: "test@example.com",
         credits: 100,
+        name: null,
+        emailVerified: null,
+        image: null,
+        plan: "FREE",
+        role: "USER",
+        isActive: true,
+        stripeCustomerId: null,
+        stripeSubscriptionId: null,
+        tokenVersion: 0,
+        createdAt: new Date(),
       });
 
       const user = await prisma.user.findUnique({
         where: { id: "user-123" },
       });
 
-      expect(user).toEqual({
+      expect(user).toMatchObject({
         id: "user-123",
         email: "test@example.com",
         credits: 100,
@@ -157,6 +167,15 @@ describe("prisma", () => {
       vi.mocked(prisma.validation.create).mockResolvedValue({
         id: "val-123",
         email: "test@example.com",
+        score: 85,
+        status: "valid",
+        emailHash: null,
+        checksJson: {},
+        processingTimeMs: 0,
+        userId: null,
+        apiKeyId: null,
+        bulkJobId: null,
+        createdAt: new Date(),
       });
 
       const validation = await prisma.validation.create({
@@ -164,6 +183,8 @@ describe("prisma", () => {
           email: "test@example.com",
           score: 85,
           status: "valid",
+          checksJson: {},
+          processingTimeMs: 0,
         },
       });
 
@@ -174,18 +195,29 @@ describe("prisma", () => {
       const { prisma } = await import("@/lib/prisma");
       vi.mocked(prisma.bulkJob.create).mockResolvedValue({
         id: "job-123",
-        status: "pending",
+        status: "PENDING",
+        createdAt: new Date(),
+        userId: "user-123",
+        filename: "test.csv",
+        totalEmails: 100,
+        processed: 0,
+        emailsJson: null,
+        resultUrl: null,
+        reportUrl: null,
+        startedAt: null,
+        completedAt: null,
       });
 
       const job = await prisma.bulkJob.create({
         data: {
           userId: "user-123",
           filename: "test.csv",
-          total: 100,
+          totalEmails: 100,
+          emailsJson: "[]",
         },
       });
 
-      expect(job.status).toBe("pending");
+      expect(job.status).toBe("PENDING");
     });
   });
 
@@ -252,8 +284,6 @@ describe("prisma", () => {
 
     it("should decrypt access_token on Account findUnique", async () => {
       const { prisma } = await import("@/lib/prisma");
-      const { decryptToken } = await import("@/lib/crypto");
-
       vi.mocked(prisma.account.findUnique).mockResolvedValue({
         id: "account-1",
         access_token: "decrypted-token",

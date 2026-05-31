@@ -56,7 +56,7 @@ describe("reputationScorer", () => {
       const { redis } = await import("@/lib/redis");
       vi.mocked(redis.get).mockResolvedValue(null);
       // Mock fetch to return null (network failure)
-      vi.mocked(global.fetch).mockResolvedValue(null);
+      vi.mocked(global.fetch).mockResolvedValue(new Response(null, { status: 200 }));
 
       const result = await getDomainAge("random-domain.xyz");
 

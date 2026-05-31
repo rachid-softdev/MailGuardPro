@@ -1,14 +1,21 @@
 // API Route: Upload CSV pour traitement bulk
 // POST /api/v1/validate/bulk
 
-import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
-import { processBulkUpload } from "@/services/bulkProcessor";
 import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@/lib/auth";
+import { validateCsrfOrigin } from "@/lib/csrf";
+import { prisma } from "@/lib/prisma";
 import { checkRateLimitByPlan, Plan } from "@/lib/rateLimits";
+import { processBulkUpload } from "@/services/bulkProcessor";
 
 export async function POST(req: NextRequest) {
   try {
+    // CSRF protection
+    const csrf = validateCsrfOrigin(req);
+    if (!csrf.valid) {
+      return NextResponse.json({ success: false, error: csrf.error }, { status: 403 });
+    }
+
     // Authentification requise
     const session = await auth();
     if (!session?.user) {
@@ -25,8 +32,6 @@ export async function POST(req: NextRequest) {
     });
 
     // Limite selon le plan
-    const maxBatchSize = user?.plan === "PRO" || user?.plan === "BUSINESS" ? 100000 : 10000;
-
     // Rate limiting par plan
     const rateCheck = await checkRateLimitByPlan(
       session.user.id,
@@ -35,11 +40,14 @@ export async function POST(req: NextRequest) {
     );
 
     if (!rateCheck.success) {
-      return NextResponse.json({
-        success: false,
-        error: `Rate limit exceeded. Max ${rateCheck.limit} bulk jobs per hour.`,
-        retryAfter: rateCheck.resetAt,
-      }, { status: 429 });
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Rate limit exceeded. Max ${rateCheck.limit} bulk jobs per hour.`,
+          retryAfter: rateCheck.resetAt,
+        },
+        { status: 429 },
+      );
     }
 
     // Parser le multipart form
@@ -50,9 +58,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: "No file provided" }, { status: 400 });
     }
 
-    // Vérifier le type de fichier
-    if (!file.name.endsWith(".csv")) {
-      return NextResponse.json({ success: false, error: "File must be a CSV" }, { status: 400 });
+    // Vérifier le type de fichier (extension + MIME type)
+    const isCsvExtension = file.name.toLowerCase().endsWith(".csv");
+    const isCsvMime =
+      file.type === "text/csv" || file.type === "application/csv" || file.type === "";
+    // Note: file.type can be empty string in some environments (e.g., local dev)
+    if (!isCsvExtension || (!isCsvMime && file.type !== "")) {
+      return NextResponse.json(
+        { success: false, error: "File must be a CSV file" },
+        { status: 400 },
+      );
     }
 
     // Traiter le fichier

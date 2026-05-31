@@ -1,9 +1,9 @@
 // API Route: Historique des validations
 // GET /api/v1/validations
 
+import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(req: NextRequest) {
   try {
@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
       where.status = status;
     }
     if (search) {
-      where.email = { contains: search.toLowerCase() };
+      where.email = { startsWith: search.toLowerCase() };
     }
 
     // Fetch validations

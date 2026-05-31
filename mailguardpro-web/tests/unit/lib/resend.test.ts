@@ -25,9 +25,7 @@ describe("resend", () => {
   describe("sendEmail", () => {
     it("should send email successfully", async () => {
       const { sendEmail, resend: resendModule } = await import("@/lib/resend");
-      vi.mocked(resendModule.emails.send).mockResolvedValue({
-        id: "email-123",
-      });
+      vi.mocked(resendModule.emails.send).mockResolvedValue({ id: "email-123" } as any);
 
       const result = await sendEmail({
         to: "test@example.com",
@@ -54,9 +52,7 @@ describe("resend", () => {
 
     it("should use default from address", async () => {
       const { sendEmail, resend: resendModule } = await import("@/lib/resend");
-      vi.mocked(resendModule.emails.send).mockResolvedValue({
-        id: "email-123",
-      });
+      vi.mocked(resendModule.emails.send).mockResolvedValue({ id: "email-123" } as any);
 
       await sendEmail({
         to: "test@example.com",
@@ -72,9 +68,7 @@ describe("resend", () => {
 
     it("should include text content when provided", async () => {
       const { sendEmail, resend: resendModule } = await import("@/lib/resend");
-      vi.mocked(resendModule.emails.send).mockResolvedValue({
-        id: "email-123",
-      });
+      vi.mocked(resendModule.emails.send).mockResolvedValue({ id: "email-123" } as any);
 
       await sendEmail({
         to: "test@example.com",

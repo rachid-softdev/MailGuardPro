@@ -2,12 +2,14 @@
 // DELETE /api/v1/webhooks/[id]
 // PATCH /api/v1/webhooks/[id]
 
-import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
-import { validateWebhookUrlWithDns } from "@/lib/ssrf";
-import { AuditAction, AuditResource, logAudit } from "@/services/auditLogger";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import { auth } from "@/lib/auth";
+import { validateCsrfOrigin } from "@/lib/csrf";
+import { prisma } from "@/lib/prisma";
+import { checkRateLimitByPlan, type Plan } from "@/lib/rateLimits";
+import { parseJsonBody } from "@/lib/request";
+import { resolveWebhookIps, validateWebhookUrlWithDns } from "@/lib/ssrf";
 
 const updateWebhookSchema = z.object({
   url: z.string().url().optional(),
@@ -18,11 +20,34 @@ const updateWebhookSchema = z.object({
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    // CSRF protection
+    const csrf = validateCsrfOrigin(req);
+    if (!csrf.valid) {
+      return NextResponse.json({ success: false, error: csrf.error }, { status: 403 });
+    }
+
     const session = await auth();
     if (!session?.user?.id) {
       return NextResponse.json(
         { success: false, error: "Authentication required" },
         { status: 401 },
+      );
+    }
+
+    // Rate limit check
+    const rateCheck = await checkRateLimitByPlan(
+      session.user.id,
+      (session.user.plan as Plan) || "FREE",
+      "webhooks",
+    );
+    if (!rateCheck.success) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Rate limit exceeded. Please try again later.",
+          retryAfter: rateCheck.resetAt,
+        },
+        { status: 429 },
       );
     }
 
@@ -55,6 +80,12 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    // CSRF protection
+    const csrf = validateCsrfOrigin(req);
+    if (!csrf.valid) {
+      return NextResponse.json({ success: false, error: csrf.error }, { status: 403 });
+    }
+
     const session = await auth();
     if (!session?.user?.id) {
       return NextResponse.json(
@@ -63,16 +94,32 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       );
     }
 
+    // Rate limit check
+    const rateCheck = await checkRateLimitByPlan(
+      session.user.id,
+      (session.user.plan as Plan) || "FREE",
+      "webhooks",
+    );
+    if (!rateCheck.success) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Rate limit exceeded. Please try again later.",
+          retryAfter: rateCheck.resetAt,
+        },
+        { status: 429 },
+      );
+    }
+
     const { id } = await params;
-    const body = await req.json();
+    const { data: body, error: bodyError } = await parseJsonBody(req);
+    if (bodyError) return bodyError;
 
     // Validate input with Zod
     const validation = updateWebhookSchema.safeParse(body);
     if (!validation.success) {
-      return NextResponse.json(
-        { success: false, error: "Invalid input", details: validation.error.errors },
-        { status: 400 },
-      );
+      console.warn("[Validation] Input validation failed:", validation.error.errors);
+      return NextResponse.json({ success: false, error: "Invalid input" }, { status: 400 });
     }
 
     // Verify webhook ownership
@@ -86,6 +133,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
     const { url, events, name, isActive } = validation.data;
 
+    // Build update payload with only provided fields
+    const updateData: Record<string, unknown> = {};
+
     // If URL is being updated, perform SSRF validation with DNS
     if (url) {
       const ssrfCheck = await validateWebhookUrlWithDns(url);
@@ -95,10 +145,20 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
           { status: 400 },
         );
       }
+
+      // DNS Pinning : résoudre et stocker les nouvelles IPs
+      const webhookUrl = new URL(url);
+      const hostname = webhookUrl.hostname.toLowerCase().replace(/^\[|\]$/g, "");
+      const ipResolution = await resolveWebhookIps(hostname);
+      if (!ipResolution.valid || !ipResolution.ips) {
+        return NextResponse.json(
+          { success: false, error: `Webhook URL rejected: ${ipResolution.error}` },
+          { status: 400 },
+        );
+      }
+      updateData.pinnedIps = JSON.stringify(ipResolution.ips);
     }
 
-    // Build update payload with only provided fields
-    const updateData: Record<string, unknown> = {};
     if (url !== undefined) updateData.url = url;
     if (events !== undefined) updateData.events = events;
     if (name !== undefined) updateData.name = name;

@@ -2,7 +2,6 @@
 
 import { formatDistanceToNow } from "date-fns";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useCallback, useRef, useState } from "react";
 
 interface BulkJob {
@@ -16,7 +15,6 @@ interface BulkJob {
 }
 
 export default function BulkPage() {
-  const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [jobs, setJobs] = useState<BulkJob[]>([]);
   const [loading, setLoading] = useState(false);

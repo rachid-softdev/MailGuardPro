@@ -1,15 +1,24 @@
 // API Route: Subscribe to a plan
 // POST /api/v1/billing/subscribe
 
-import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
-import { getPlanFromPriceId, stripe } from "@/lib/stripe";
-import { AuditAction, AuditResource, logAudit } from "@/services/auditLogger";
+import crypto from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
+import { auth } from "@/lib/auth";
+import { validateCsrfOrigin } from "@/lib/csrf";
+import { prisma } from "@/lib/prisma";
+import { parseJsonBody } from "@/lib/request";
+import { getPlanFromPriceId, stripe } from "@/lib/stripe";
+import { AuditAction, AuditResource, logAudit } from "@/services/auditLogger";
 
 export async function POST(req: NextRequest) {
   try {
+    // CSRF protection
+    const csrf = validateCsrfOrigin(req);
+    if (!csrf.valid) {
+      return NextResponse.json({ success: false, error: csrf.error }, { status: 403 });
+    }
+
     // Validate Stripe configuration
     if (
       !process.env.STRIPE_STARTER_PRICE_ID ||
@@ -33,8 +42,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const body = await req.json();
-    const { priceId, paymentMethodId } = body;
+    const { data: body, error: bodyError } = await parseJsonBody(req);
+    if (bodyError) return bodyError;
+    const { priceId, paymentMethodId } = body as { priceId?: string; paymentMethodId?: string };
 
     if (!priceId || !paymentMethodId) {
       return NextResponse.json(
@@ -95,17 +105,21 @@ export async function POST(req: NextRequest) {
     });
 
     // Create subscription
-    const subscription = await stripe.subscriptions.create({
-      customer: customerId,
-      items: [
-        {
-          price: priceId,
-        },
-      ],
-      payment_behavior: "default_incomplete",
-      payment_settings: { save_default_payment_method: "on_subscription" },
-      expand: ["latest_invoice.payment_intent"],
-    });
+    const idempotencyKey = crypto.randomUUID();
+    const subscription = await stripe.subscriptions.create(
+      {
+        customer: customerId,
+        items: [
+          {
+            price: priceId,
+          },
+        ],
+        payment_behavior: "default_incomplete",
+        payment_settings: { save_default_payment_method: "on_subscription" },
+        expand: ["latest_invoice.payment_intent"],
+      },
+      { idempotencyKey: `mg-sub-${session.user.id}-${idempotencyKey}` },
+    );
 
     // Store subscription reference; plan will be set by webhook after payment confirmation
     await prisma.user.update({
@@ -131,9 +145,13 @@ export async function POST(req: NextRequest) {
     }
 
     const latestInvoice = subscription.latest_invoice;
-    const clientSecret =
+    const paymentIntent =
       typeof latestInvoice === "object" && latestInvoice !== null
-        ? (latestInvoice as Stripe.Invoice).payment_intent?.client_secret
+        ? (latestInvoice as Stripe.Invoice).payment_intent
+        : undefined;
+    const clientSecret =
+      typeof paymentIntent === "object" && paymentIntent !== null
+        ? paymentIntent.client_secret
         : undefined;
 
     return NextResponse.json({

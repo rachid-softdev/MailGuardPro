@@ -1,5 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+// Use actual crypto for proper HMAC/SHA256 behavior
+vi.mock("crypto", async () => {
+  const actual = await vi.importActual<typeof import("crypto")>("crypto");
+  return { ...actual, default: actual };
+});
+
 // crypto.ts needs TOKEN_ENCRYPTION_KEY and API_KEY_PEPPER at import time.
 // vitest.config.ts sets these as env vars globally.
 
@@ -80,16 +86,12 @@ describe("crypto utils", () => {
       expect(decrypted).toBe(original);
     });
 
-    it("should return plaintext when TOKEN_ENCRYPTION_KEY is not set (dev fallback)", async () => {
+    it("should throw when TOKEN_ENCRYPTION_KEY is not set (no plaintext fallback)", async () => {
       vi.stubEnv("TOKEN_ENCRYPTION_KEY", "");
       vi.resetModules();
-      const { encryptToken, decryptToken } = await import("@/lib/crypto");
+      const { encryptToken } = await import("@/lib/crypto");
 
-      const result = encryptToken("plaintext-in-dev");
-      expect(result).toBe("plaintext-in-dev");
-
-      const roundTrip = decryptToken(result);
-      expect(roundTrip).toBe("plaintext-in-dev");
+      expect(() => encryptToken("secret")).toThrow("TOKEN_ENCRYPTION_KEY");
     });
 
     it("should throw on decryption failure (tampered ciphertext)", async () => {
@@ -105,16 +107,15 @@ describe("crypto utils", () => {
       ).toThrow();
     });
 
-    it("should pass through unencrypted strings in decryptToken (not 3 parts)", async () => {
+    it("should throw for unencrypted strings (not 3 parts)", async () => {
       vi.stubEnv(
         "TOKEN_ENCRYPTION_KEY",
         "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789",
       );
       const { decryptToken } = await import("@/lib/crypto");
 
-      // Not encrypted - just a plain string (not 3 colon-separated parts)
-      const result = decryptToken("plain-not-encrypted");
-      expect(result).toBe("plain-not-encrypted");
+      expect(() => decryptToken("someplaintext")).toThrow("not in encrypted format");
+      expect(() => decryptToken("someplaintext")).toThrow("migrate-legacy-tokens");
     });
 
     it("should produce different ciphertexts for same plaintext (different IV)", async () => {
@@ -187,13 +188,15 @@ describe("crypto utils", () => {
 
     it("should produce different hashes with different peppers", async () => {
       vi.stubEnv("API_KEY_PEPPER", "pepper-a");
-      const modA = await import("@/lib/crypto");
+      const { hashApiKey } = await import("@/lib/crypto");
 
-      vi.resetModules();
+      const hashA = hashApiKey("same_key");
+
+      // Change pepper at runtime — hashApiKey reads env at call time via getPepper()
       vi.stubEnv("API_KEY_PEPPER", "pepper-b");
-      const modB = await import("@/lib/crypto");
+      const hashB = hashApiKey("same_key");
 
-      expect(modA.hashApiKey("same_key")).not.toBe(modB.hashApiKey("same_key"));
+      expect(hashA).not.toBe(hashB);
     });
   });
 

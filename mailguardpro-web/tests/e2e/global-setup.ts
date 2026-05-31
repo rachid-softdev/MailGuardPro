@@ -1,4 +1,4 @@
-import { type Browser, chromium } from "@playwright/test";
+import { chromium } from "@playwright/test";
 
 export default async function globalSetup() {
   // Setup for E2E tests

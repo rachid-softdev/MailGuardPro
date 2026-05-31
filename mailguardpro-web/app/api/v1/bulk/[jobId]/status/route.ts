@@ -1,11 +1,11 @@
 // API Route: Statut d'un job bulk
 // GET /api/v1/bulk/[jobId]/status
 
+import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { getBulkJobStatus } from "@/services/bulkProcessor";
-import { NextRequest, NextResponse } from "next/server";
 
-export async function GET(req: NextRequest, { params }: { params: Promise<{ jobId: string }> }) {
+export async function GET(_req: NextRequest, { params }: { params: Promise<{ jobId: string }> }) {
   try {
     const { jobId } = await params;
 

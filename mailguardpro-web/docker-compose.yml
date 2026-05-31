@@ -6,7 +6,7 @@ services:
     container_name: mailguard-postgres
     environment:
       POSTGRES_USER: mailguard
-      POSTGRES_PASSWORD: password
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
       POSTGRES_DB: mailguard
     ports:
       - "5432:5432"
@@ -25,11 +25,13 @@ services:
   redis:
     image: redis:7-alpine
     container_name: mailguard-redis
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD:?REDIS_PASSWORD is required}
     ports:
       - "6379:6379"
     volumes:
       - redis_data:/data
-    command: redis-server --appendonly yes
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -48,8 +50,8 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - DATABASE_URL=postgresql://mailguard:password@postgres:5432/mailguard
-      - REDIS_URL=redis://redis:6379
+      - DATABASE_URL=postgresql://mailguard:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/mailguard
+      - REDIS_URL=redis://:${REDIS_PASSWORD:?REDIS_PASSWORD is required}@redis:6379
       - NODE_ENV=production
     depends_on:
       postgres:
@@ -72,8 +74,8 @@ services:
       dockerfile: Dockerfile.worker
     container_name: mailguard-worker
     environment:
-      - DATABASE_URL=postgresql://mailguard:password@postgres:5432/mailguard
-      - REDIS_URL=redis://redis:6379
+      - DATABASE_URL=postgresql://mailguard:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/mailguard
+      - REDIS_URL=redis://:${REDIS_PASSWORD:?REDIS_PASSWORD is required}@redis:6379
       - NODE_ENV=production
     depends_on:
       postgres:

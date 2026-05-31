@@ -2,16 +2,18 @@
 // GET /api/v1/user/profile
 // PATCH /api/v1/user/profile
 
-import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import { auth } from "@/lib/auth";
+import { validateCsrfOrigin } from "@/lib/csrf";
+import { prisma } from "@/lib/prisma";
+import { parseJsonBody } from "@/lib/request";
 
 const updateProfileSchema = z.object({
   name: z.string().min(1).max(100).optional(),
 });
 
-export async function GET(req: NextRequest) {
+export async function GET(_req: NextRequest) {
   try {
     const session = await auth();
     if (!session?.user?.id) {
@@ -49,6 +51,12 @@ export async function GET(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   try {
+    // CSRF protection
+    const csrf = validateCsrfOrigin(req);
+    if (!csrf.valid) {
+      return NextResponse.json({ success: false, error: csrf.error }, { status: 403 });
+    }
+
     const session = await auth();
     if (!session?.user?.id) {
       return NextResponse.json(
@@ -57,13 +65,12 @@ export async function PATCH(req: NextRequest) {
       );
     }
 
-    const body = await req.json();
+    const { data: body, error: bodyError } = await parseJsonBody(req);
+    if (bodyError) return bodyError;
     const validation = updateProfileSchema.safeParse(body);
     if (!validation.success) {
-      return NextResponse.json(
-        { success: false, error: "Invalid input", details: validation.error.errors },
-        { status: 400 },
-      );
+      console.warn("[Validation] Input validation failed:", validation.error.errors);
+      return NextResponse.json({ success: false, error: "Invalid input" }, { status: 400 });
     }
     const { name } = validation.data;
 

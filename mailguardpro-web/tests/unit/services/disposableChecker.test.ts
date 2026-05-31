@@ -1,5 +1,5 @@
+import { describe, expect, it } from "vitest";
 import { checkDisposable, syncDisposableDomains } from "@/services/disposableChecker";
-import { beforeEach, describe, expect, it, vi } from "vitest";
 
 describe("disposableChecker", () => {
   describe("syncDisposableDomains", () => {
@@ -38,7 +38,7 @@ describe("disposableChecker", () => {
     it("should return failed for 10minutemail", async () => {
       const result = await checkDisposable("test@10minutemail.com");
       expect(result.passed).toBe(false);
-      expect(result.weight).toBe(10);
+      expect(result.weight).toBe(0);
     });
 
     it("should return failed for mailinator", async () => {

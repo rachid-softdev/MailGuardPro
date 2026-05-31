@@ -8,9 +8,10 @@ out/
 dist/
 build/
 
-# Environment
-.env
-.env*.local
+# Environment (catch all .env variants — use .env.example/.env.local.example for templates)
+.env*
+!.env.example
+!.env.local.example
 
 # IDE
 .idea/
@@ -28,6 +29,3 @@ Thumbs.db
 # Husky
 .husky/
 
-# Environment variants (prevent accidental commits)
-.env.development
-.env.production

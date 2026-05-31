@@ -1,50 +1,50 @@
-import Link from 'next/link'
-import { Metadata } from 'next'
+import { Metadata } from "next";
+import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: 'Documentation - MailGuard Pro',
-  description: 'Learn how to use MailGuard Pro API for email validation',
-}
+  title: "Documentation - MailGuard Pro",
+  description: "Learn how to use MailGuard Pro API for email validation",
+};
 
 export default function DocsPage() {
   const sections = [
     {
-      title: 'Getting Started',
-      description: 'Learn the basics of email validation',
-      href: '/docs/getting-started',
-      icon: '🚀',
+      title: "Getting Started",
+      description: "Learn the basics of email validation",
+      href: "/docs/getting-started",
+      icon: "🚀",
     },
     {
-      title: 'API Reference',
-      description: 'Complete API documentation with examples',
-      href: '/docs/api-reference',
-      icon: '📚',
+      title: "API Reference",
+      description: "Complete API documentation with examples",
+      href: "/docs/api-reference",
+      icon: "📚",
     },
     {
-      title: 'Authentication',
-      description: 'API keys and authentication methods',
-      href: '/docs/authentication',
-      icon: '🔐',
+      title: "Authentication",
+      description: "API keys and authentication methods",
+      href: "/docs/authentication",
+      icon: "🔐",
     },
     {
-      title: 'Webhooks',
-      description: 'Real-time notifications for events',
-      href: '/docs/webhooks',
-      icon: '🔗',
+      title: "Webhooks",
+      description: "Real-time notifications for events",
+      href: "/docs/webhooks",
+      icon: "🔗",
     },
     {
-      title: 'Pricing',
-      description: 'Plans and credit limits',
-      href: '/pricing',
-      icon: '💰',
+      title: "Pricing",
+      description: "Plans and credit limits",
+      href: "/pricing",
+      icon: "💰",
     },
     {
-      title: 'FAQ',
-      description: 'Frequently asked questions',
-      href: '/docs/faq',
-      icon: '❓',
+      title: "FAQ",
+      description: "Frequently asked questions",
+      href: "/docs/faq",
+      icon: "❓",
     },
-  ]
+  ];
 
   return (
     <div className="min-h-screen bg-[var(--bg-base)]">
@@ -66,8 +66,8 @@ export default function DocsPage() {
         <div className="max-w-[var(--container-lg)] mx-auto px-6 text-center">
           <h1 className="text-4xl font-display font-bold mb-4">Documentation</h1>
           <p className="text-lg text-[var(--text-secondary)] max-w-2xl mx-auto">
-            Everything you need to integrate MailGuard Pro into your applications.
-            From quick start guides to detailed API references.
+            Everything you need to integrate MailGuard Pro into your applications. From quick start
+            guides to detailed API references.
           </p>
         </div>
       </section>
@@ -83,12 +83,8 @@ export default function DocsPage() {
                 className="card hover:border-[var(--accent)] transition-colors"
               >
                 <div className="text-3xl mb-4">{section.icon}</div>
-                <h3 className="text-lg font-display font-semibold mb-2">
-                  {section.title}
-                </h3>
-                <p className="text-sm text-[var(--text-secondary)]">
-                  {section.description}
-                </p>
+                <h3 className="text-lg font-display font-semibold mb-2">{section.title}</h3>
+                <p className="text-sm text-[var(--text-secondary)]">{section.description}</p>
               </Link>
             ))}
           </div>
@@ -103,8 +99,8 @@ export default function DocsPage() {
             <h3 className="text-lg font-semibold mb-4">Validate your first email</h3>
             <pre className="bg-[var(--bg-subtle)] p-4 rounded-lg overflow-x-auto">
               <code className="text-sm">
-{`curl -X GET "https://api.mailguard.pro/v1/validate?email=test@example.com" \\
-  -H "X-API-Key: mg_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"`
+                {`curl -X GET "https://api.mailguard.pro/v1/validate?email=test@example.com" \\
+  -H "X-API-Key: mg_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 
 // Response:
 {
@@ -133,5 +129,5 @@ export default function DocsPage() {
         </div>
       </footer>
     </div>
-  )
+  );
 }

@@ -1,5 +1,5 @@
-import { checkFreeProvider, isCustomDomain } from "@/services/freeProviderChecker";
 import { describe, expect, it } from "vitest";
+import { checkFreeProvider, isCustomDomain } from "@/services/freeProviderChecker";
 
 describe("freeProviderChecker", () => {
   describe("checkFreeProvider", () => {

@@ -15,15 +15,17 @@
     "typecheck": "turbo run typecheck",
     "check": "pnpm run format:check && pnpm run lint && pnpm run typecheck",
     "prepare": "husky",
+    "test": "turbo run test",
     "web:dev": "pnpm --filter mailguardpro-web dev",
     "web:build": "pnpm --filter mailguardpro-web build",
     "web:start": "pnpm --filter mailguardpro-web start",
     "web:lint": "pnpm --filter mailguardpro-web lint",
     "web:typecheck": "pnpm --filter mailguardpro-web typecheck",
-    "check-env": "pnpm --filter mailguardpro-web check-env"
+    "check-env": "pnpm --filter mailguardpro-web check-env",
+    "db:generate": "pnpm --filter @mailguardpro/web db:generate"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.4.15",
+    "@biomejs/biome": "^2.4.16",
     "@commitlint/cli": "^21.0.1",
     "@commitlint/config-conventional": "^21.0.1",
     "@playwright/test": "^1.49.1",
@@ -31,7 +33,7 @@
     "@types/react": "^19.0.6",
     "@types/react-dom": "^19.0.2",
     "husky": "^9.1.7",
-    "lint-staged": "^15.3.0",
+    "lint-staged": "^17.0.5",
     "turbo": "^2.0.0",
     "typescript": "^5.7.2"
   },

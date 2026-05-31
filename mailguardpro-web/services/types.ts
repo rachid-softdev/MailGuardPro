@@ -2,9 +2,9 @@
 
 export interface CheckResult {
   passed: boolean;
-  weight: number;
   message: string;
   detail?: string;
+  weight?: number;
 }
 
 export interface ValidationChecks {

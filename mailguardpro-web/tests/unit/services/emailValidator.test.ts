@@ -1,5 +1,5 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { validateEmail, validateEmailQuick } from "@/services/emailValidator";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // Mock all the checker services
 vi.mock("@/services/formatChecker", () => ({
@@ -40,14 +40,21 @@ vi.mock("@/services/reputationScorer", () => ({
   getDomainReputation: vi.fn(),
 }));
 
+// Mock validationCache to prevent rate limiting
+vi.mock("@/services/validationCache", () => ({
+  getCachedValidation: vi.fn().mockResolvedValue(null),
+  setCachedValidation: vi.fn().mockResolvedValue(undefined),
+  checkEmailRateLimit: vi.fn().mockResolvedValue(true),
+}));
+
 // Mock dns/promises for catch-all check
 vi.mock("dns/promises", () => ({
   resolveMx: vi.fn(),
 }));
 
 import { checkDisposable } from "@/services/disposableChecker";
-import { checkDMARC, checkMX, checkSPF } from "@/services/dnsChecker";
 import { checkDNSBL } from "@/services/dnsblChecker";
+import { checkDMARC, checkMX, checkSPF } from "@/services/dnsChecker";
 import { checkFormat } from "@/services/formatChecker";
 import { checkFreeProvider } from "@/services/freeProviderChecker";
 import { checkGeneric } from "@/services/genericChecker";
@@ -99,7 +106,7 @@ describe("emailValidator", () => {
       weight: 0,
       message: "Business email",
     });
-    vi.mocked(checkTypo).mockReturnValue({
+    vi.mocked(checkTypo).mockResolvedValue({
       passed: true,
       weight: 0,
       message: "No typo",
@@ -109,7 +116,11 @@ describe("emailValidator", () => {
       weight: 0,
       message: "Not blacklisted",
     });
-    vi.mocked(getDomainReputation).mockResolvedValue({ ageInDays: 400 });
+    vi.mocked(getDomainReputation).mockResolvedValue({
+      name: "company.com",
+      ageInDays: 400,
+      reputation: "good",
+    });
   });
 
   describe("validateEmail", () => {
@@ -146,12 +157,12 @@ describe("emailValidator", () => {
     });
 
     it("should return risky status when typo is detected", async () => {
-      vi.mocked(checkTypo).mockReturnValue({
+      vi.mocked(checkTypo).mockResolvedValue({
         passed: false,
         weight: 0,
         message: "Possible typo",
         suggestion: "test@company.com",
-      });
+      } as any);
 
       const result = await validateEmail("test@compnay.com");
 
@@ -201,7 +212,7 @@ describe("emailValidator", () => {
     });
 
     it("should handle typo without affecting valid status when SMTP passes", async () => {
-      vi.mocked(checkTypo).mockReturnValue({
+      vi.mocked(checkTypo).mockResolvedValue({
         passed: false,
         weight: 0,
         message: "Typo detected",

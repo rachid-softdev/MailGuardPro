@@ -2,6 +2,7 @@
 // Cache les résultats de validation pour améliorer les performances
 
 import { checkRateLimit, redis } from "@/lib/redis";
+import { safeJsonParse } from "@/lib/safeJson";
 import { ValidationResult } from "./types";
 
 // TTL: 4 hours for validation results
@@ -17,7 +18,7 @@ export async function getCachedValidation(email: string): Promise<ValidationResu
   try {
     const cached = await redis.get(`validation:${email.toLowerCase()}`);
     if (cached) {
-      return JSON.parse(cached) as ValidationResult;
+      return safeJsonParse<ValidationResult>(cached);
     }
   } catch (error) {
     console.error("[ValidationCache] Get error:", error);
@@ -64,7 +65,7 @@ export async function getCachedDomainChecks(domain: string): Promise<{
   try {
     const cached = await redis.get(`domain-checks:${domain}`);
     if (cached) {
-      return JSON.parse(cached);
+      return safeJsonParse(cached);
     }
   } catch (error) {
     console.error("[ValidationCache] Get domain checks error:", error);
@@ -133,10 +134,7 @@ export async function clearAllValidationCaches(): Promise<number> {
     for (const pattern of patterns) {
       let cursor = 0;
       do {
-        const [nextCursor, keys] = await redis.scan(cursor, {
-          match: pattern,
-          count: 100,
-        });
+        const [nextCursor, keys] = await redis.scan(cursor, "MATCH", pattern, "COUNT", 100);
         cursor = parseInt(nextCursor, 10);
 
         if (keys.length > 0) {
@@ -152,6 +150,42 @@ export async function clearAllValidationCaches(): Promise<number> {
   return cleared;
 }
 
+export class InMemoryRateLimit {
+  private maxEntries: number;
+  private store: Map<string, { count: number; resetAt: number }>;
+  constructor(maxEntries = 100_000) {
+    this.maxEntries = maxEntries;
+    this.store = new Map();
+  }
+  /**
+   * Check rate limit for a key.
+   * Note: We intentionally do NOT re-insert the entry on hit (no delete+set).
+   * This means frequently-accessed keys inserted early are vulnerable to
+   * eviction under memory pressure. Acceptable trade-off: evict() is a
+   * memory safety valve, not a true LRU cache.
+   */
+  check(key: string, limit: number, windowMs: number): boolean {
+    const now = Date.now();
+    const entry = this.store.get(key);
+    if (!entry || now > entry.resetAt) {
+      this.store.set(key, { count: 1, resetAt: now + windowMs });
+      return true;
+    }
+    // Check limit BEFORE incrementing to prevent unbounded counter growth
+    if (entry.count >= limit) return false;
+    entry.count++;
+    return true;
+  }
+  evict(): void {
+    if (this.store.size <= this.maxEntries) return;
+    const toEvict = Math.floor(this.maxEntries * 0.1);
+    const keys = [...this.store.keys()];
+    for (let i = 0; i < toEvict && i < keys.length; i++) this.store.delete(keys[i]);
+  }
+}
+const memoryRateLimit = new InMemoryRateLimit();
+if (typeof setInterval !== "undefined") setInterval(() => memoryRateLimit.evict(), 60_000);
+
 /**
  * Per-email rate limiting to prevent enumeration attacks.
  * Allows 5 validation requests per email per hour.
@@ -162,6 +196,6 @@ export async function checkEmailRateLimit(email: string): Promise<boolean> {
     const result = await checkRateLimit(`smtp-rate:${email.toLowerCase()}`, 5, 3600);
     return result.success;
   } catch {
-    return true; // Fail open
+    return memoryRateLimit.check(`smtp-rate:${email.toLowerCase()}`, 5, 3_600_000);
   }
 }

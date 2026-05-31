@@ -1,10 +1,12 @@
 // API Route: Outil MX Lookup
 // GET /api/v1/tools/mx?domain=xxx
 
+import type { MxRecord } from "dns";
 import dns from "dns/promises";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { checkRateLimit } from "@/lib/redis";
+import { getClientIp } from "@/lib/ssrf";
 
 const querySchema = z.object({
   domain: z.string().min(1).max(253),
@@ -12,7 +14,7 @@ const querySchema = z.object({
 
 export async function GET(req: NextRequest) {
   try {
-    const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+    const ip = getClientIp(req);
     const rateCheck = await checkRateLimit(`tools:ip:${ip}`, 30, 60);
 
     if (!rateCheck.success) {
@@ -33,7 +35,7 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    let mxRecords: dns.MxRecord[] = [];
+    let mxRecords: MxRecord[] = [];
     let error: string | null = null;
 
     try {

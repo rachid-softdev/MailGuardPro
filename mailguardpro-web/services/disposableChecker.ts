@@ -1,6 +1,9 @@
 // Detection of disposable email domains
 
+import { SCORING_WEIGHTS } from "@/config/scoringWeights";
 import { redis } from "@/lib/redis";
+import { safeJsonParse } from "@/lib/safeJson";
+import { validateWebhookUrlWithDns } from "@/lib/ssrf";
 import { CheckResult } from "./types";
 
 // Liste de domaines jetables connus (subset populaire)
@@ -53,7 +56,7 @@ export async function checkDisposable(email: string): Promise<DisposableResult> 
   if (!domain) {
     return {
       passed: true,
-      weight: 10,
+      weight: SCORING_WEIGHTS.disposable.pass,
       message: "Domaine invalide",
     };
   }
@@ -65,7 +68,7 @@ export async function checkDisposable(email: string): Promise<DisposableResult> 
       const isDisposable = cached === "1";
       return {
         passed: !isDisposable,
-        weight: 10,
+        weight: isDisposable ? SCORING_WEIGHTS.disposable.fail : SCORING_WEIGHTS.disposable.pass,
         message: isDisposable ? "Email jetable" : "Email non-jetable",
         detail: isDisposable ? `Domaine ${domain} connu comme jetable` : undefined,
         provider: cached === "1" ? "cache" : undefined,
@@ -86,42 +89,11 @@ export async function checkDisposable(email: string): Promise<DisposableResult> 
 
     return {
       passed: false,
-      weight: 10,
+      weight: SCORING_WEIGHTS.disposable.fail,
       message: "Email jetable",
       detail: `${domain} est un domaine d'email temporaire connu`,
       provider: "builtin-list",
     };
-  }
-
-  // 3. Optional: check external blocklist
-  // (disabled by default to avoid latency, enable if needed)
-  try {
-    const response = await fetch(DISPOSABLE_LIST_URL, {
-      next: { revalidate: 86400 }, // Cache 24h
-    });
-    if (response.ok) {
-      const text = await response.text();
-      const domains = new Set(
-        text
-          .split("\n")
-          .map((d) => d.trim().toLowerCase())
-          .filter(Boolean),
-      );
-
-      if (domains.has(domain)) {
-        await redis.setex(`disposable:${domain}`, 86400, "1");
-        return {
-          passed: false,
-          weight: 10,
-          message: "Email jetable",
-          detail: `Domain found in disposable email list`,
-          provider: "blocklist",
-        };
-      }
-    }
-  } catch (error) {
-    // Don't block if external list fails
-    console.warn("Failed to fetch disposable domains list:", error);
   }
 
   // Not found -> not disposable
@@ -133,16 +105,55 @@ export async function checkDisposable(email: string): Promise<DisposableResult> 
 
   return {
     passed: true,
-    weight: 10,
+    weight: SCORING_WEIGHTS.disposable.pass,
     message: "Email non-jetable",
     detail: undefined,
   };
 }
 
-// Function to sync the blocklist (called by cron)
-export async function syncDisposableDomains(): Promise<{ added: number }> {
+let initialized = false;
+export async function initializeDisposableDomains(): Promise<void> {
+  if (initialized) return;
+  initialized = true;
   try {
-    const response = await fetch(DISPOSABLE_LIST_URL);
+    const cached = await redis.get("disposable:sync:all");
+    if (cached) {
+      const domains: string[] = safeJsonParse<string[]>(cached);
+      for (const domain of domains) KNOWN_DISPOSABLE_DOMAINS.add(domain);
+      console.log(`[Disposable] Loaded ${domains.length} domains from Redis cache`);
+      return;
+    }
+  } catch {}
+  const result = await syncDisposableDomains();
+  if (result.added > 0) {
+    console.log(`[Disposable] Synced ${result.added} domains`);
+    try {
+      await redis.setex(
+        "disposable:sync:all",
+        86400,
+        JSON.stringify([...KNOWN_DISPOSABLE_DOMAINS]),
+      );
+    } catch {}
+  }
+}
+
+// Function to sync the blocklist (called by cron)
+export async function syncDisposableDomains(url?: string): Promise<{ added: number }> {
+  const targetUrl = url || DISPOSABLE_LIST_URL;
+
+  // SSRF protection: si l'URL est personnalisée, valider avec DNS
+  if (url) {
+    const validation = await validateWebhookUrlWithDns(url);
+    if (!validation.valid) {
+      console.error(`[Disposable] SSRF validation failed for custom URL: ${validation.error}`);
+      return { added: 0 };
+    }
+  }
+
+  try {
+    const response = await fetch(targetUrl, {
+      signal: AbortSignal.timeout(10000),
+    });
     if (!response.ok) {
       throw new Error("Failed to fetch list");
     }

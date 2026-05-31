@@ -51,17 +51,17 @@ describe("stripe", () => {
   describe("getPlanFromPriceId", () => {
     it("should return STARTER for STARTER price", async () => {
       const { getPlanFromPriceId, PRICES } = await import("@/lib/stripe");
-      expect(getPlanFromPriceId(PRICES.STARTER)).toBe("STARTER");
+      expect(getPlanFromPriceId(PRICES.STARTER!)).toBe("STARTER");
     });
 
     it("should return PRO for PRO price", async () => {
       const { getPlanFromPriceId, PRICES } = await import("@/lib/stripe");
-      expect(getPlanFromPriceId(PRICES.PRO)).toBe("PRO");
+      expect(getPlanFromPriceId(PRICES.PRO!)).toBe("PRO");
     });
 
     it("should return BUSINESS for BUSINESS price", async () => {
       const { getPlanFromPriceId, PRICES } = await import("@/lib/stripe");
-      expect(getPlanFromPriceId(PRICES.BUSINESS)).toBe("BUSINESS");
+      expect(getPlanFromPriceId(PRICES.BUSINESS!)).toBe("BUSINESS");
     });
 
     it("should return null for unknown price", async () => {
@@ -71,16 +71,14 @@ describe("stripe", () => {
   });
 
   describe("default price IDs", () => {
-    it("should use default if env vars not set", async () => {
+    it("should throw if env vars not set", async () => {
       vi.resetModules();
       delete process.env.STRIPE_STARTER_PRICE_ID;
       delete process.env.STRIPE_PRO_PRICE_ID;
       delete process.env.STRIPE_BUSINESS_PRICE_ID;
 
-      const { PRICES } = await import("@/lib/stripe");
-      expect(PRICES.STARTER).toBe("price_starter_monthly");
-      expect(PRICES.PRO).toBe("price_pro_monthly");
-      expect(PRICES.BUSINESS).toBe("price_business_monthly");
+      // Use vi.importActual to bypass the module mock and load the real module
+      await expect(vi.importActual("@/lib/stripe")).rejects.toThrow("STRIPE_STARTER_PRICE_ID");
     });
   });
 });

@@ -9,7 +9,7 @@ vi.mock("@/services/emailValidator", () => ({
   validateEmail: mockValidateEmail,
 }));
 
-import { LeadFinderInput, findLeadEmail, findLeadEmails } from "@/services/leadFinder";
+import { findLeadEmail, findLeadEmails, LeadFinderInput } from "@/services/leadFinder";
 
 describe("leadFinder", () => {
   beforeEach(() => {
@@ -108,7 +108,7 @@ describe("leadFinder", () => {
         } as any;
       });
 
-      const result = await findLeadEmail(baseInput);
+      await findLeadEmail(baseInput);
 
       // Should not have tried contact@ or info@ patterns
       expect(

@@ -1,5 +1,5 @@
-import { isIP } from "net";
 import dns from "dns/promises";
+import { isIP } from "net";
 
 const IPV4_MAPPED_IPV6_RE = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/;
 
@@ -98,6 +98,7 @@ export function validateWebhookUrl(urlString: string): {
 export async function validateWebhookUrlWithDns(urlString: string): Promise<{
   valid: boolean;
   error?: string;
+  resolvedIps?: string[];
 }> {
   const baseCheck = validateWebhookUrl(urlString);
   if (!baseCheck.valid) {
@@ -150,7 +151,57 @@ export async function validateWebhookUrlWithDns(urlString: string): Promise<{
     }
   }
 
-  return { valid: true };
+  return { valid: true, resolvedIps };
+}
+
+/**
+ * Résout un hostname, valide les IPs, et retourne la liste des IPs valides.
+ * Utilisé pour le DNS pinning : les IPs sont stockées en DB à la création
+ * et comparées au moment du dispatch pour prévenir le DNS rebinding.
+ *
+ * Retourne un tableau d'IPs (string[]) ou une erreur.
+ */
+export async function resolveWebhookIps(hostname: string): Promise<{
+  valid: boolean;
+  ips?: string[];
+  error?: string;
+}> {
+  const normalizedHostname = hostname.toLowerCase().replace(/^\[|\]$/g, "");
+
+  // Rejeter si c'est une IP directe (on exige un nom de domaine)
+  if (isIP(normalizedHostname) !== 0) {
+    return { valid: false, error: "Domain names only, no direct IP addresses" };
+  }
+
+  // Résoudre IPv4 avec fallback IPv6
+  let resolvedIps: string[];
+  try {
+    resolvedIps = await dns.resolve4(normalizedHostname);
+  } catch {
+    try {
+      resolvedIps = await dns.resolve6(normalizedHostname);
+    } catch {
+      return { valid: false, error: `Cannot resolve hostname: ${normalizedHostname}` };
+    }
+  }
+
+  if (resolvedIps.length === 0) {
+    try {
+      resolvedIps = await dns.resolve6(normalizedHostname);
+    } catch {
+      return { valid: false, error: `Cannot resolve hostname: ${normalizedHostname}` };
+    }
+  }
+
+  // Valider chaque IP
+  for (const ip of resolvedIps) {
+    const ipCheck = validateResolvedIp(ip);
+    if (!ipCheck.valid) {
+      return { valid: false, error: `Blocked IP: ${ip} - ${ipCheck.error}` };
+    }
+  }
+
+  return { valid: true, ips: resolvedIps };
 }
 
 /**
@@ -158,15 +209,35 @@ export async function validateWebhookUrlWithDns(urlString: string): Promise<{
  * Parses X-Forwarded-For chain and takes the first valid IP.
  */
 export function getClientIp(req: { headers: Headers | Map<string, string> }): string {
+  // 1. X-Real-IP (set by Nginx/Cloudflare, more trustworthy)
+  const realIp =
+    typeof req.headers.get === "function"
+      ? req.headers.get("x-real-ip")
+      : (req.headers as Map<string, string>).get("x-real-ip");
+  if (realIp && isIP(realIp) !== 0) return realIp;
+
+  // 2. CF-Connecting-IP (Cloudflare)
+  const cfIp =
+    typeof req.headers.get === "function"
+      ? req.headers.get("cf-connecting-ip")
+      : (req.headers as Map<string, string>).get("cf-connecting-ip");
+  if (cfIp && isIP(cfIp) !== 0) return cfIp;
+
+  // 3. X-Forwarded-For — take the LAST IP (closest to server)
   const xff =
     typeof req.headers.get === "function"
       ? req.headers.get("x-forwarded-for")
       : (req.headers as Map<string, string>).get("x-forwarded-for");
   if (xff) {
-    const ips = xff.split(",").map((s: string) => s.trim());
-    for (const ip of ips) {
-      if (isIP(ip) !== 0) return ip;
+    const ips = xff
+      .split(",")
+      .map((s: string) => s.trim())
+      .filter(Boolean);
+    // Take the last valid IP (after proxies)
+    for (let i = ips.length - 1; i >= 0; i--) {
+      if (isIP(ips[i]) !== 0) return ips[i];
     }
   }
+
   return "unknown";
 }

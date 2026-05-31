@@ -3,15 +3,24 @@
 import { Job, Worker } from "bullmq";
 import Redis from "ioredis";
 import { prisma } from "../lib/prisma";
+import { safeJsonParse } from "../lib/safeJson";
 import { validateEmail } from "../services/emailValidator";
 import {
+  createBulkJobCompletedPayload,
   WEBHOOK_EVENTS,
   WebhookDispatcher,
-  createBulkJobCompletedPayload,
 } from "../services/webhookDispatcher";
 
 // Configuration Redis pour le worker
-const connection = new Redis(process.env.REDIS_URL || "redis://localhost:6379", {
+const rawRedisUrl = process.env.REDIS_URL || "redis://localhost:6379";
+const parsedWorkerUrl = new URL(rawRedisUrl);
+
+const connection = new Redis({
+  host: parsedWorkerUrl.hostname || "localhost",
+  port: parseInt(parsedWorkerUrl.port) || 6379,
+  username: parsedWorkerUrl.username || undefined,
+  password: parsedWorkerUrl.password || undefined,
+  tls: parsedWorkerUrl.protocol === "rediss:" ? {} : undefined,
   maxRetriesPerRequest: null, // Nécessaire pour BullMQ
 });
 
@@ -30,21 +39,27 @@ const worker = new Worker<BulkJobData>(
 
     console.log(`[Worker] Starting job ${jobId} for ${totalEmails} emails`);
 
-    // Récupérer les données des emails depuis Redis
-    const jobDataKey = `bulk:job:${jobId}:data`;
-    // Using 'connection' from outer scope
+    // Récupérer les données des emails depuis la base de données (outbox pattern)
+    const bulkJobRecord = await prisma.bulkJob.findUnique({
+      where: { id: jobId },
+      select: { emailsJson: true, processed: true },
+    });
 
-    const dataStr = await connection.get(jobDataKey);
-    if (!dataStr) {
-      throw new Error(`No data found for job ${jobId}`);
+    if (!bulkJobRecord?.emailsJson) {
+      throw new Error(`No email data found for job ${jobId}`);
     }
 
-    const emails = JSON.parse(dataStr) as {
-      email: string;
-      firstName?: string;
-      lastName?: string;
-      company?: string;
-    }[];
+    const emails = safeJsonParse<
+      {
+        email: string;
+        firstName?: string;
+        lastName?: string;
+        company?: string;
+      }[]
+    >(bulkJobRecord.emailsJson);
+
+    // Resume support: skip already-processed emails
+    const startIndex = bulkJobRecord.processed || 0;
 
     // Mettre à jour le statut du job
     await prisma.bulkJob.update({
@@ -52,7 +67,7 @@ const worker = new Worker<BulkJobData>(
       data: { status: "PROCESSING", startedAt: new Date() },
     });
 
-    let processed = 0;
+    let processed = startIndex;
     const results = {
       valid: 0,
       invalid: 0,
@@ -60,8 +75,9 @@ const worker = new Worker<BulkJobData>(
       unknown: 0,
     };
 
-    // Traiter chaque email
-    for (const emailData of emails) {
+    // Traiter chaque email (resume support: skip already-processed emails)
+    for (let i = startIndex; i < emails.length; i++) {
+      const emailData = emails[i];
       try {
         const validation = await validateEmail(emailData.email);
 
@@ -127,9 +143,6 @@ const worker = new Worker<BulkJobData>(
         completedAt: new Date(),
       },
     });
-
-    // Nettoyer Redis
-    await connection.del(jobDataKey);
 
     // Dispatcher les webhooks
     try {

@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 // Since we can't easily install @testing-library/react, we'll test the
 // ErrorFallback component logic through a simpler approach

@@ -1,6 +1,6 @@
-import { checkDMARC, checkMX, checkSPF, getDomainInfo } from "@/services/dnsChecker";
 import * as dns from "dns/promises";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { checkDMARC, checkMX, checkSPF, getDomainInfo } from "@/services/dnsChecker";
 
 // Mock dns/promises
 vi.mock("dns/promises", () => {
@@ -46,7 +46,7 @@ describe("dnsChecker", () => {
 
       expect(result.passed).toBe(false);
       expect(result.message).toBe("Aucun enregistrement MX trouvé");
-      expect(result.weight).toBe(25);
+      expect(result.weight).toBe(0);
     });
 
     it("should sort MX records by priority", async () => {

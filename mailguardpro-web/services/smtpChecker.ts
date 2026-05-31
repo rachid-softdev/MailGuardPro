@@ -1,28 +1,55 @@
 // SMTP check - actual connection to mail server
 
-import net from "net";
-import { redis } from "@/lib/redis";
-import { validateResolvedIp } from "@/lib/ssrf";
+import type { MxRecord } from "dns";
 import dns from "dns/promises";
+import net from "net";
+import { SCORING_WEIGHTS } from "@/config/scoringWeights";
+import { redis } from "@/lib/redis";
+import { safeJsonParse } from "@/lib/safeJson";
+import { validateResolvedIp } from "@/lib/ssrf";
 import { CheckResult } from "./types";
 
 interface SMTPResult extends CheckResult {
   code?: string;
 }
 
-function connectWithTimeout(host: string, port: number, timeout: number): Promise<net.Socket> {
+/**
+ * Normalize an IP address — handles IPv4-mapped IPv6 (::ffff:x.x.x.x → x.x.x.x).
+ */
+export function normalizeIp(ip: string): string {
+  const v4MappedMatch = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/.exec(ip);
+  return v4MappedMatch ? v4MappedMatch[1] : ip;
+}
+
+/**
+ * Connect to an already-resolved IP address with DNS rebinding protection.
+ * Verifies that the socket's remoteAddress matches the expected IP after connection.
+ */
+export function connectWithResolvedIp(
+  ip: string,
+  port: number,
+  timeout: number,
+): Promise<net.Socket> {
   return new Promise((resolve, reject) => {
     const socket = new net.Socket();
     socket.setTimeout(timeout);
 
-    socket.on("connect", () => resolve(socket));
+    socket.on("connect", () => {
+      const connectedIp = normalizeIp(socket.remoteAddress || "");
+      if (connectedIp !== ip) {
+        socket.destroy();
+        reject(new Error(`DNS rebinding detected: connected to ${connectedIp}, expected ${ip}`));
+        return;
+      }
+      resolve(socket);
+    });
     socket.on("timeout", () => {
       socket.destroy();
       reject(new Error("SMTP connection timeout"));
     });
     socket.on("error", reject);
 
-    socket.connect(port, host);
+    socket.connect(port, ip);
   });
 }
 
@@ -88,7 +115,7 @@ export async function checkSMTP(email: string, timeoutMs = 5000): Promise<SMTPRe
     const cacheKey = `smtp:email:${email}`;
     const cached = await redis.get(cacheKey);
     if (cached) {
-      return JSON.parse(cached) as SMTPResult;
+      return safeJsonParse<SMTPResult>(cached);
     }
   } catch (err) {
     console.warn("[SMTP] Redis unavailable, proceeding without cache:", err);
@@ -99,13 +126,13 @@ export async function checkSMTP(email: string, timeoutMs = 5000): Promise<SMTPRe
 
   try {
     // 1. Resolve MX records
-    let mxRecords: dns.MxRecord[] = [];
+    let mxRecords: MxRecord[] = [];
     try {
       mxRecords = await dns.resolveMx(domain);
     } catch {
       return await cacheSmtpResult(email, {
         passed: false,
-        weight: 30,
+        weight: SCORING_WEIGHTS.smtp.fail,
         message: "SMTP: domain not resolved",
         detail: "Unable to resolve MX records",
       });
@@ -114,7 +141,7 @@ export async function checkSMTP(email: string, timeoutMs = 5000): Promise<SMTPRe
     if (!mxRecords || mxRecords.length === 0) {
       return await cacheSmtpResult(email, {
         passed: false,
-        weight: 30,
+        weight: SCORING_WEIGHTS.smtp.fail,
         message: "SMTP: no MX record",
         detail: "No MX server found for this domain",
       });
@@ -135,7 +162,7 @@ export async function checkSMTP(email: string, timeoutMs = 5000): Promise<SMTPRe
       } catch {
         return await cacheSmtpResult(email, {
           passed: false,
-          weight: 30,
+          weight: SCORING_WEIGHTS.smtp.fail,
           message: "SMTP: MX resolution failed",
           detail: `Unable to resolve IP address for ${mxHost}`,
         });
@@ -145,7 +172,7 @@ export async function checkSMTP(email: string, timeoutMs = 5000): Promise<SMTPRe
     if (resolvedIps.length === 0) {
       return await cacheSmtpResult(email, {
         passed: false,
-        weight: 30,
+        weight: SCORING_WEIGHTS.smtp.fail,
         message: "SMTP: no IP resolved",
         detail: `No IP address found for ${mxHost}`,
       });
@@ -157,7 +184,7 @@ export async function checkSMTP(email: string, timeoutMs = 5000): Promise<SMTPRe
       if (!ipCheck.valid) {
         return await cacheSmtpResult(email, {
           passed: false,
-          weight: 30,
+          weight: SCORING_WEIGHTS.smtp.fail,
           message: "SMTP: server not allowed",
           detail: ipCheck.error,
         });
@@ -172,7 +199,7 @@ export async function checkSMTP(email: string, timeoutMs = 5000): Promise<SMTPRe
     for (const ip of ipsToTry) {
       for (const port of [25, 587]) {
         try {
-          socket = await connectWithTimeout(ip, port, timeoutMs);
+          socket = await connectWithResolvedIp(ip, port, timeoutMs);
           break;
         } catch (error) {
           lastError = error as Error;
@@ -185,7 +212,7 @@ export async function checkSMTP(email: string, timeoutMs = 5000): Promise<SMTPRe
     if (!socket) {
       return await cacheSmtpResult(email, {
         passed: false,
-        weight: 30,
+        weight: SCORING_WEIGHTS.smtp.fail,
         message: "SMTP: connection failed",
         detail: `Unable to connect to mail server: ${lastError?.message}`,
       });
@@ -198,7 +225,7 @@ export async function checkSMTP(email: string, timeoutMs = 5000): Promise<SMTPRe
         socket.destroy();
         return await cacheSmtpResult(email, {
           passed: false,
-          weight: 30,
+          weight: SCORING_WEIGHTS.smtp.fail,
           message: "SMTP: server refused connection",
           detail: `Non-220 banner received: ${banner}`,
         });
@@ -216,7 +243,7 @@ export async function checkSMTP(email: string, timeoutMs = 5000): Promise<SMTPRe
       if (!mailResponse.startsWith("250")) {
         return await cacheSmtpResult(email, {
           passed: false,
-          weight: 30,
+          weight: SCORING_WEIGHTS.smtp.fail,
           message: "SMTP: sender rejected",
           detail: mailResponse,
         });
@@ -235,7 +262,7 @@ export async function checkSMTP(email: string, timeoutMs = 5000): Promise<SMTPRe
         // Server accepted the email
         return await cacheSmtpResult(email, {
           passed: true,
-          weight: 30,
+          weight: SCORING_WEIGHTS.smtp.pass,
           message: "Email deliverable",
           detail: "The server accepted the email for delivery",
           code: "250",
@@ -244,7 +271,7 @@ export async function checkSMTP(email: string, timeoutMs = 5000): Promise<SMTPRe
         // Mailbox does not exist
         return await cacheSmtpResult(email, {
           passed: false,
-          weight: 30,
+          weight: SCORING_WEIGHTS.smtp.fail,
           message: "Mailbox does not exist",
           detail: rcptResponse,
           code: "550",
@@ -253,7 +280,7 @@ export async function checkSMTP(email: string, timeoutMs = 5000): Promise<SMTPRe
         // Invalid address
         return await cacheSmtpResult(email, {
           passed: false,
-          weight: 30,
+          weight: SCORING_WEIGHTS.smtp.fail,
           message: "Invalid address",
           detail: rcptResponse,
           code: "553",
@@ -262,7 +289,7 @@ export async function checkSMTP(email: string, timeoutMs = 5000): Promise<SMTPRe
         // Temporarily unavailable
         return await cacheSmtpResult(email, {
           passed: false,
-          weight: 30,
+          weight: SCORING_WEIGHTS.smtp.fail,
           message: "Server temporarily unavailable",
           detail: rcptResponse,
           code: "452",
@@ -271,7 +298,7 @@ export async function checkSMTP(email: string, timeoutMs = 5000): Promise<SMTPRe
         // Uncertain status
         return await cacheSmtpResult(email, {
           passed: false,
-          weight: 30,
+          weight: SCORING_WEIGHTS.smtp.fail,
           message: "Uncertain status",
           detail: rcptResponse,
         });
@@ -283,7 +310,7 @@ export async function checkSMTP(email: string, timeoutMs = 5000): Promise<SMTPRe
   } catch (error) {
     return await cacheSmtpResult(email, {
       passed: false,
-      weight: 30,
+      weight: SCORING_WEIGHTS.smtp.fail,
       message: "SMTP error",
       detail: error instanceof Error ? error.message : "SMTP connection error",
     });

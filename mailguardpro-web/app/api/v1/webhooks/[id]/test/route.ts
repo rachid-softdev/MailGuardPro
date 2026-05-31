@@ -2,14 +2,21 @@
 // POST /api/v1/webhooks/[id]/test
 
 import crypto from "crypto";
+import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { decryptToken } from "@/lib/crypto";
+import { validateCsrfOrigin } from "@/lib/csrf";
 import { prisma } from "@/lib/prisma";
 import { validateWebhookUrlWithDns } from "@/lib/ssrf";
-import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    // CSRF protection
+    const csrf = validateCsrfOrigin(req);
+    if (!csrf.valid) {
+      return NextResponse.json({ success: false, error: csrf.error }, { status: 403 });
+    }
+
     const session = await auth();
     if (!session?.user?.id) {
       return NextResponse.json(

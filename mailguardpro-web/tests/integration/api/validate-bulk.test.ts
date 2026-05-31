@@ -1,6 +1,6 @@
+import { NextRequest } from "next/server";
+import { describe, expect, it, vi } from "vitest";
 import { POST } from "@/app/api/v1/validate/bulk/route";
-import { NextRequest, NextResponse } from "next/server";
-import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // Mock dependencies
 vi.mock("@/lib/auth", () => ({
@@ -64,7 +64,7 @@ describe.skip("/api/v1/validate/bulk", () => {
 
     it("should return 401 when not authenticated", async () => {
       const { auth } = await import("@/lib/auth");
-      vi.mocked(auth).mockResolvedValueOnce(null);
+      vi.mocked(auth).mockResolvedValueOnce(null as any);
 
       const req = createFormRequest("email\ntest@example.com");
 

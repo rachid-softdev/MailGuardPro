@@ -1,6 +1,6 @@
-import { checkCatchAll, checkCatchAllQuick } from "@/services/catchAllChecker";
 import * as dns from "dns/promises";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { checkCatchAll, checkCatchAllQuick } from "@/services/catchAllChecker";
 
 // Mock the dns module
 vi.mock("dns/promises", () => {
@@ -26,7 +26,7 @@ describe("catchAllChecker", () => {
       const result = await checkCatchAll("nodomain.com");
 
       expect(result.passed).toBe(true);
-      expect(result.weight).toBe(5);
+      expect(result.weight).toBe(10);
       expect(result.message).toBe("Pas de MX record");
     });
 
@@ -57,7 +57,7 @@ describe("catchAllChecker", () => {
 
       expect(result.passed).toBe(false);
       expect(result.message).toBe("Domaine potentiellement catch-all");
-      expect(result.weight).toBe(10);
+      expect(result.weight).toBe(0);
     });
 
     it("should handle DNS resolution errors gracefully", async () => {
@@ -67,7 +67,7 @@ describe("catchAllChecker", () => {
 
       expect(result.passed).toBe(true);
       expect(result.message).toBe("Vérification impossible");
-      expect(result.weight).toBe(5);
+      expect(result.weight).toBe(10);
     });
 
     it("should sort MX records by priority", async () => {

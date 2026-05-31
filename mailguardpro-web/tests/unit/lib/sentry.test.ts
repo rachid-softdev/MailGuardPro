@@ -21,14 +21,12 @@ vi.mock("@sentry/nextjs", () => ({
 }));
 
 describe("sentry", () => {
-  const originalEnv = process.env.NODE_ENV;
-
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
   afterEach(() => {
-    process.env.NODE_ENV = originalEnv;
+    vi.unstubAllEnvs();
   });
 
   describe("initSentry", () => {
@@ -37,18 +35,18 @@ describe("sentry", () => {
     });
 
     it("should not throw in development", () => {
-      process.env.NODE_ENV = "development";
+      vi.stubEnv("NODE_ENV", "development");
       expect(() => SentryModule.initSentry()).not.toThrow();
     });
 
     it("should not throw without SENTRY_DSN", () => {
-      process.env.NODE_ENV = "production";
+      vi.stubEnv("NODE_ENV", "production");
       delete process.env.SENTRY_DSN;
       expect(() => SentryModule.initSentry()).not.toThrow();
     });
 
     it("should initialize in production with DSN", () => {
-      process.env.NODE_ENV = "production";
+      vi.stubEnv("NODE_ENV", "production");
       process.env.SENTRY_DSN = "https://test@sentry.io/123";
       expect(() => SentryModule.initSentry()).not.toThrow();
     });
@@ -72,7 +70,7 @@ describe("sentry", () => {
     });
 
     it("should call Sentry.captureMessage in production", async () => {
-      process.env.NODE_ENV = "production";
+      vi.stubEnv("NODE_ENV", "production");
       const Sentry = await import("@sentry/nextjs");
       SentryModule.captureMessage("test message", "error", { key: "value" });
       expect(Sentry.captureMessage).toHaveBeenCalled();

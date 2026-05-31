@@ -1,25 +1,23 @@
 // Types globaux pour NextAuth
 
-import "next-auth";
+import { type DefaultSession } from "next-auth";
 
 declare module "next-auth" {
   interface Session {
     user: {
       id: string;
-      name?: string | null;
-      email?: string | null;
-      image?: string | null;
       plan: "FREE" | "STARTER" | "PRO" | "BUSINESS";
       credits: number;
       role: "USER" | "ADMIN";
-    };
+      isActive: boolean;
+      tokenVersion: number;
+      roles: ("USER" | "ADMIN")[];
+    } & DefaultSession["user"];
   }
 
   interface User {
-    id: string;
-    plan?: "FREE" | "STARTER" | "PRO" | "BUSINESS";
-    credits?: number;
-    role?: "USER" | "ADMIN";
+    tokenVersion: number;
+    roles?: ("USER" | "ADMIN")[];
   }
 }
 
@@ -29,5 +27,6 @@ declare module "next-auth/jwt" {
     plan?: "FREE" | "STARTER" | "PRO" | "BUSINESS";
     credits?: number;
     role?: "USER" | "ADMIN";
+    roles?: ("USER" | "ADMIN")[];
   }
 }

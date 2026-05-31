@@ -1,10 +1,10 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   getClientIp,
   validateResolvedIp,
   validateWebhookUrl,
   validateWebhookUrlWithDns,
 } from "@/lib/ssrf";
-import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // Mock dns/promises to control DNS resolution in validateWebhookUrlWithDns
 // Source uses: import dns from "dns/promises"  (default import)
@@ -269,15 +269,58 @@ describe("validateWebhookUrlWithDns", () => {
 
   it("should validate a valid public domain that resolves to public IPs", async () => {
     const dns = await import("dns/promises");
-    dns.default.resolve4.mockResolvedValue(["93.184.216.34"]);
+    vi.mocked(dns.default.resolve4).mockResolvedValue(["93.184.216.34"]);
 
     const result = await validateWebhookUrlWithDns("https://example.com/hook");
     expect(result.valid).toBe(true);
   });
 
+  it("should return resolvedIps for a valid domain (M-1 fix)", async () => {
+    const dns = await import("dns/promises");
+    vi.mocked(dns.default.resolve4).mockResolvedValue(["93.184.216.34", "93.184.216.35"]);
+
+    const result = await validateWebhookUrlWithDns("https://example.com/hook");
+    expect(result.valid).toBe(true);
+    expect(result.resolvedIps).toBeDefined();
+    expect(result.resolvedIps).toEqual(["93.184.216.34", "93.184.216.35"]);
+  });
+
+  it("should return resolvedIps with IPv6 fallback (M-1 fix)", async () => {
+    const dns = await import("dns/promises");
+    vi.mocked(dns.default.resolve4).mockRejectedValue(new Error("ENOTFOUND"));
+    vi.mocked(dns.default.resolve6).mockResolvedValue(["2001:db8::1", "2001:db8::2"]);
+
+    const result = await validateWebhookUrlWithDns("https://ipv6.example.com/hook");
+    expect(result.valid).toBe(true);
+    expect(result.resolvedIps).toBeDefined();
+    expect(result.resolvedIps).toEqual(["2001:db8::1", "2001:db8::2"]);
+  });
+
+  it("should NOT return resolvedIps when URL is invalid (M-1 fix)", async () => {
+    const result = await validateWebhookUrlWithDns("not-a-url");
+    expect(result.valid).toBe(false);
+    expect(result.resolvedIps).toBeUndefined();
+  });
+
+  it("should not return resolvedIps for blocked hostname (M-1 fix)", async () => {
+    const result = await validateWebhookUrlWithDns("https://localhost/hook");
+    expect(result.valid).toBe(false);
+    expect(result.resolvedIps).toBeUndefined();
+  });
+
+  it("should return empty array for unresolvable domain (M-1 edge case)", async () => {
+    const dns = await import("dns/promises");
+    vi.mocked(dns.default.resolve4).mockResolvedValue([]);
+    vi.mocked(dns.default.resolve6).mockRejectedValue(new Error("ENOTFOUND"));
+
+    const result = await validateWebhookUrlWithDns("https://empty.example.com/hook");
+    expect(result.valid).toBe(false);
+    expect(result.resolvedIps).toBeUndefined();
+  });
+
   it("should reject a domain that resolves to a private IP", async () => {
     const dns = await import("dns/promises");
-    dns.default.resolve4.mockResolvedValue(["10.0.0.1"]);
+    vi.mocked(dns.default.resolve4).mockResolvedValue(["10.0.0.1"]);
 
     const result = await validateWebhookUrlWithDns("https://internal.example.com/hook");
     expect(result.valid).toBe(false);
@@ -286,7 +329,7 @@ describe("validateWebhookUrlWithDns", () => {
 
   it("should reject a domain that resolves to a loopback IP", async () => {
     const dns = await import("dns/promises");
-    dns.default.resolve4.mockResolvedValue(["127.0.0.1"]);
+    vi.mocked(dns.default.resolve4).mockResolvedValue(["127.0.0.1"]);
 
     const result = await validateWebhookUrlWithDns("https://localhost-evil.com/hook");
     expect(result.valid).toBe(false);
@@ -295,7 +338,7 @@ describe("validateWebhookUrlWithDns", () => {
 
   it("should reject a domain that resolves to metadata IP", async () => {
     const dns = await import("dns/promises");
-    dns.default.resolve4.mockResolvedValue(["169.254.169.254"]);
+    vi.mocked(dns.default.resolve4).mockResolvedValue(["169.254.169.254"]);
 
     const result = await validateWebhookUrlWithDns("https://metadata.evil.com/hook");
     expect(result.valid).toBe(false);
@@ -304,8 +347,8 @@ describe("validateWebhookUrlWithDns", () => {
 
   it("should fallback to IPv6 when IPv4 resolution fails", async () => {
     const dns = await import("dns/promises");
-    dns.default.resolve4.mockRejectedValue(new Error("ENOTFOUND"));
-    dns.default.resolve6.mockResolvedValue(["2001:db8::1"]);
+    vi.mocked(dns.default.resolve4).mockRejectedValue(new Error("ENOTFOUND"));
+    vi.mocked(dns.default.resolve6).mockResolvedValue(["2001:db8::1"]);
 
     const result = await validateWebhookUrlWithDns("https://ipv6-only.example.com/hook");
     expect(result.valid).toBe(true);
@@ -313,8 +356,8 @@ describe("validateWebhookUrlWithDns", () => {
 
   it("should reject IPv6 fallback that resolves to private address", async () => {
     const dns = await import("dns/promises");
-    dns.default.resolve4.mockRejectedValue(new Error("ENOTFOUND"));
-    dns.default.resolve6.mockResolvedValue(["fc00::1"]);
+    vi.mocked(dns.default.resolve4).mockRejectedValue(new Error("ENOTFOUND"));
+    vi.mocked(dns.default.resolve6).mockResolvedValue(["fc00::1"]);
 
     const result = await validateWebhookUrlWithDns("https://ipv6-private.example.com/hook");
     expect(result.valid).toBe(false);
@@ -323,8 +366,8 @@ describe("validateWebhookUrlWithDns", () => {
 
   it("should return failure when both IPv4 and IPv6 resolution fail", async () => {
     const dns = await import("dns/promises");
-    dns.default.resolve4.mockRejectedValue(new Error("ENOTFOUND"));
-    dns.default.resolve6.mockRejectedValue(new Error("ENOTFOUND"));
+    vi.mocked(dns.default.resolve4).mockRejectedValue(new Error("ENOTFOUND"));
+    vi.mocked(dns.default.resolve6).mockRejectedValue(new Error("ENOTFOUND"));
 
     const result = await validateWebhookUrlWithDns("https://unknown.example.com/hook");
     expect(result.valid).toBe(false);
@@ -333,8 +376,8 @@ describe("validateWebhookUrlWithDns", () => {
 
   it("should return failure when IPv4 returns empty and IPv6 fails", async () => {
     const dns = await import("dns/promises");
-    dns.default.resolve4.mockResolvedValue([]);
-    dns.default.resolve6.mockRejectedValue(new Error("ENOTFOUND"));
+    vi.mocked(dns.default.resolve4).mockResolvedValue([]);
+    vi.mocked(dns.default.resolve6).mockRejectedValue(new Error("ENOTFOUND"));
 
     const result = await validateWebhookUrlWithDns("https://empty.example.com/hook");
     expect(result.valid).toBe(false);
@@ -353,18 +396,18 @@ describe("validateWebhookUrlWithDns", () => {
 // ────────────────────────────────────────────
 
 describe("getClientIp", () => {
-  it("should extract IP from X-Forwarded-For", () => {
+  it("should extract the last valid IP from X-Forwarded-For (closest to server)", () => {
     const result = getClientIp({
       headers: new Headers({ "x-forwarded-for": "192.168.1.1, 10.0.0.1" }),
     });
-    expect(result).toBe("192.168.1.1");
+    expect(result).toBe("10.0.0.1");
   });
 
-  it("should return the first valid IP in chain", () => {
+  it("should return the last valid IP in chain", () => {
     const result = getClientIp({
       headers: new Headers({ "x-forwarded-for": "invalid, 8.8.8.8, 1.1.1.1" }),
     });
-    expect(result).toBe("8.8.8.8");
+    expect(result).toBe("1.1.1.1");
   });
 
   it("should return 'unknown' when no X-Forwarded-For header", () => {

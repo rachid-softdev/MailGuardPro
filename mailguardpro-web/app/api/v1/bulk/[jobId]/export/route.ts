@@ -1,18 +1,19 @@
 // API Route: Export des résultats d'un job bulk
 // GET /api/v1/bulk/[jobId]/export?format=csv|json|xlsx|pdf
 
-import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
-import { exportResults } from "@/services/exportService";
-import { ExportFormat } from "@/services/types";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { checkRateLimitByPlan, type Plan } from "@/lib/rateLimits";
+import { exportResults } from "@/services/exportService";
+import { EmailStatus, ExportFormat } from "@/services/types";
 
 const querySchema = z.object({
-  format: z.enum(["csv", "json", "xlsx", "pdf"]).default("csv"),
-  status: z.string().optional(),
-  minScore: z.coerce.number().min(0).max(100).optional(),
-  maxScore: z.coerce.number().min(0).max(100).optional(),
+  format: z.enum(["csv", "json", "xlsx", "pdf"]).nullish().default("csv"),
+  status: z.string().nullish(),
+  minScore: z.coerce.number().min(0).max(100).nullish(),
+  maxScore: z.coerce.number().min(0).max(100).nullish(),
 });
 
 const FORMAT_MIME_TYPES: Record<ExportFormat, string> = {
@@ -69,6 +70,23 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ jobI
       );
     }
 
+    // Rate limiting export
+    const rateCheck = await checkRateLimitByPlan(
+      session.user.id,
+      (session.user.plan as Plan) || "FREE",
+      "export",
+    );
+    if (!rateCheck.success) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Rate limit exceeded. Please try again later.",
+          retryAfter: rateCheck.resetAt,
+        },
+        { status: 429 },
+      );
+    }
+
     // Vérifier le plan
     const user = await prisma.user.findUnique({
       where: { id: session.user.id },
@@ -108,9 +126,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ jobI
 
     // Préparer les filtres
     const exportFilters = {
-      status: validated.data.status?.split(","),
-      minScore: validated.data.minScore,
-      maxScore: validated.data.maxScore,
+      status: validated.data.status?.split(",") as EmailStatus[] | undefined,
+      minScore: validated.data.minScore ?? undefined,
+      maxScore: validated.data.maxScore ?? undefined,
     };
 
     // Générer l'export
@@ -121,7 +139,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ jobI
     });
 
     // Retourner le fichier
-    return new NextResponse(buffer, {
+    return new NextResponse(new Uint8Array(buffer), {
       headers: {
         "Content-Type": FORMAT_MIME_TYPES[format],
         "Content-Disposition": `attachment; filename="mailguard-${jobId}.${FORMAT_EXTENSION[format]}"`,

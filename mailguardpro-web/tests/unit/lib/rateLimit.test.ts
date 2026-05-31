@@ -38,10 +38,10 @@ vi.mock("@/lib/redis", async () => {
 
 // Import actual functions from lib/rateLimits - they will use the mocked redis
 import {
-  PLAN_LIMITS,
-  RateLimitExceededError,
   checkRateLimitByPlan,
   getPlanLimits,
+  PLAN_LIMITS,
+  RateLimitExceededError,
 } from "@/lib/rateLimits";
 
 describe("rateLimits", () => {
@@ -218,7 +218,8 @@ describe("rateLimits", () => {
       expect(error.name).toBe("RateLimitExceededError");
       expect(error.limit).toBe(10);
       expect(error.windowSeconds).toBe(60);
-      expect(error.resetAt).toBe(resetAt);
+      // resetAt is rounded to nearest 10s (ceil) to prevent precise timing leakage
+      expect(error.resetAt).toBe(Math.ceil(resetAt / 10000) * 10000);
       expect(error.message).toContain("Rate limit exceeded");
     });
 

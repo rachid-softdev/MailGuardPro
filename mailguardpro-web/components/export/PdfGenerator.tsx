@@ -1,6 +1,8 @@
 "use client";
 
+import DOMPurify from "dompurify";
 import { useState } from "react";
+import { sanitizeForHtml } from "@/lib/emailSanitizer";
 
 interface ValidationResult {
   email: string;
@@ -33,7 +35,7 @@ interface Props {
   children?: React.ReactNode;
 }
 
-export function PdfGenerator({ jobId, children }: Props) {
+export function PdfGenerator({ jobId }: Props) {
   const [generating, setGenerating] = useState(false);
 
   const generatePdf = async () => {
@@ -73,7 +75,7 @@ function generatePdfWithBrowser(data: ExportData) {
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Email Validation Report - ${data.meta.filename}</title>
+  <title>Email Validation Report - ${sanitizeForHtml(data.meta.filename)}</title>
   <style>
     body { font-family: Arial, sans-serif; padding: 40px; max-width: 800px; margin: 0 auto; }
     h1 { color: #1a1a1a; margin-bottom: 10px; }
@@ -138,7 +140,7 @@ function generatePdfWithBrowser(data: ExportData) {
   <div class="recommendations">
     <h3>Recommendations</h3>
     <ul>
-      ${data.recommendations.map((r) => `<li>${r}</li>`).join("")}
+      ${data.recommendations.map((r) => `<li>${sanitizeForHtml(r)}</li>`).join("")}
     </ul>
   </div>
   `
@@ -162,9 +164,9 @@ function generatePdfWithBrowser(data: ExportData) {
         .map(
           (r) => `
         <tr>
-          <td>${r.email}</td>
+          <td>${sanitizeForHtml(r.email)}</td>
           <td>${r.score}</td>
-          <td>${r.issue}</td>
+          <td>${sanitizeForHtml(r.issue)}</td>
         </tr>
       `,
         )
@@ -184,7 +186,22 @@ function generatePdfWithBrowser(data: ExportData) {
 </html>
   `;
 
-  printWindow.document.write(html);
+  // Sanitize full HTML through DOMPurify before document.write (defense-in-depth)
+  let cleanHtml = html;
+  try {
+    if (DOMPurify?.sanitize) {
+      // Preserve style tags — DOMPurify strips them by default
+      // The PDF uses inline <style> for print formatting
+      cleanHtml = DOMPurify.sanitize(html, {
+        WHOLE_DOCUMENT: true,
+        ADD_TAGS: ["style"],
+      });
+    }
+  } catch {
+    // Fallback: basic sanitization already applied via sanitizeForHtml()
+    cleanHtml = html;
+  }
+  printWindow.document.write(cleanHtml);
   printWindow.document.close();
 }
 

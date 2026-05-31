@@ -2,13 +2,17 @@
 // GET /api/v1/api-keys - List keys
 // POST /api/v1/api-keys - Create a key
 
-import { auth } from "@/lib/auth";
-import { hashApiKey } from "@/lib/crypto";
-import { prisma } from "@/lib/prisma";
-import { getClientIp } from "@/lib/ssrf";
-import { AuditAction, AuditResource, logAudit } from "@/services/auditLogger";
 import { NextRequest, NextResponse } from "next/server";
 import { v4 as uuidv4 } from "uuid";
+import { auth } from "@/lib/auth";
+import { VALID_SCOPES } from "@/lib/auth/require-scope";
+import { hashApiKey } from "@/lib/crypto";
+import { validateCsrfOrigin } from "@/lib/csrf";
+import { prisma } from "@/lib/prisma";
+import { checkRateLimitByPlan, type Plan } from "@/lib/rateLimits";
+import { parseJsonBody } from "@/lib/request";
+import { getClientIp } from "@/lib/ssrf";
+import { AuditAction, AuditResource, logAudit } from "@/services/auditLogger";
 
 // Helper pour générer une clé API
 function generateApiKey(prefix: string = "mg_live"): string {
@@ -16,7 +20,7 @@ function generateApiKey(prefix: string = "mg_live"): string {
   return `${prefix}_${uuid.substring(0, 32)}`;
 }
 
-export async function GET(req: NextRequest) {
+export async function GET(_req: NextRequest) {
   try {
     const session = await auth();
     if (!session?.user?.id) {
@@ -33,6 +37,7 @@ export async function GET(req: NextRequest) {
         id: true,
         keyPrefix: true,
         name: true,
+        scopes: true,
         isActive: true,
         lastUsedAt: true,
         createdAt: true,
@@ -51,6 +56,12 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    // CSRF protection
+    const csrf = validateCsrfOrigin(req);
+    if (!csrf.valid) {
+      return NextResponse.json({ success: false, error: csrf.error }, { status: 403 });
+    }
+
     const session = await auth();
     if (!session?.user?.id) {
       return NextResponse.json(
@@ -59,8 +70,27 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const body = await req.json();
-    const { name } = body;
+    // Rate limit check
+    const rateCheck = await checkRateLimitByPlan(
+      session.user.id,
+      (session.user.plan as Plan) || "FREE",
+      "apiKeys",
+    );
+    if (!rateCheck.success) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Rate limit exceeded. Please try again later.",
+          retryAfter: rateCheck.resetAt,
+        },
+        { status: 429 },
+      );
+    }
+
+    const { data: body, error: bodyError } = await parseJsonBody(req);
+    if (bodyError) return bodyError;
+    const { name, scope } = body as { name?: string; scope?: string };
+    const effectiveScope = scope || "full";
 
     // Validation
     if (!name || typeof name !== "string" || name.trim().length === 0) {
@@ -70,6 +100,13 @@ export async function POST(req: NextRequest) {
     if (name.length > 50) {
       return NextResponse.json(
         { success: false, error: "Name must be less than 50 characters" },
+        { status: 400 },
+      );
+    }
+
+    if (scope && !VALID_SCOPES.includes(scope as any)) {
+      return NextResponse.json(
+        { success: false, error: "Invalid scope. Must be one of: full, read, validate, export" },
         { status: 400 },
       );
     }
@@ -97,6 +134,7 @@ export async function POST(req: NextRequest) {
         keyHash,
         keyPrefix,
         name: name.trim(),
+        scopes: effectiveScope,
         userId: session.user.id,
       },
     });
@@ -108,20 +146,24 @@ export async function POST(req: NextRequest) {
       resource: AuditResource.API_KEY,
       resourceId: newKey.id,
       ipAddress: getClientIp(req) !== "unknown" ? getClientIp(req) : undefined,
-      metadata: { keyName: name.trim(), keyPrefix },
+      metadata: { keyName: name.trim() },
     });
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        id: newKey.id,
-        key: apiKey, // Retourner seulement une fois!
-        keyPrefix: newKey.keyPrefix,
-        name: newKey.name,
-        isActive: newKey.isActive,
-        createdAt: newKey.createdAt,
+    return NextResponse.json(
+      {
+        success: true,
+        data: {
+          id: newKey.id,
+          key: apiKey, // Retourner seulement une fois!
+          keyPrefix: newKey.keyPrefix,
+          name: newKey.name,
+          scopes: newKey.scopes,
+          isActive: newKey.isActive,
+          createdAt: newKey.createdAt,
+        },
       },
-    });
+      { status: 201 },
+    );
   } catch (error) {
     console.error("[API] API key create error:", error);
     return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 });

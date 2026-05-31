@@ -7,6 +7,7 @@ const { MockSocket, mockResolveMx, mockResolve4, mockResolve6 } = vi.hoisted(() 
   class MockSocket {
     static nextResponses: string[] = [];
     static shouldTimeout = false;
+    remoteAddress?: string;
 
     private handlers: Record<string, Array<(...args: any[]) => void>> = {};
     private responses: string[] = [];
@@ -30,7 +31,10 @@ const { MockSocket, mockResolveMx, mockResolve4, mockResolve6 } = vi.hoisted(() 
       }
     }
 
-    connect(_port: number, _host?: string) {
+    connect(_port: number, host?: string) {
+      // Set remoteAddress so connectWithResolvedIp rebinding check passes
+      this.remoteAddress = host;
+
       // Fire the event synchronously so connectWithTimeout resolves
       // within the same Promise executor.
       if (MockSocket.shouldTimeout) {
@@ -113,12 +117,12 @@ vi.mock("@/lib/ssrf", () => ({
   validateResolvedIp: vi.fn(),
 }));
 
+import dns from "dns/promises";
 import { validateResolvedIp } from "@/lib/ssrf";
 // ---------------------------------------------------------------------------
 // Subject under test
 // ---------------------------------------------------------------------------
 import { checkSMTP } from "@/services/smtpChecker";
-import dns from "dns/promises";
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -146,14 +150,14 @@ describe("checkSMTP", () => {
     const result = await checkSMTP("not-an-email");
 
     expect(result.passed).toBe(false);
-    expect(result.weight).toBe(30);
+    expect(result.weight).toBe(0);
   });
 
   it("should reject emails with missing domain", async () => {
     const result = await checkSMTP("test@");
 
     expect(result.passed).toBe(false);
-    expect(result.weight).toBe(30);
+    expect(result.weight).toBe(0);
   });
 
   // -----------------------------------------------------------------------

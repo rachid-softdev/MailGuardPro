@@ -1,8 +1,8 @@
 /**
  * Script de migration des secrets webhook
- * 
+ *
  * À exécuter AVANT de déployer la modification de schéma (rename secret → encryptedSecret).
- * 
+ *
  * Usage:
  *   1. Backup the database first
  *   2. Add the encryptedSecret column to the Webhook table (nullable):
@@ -12,7 +12,7 @@
  *   4. Verify all records have encryptedSecret populated
  *   5. Deploy the schema rename (drop secret column)
  *   6. Deploy the new code
- * 
+ *
  * Prérequis:
  *   - TOKEN_ENCRYPTION_KEY définie dans l'environnement
  *   - DATABASE_URL configurée
@@ -26,7 +26,7 @@ const TOKEN_ENCRYPTION_KEY = process.env.TOKEN_ENCRYPTION_KEY;
 if (!TOKEN_ENCRYPTION_KEY || Buffer.from(TOKEN_ENCRYPTION_KEY, "hex").length !== 32) {
   console.error(
     "ERROR: TOKEN_ENCRYPTION_KEY must be a 64-char hex string (32 bytes).\n" +
-    "Generate with: openssl rand -hex 32"
+      "Generate with: openssl rand -hex 32",
   );
   process.exit(1);
 }
@@ -36,11 +36,7 @@ const IV_LENGTH = 16;
 
 function encryptToken(plaintext) {
   const iv = crypto.randomBytes(IV_LENGTH);
-  const cipher = crypto.createCipheriv(
-    ALGORITHM,
-    Buffer.from(TOKEN_ENCRYPTION_KEY, "hex"),
-    iv
-  );
+  const cipher = crypto.createCipheriv(ALGORITHM, Buffer.from(TOKEN_ENCRYPTION_KEY, "hex"), iv);
   let encrypted = cipher.update(plaintext, "utf8", "hex");
   encrypted += cipher.final("hex");
   const authTag = cipher.getAuthTag().toString("hex");
@@ -49,7 +45,9 @@ function encryptToken(plaintext) {
 
 async function main() {
   console.log("=== Webhook Secret Migration Script ===\n");
-  console.log(`TOKEN_ENCRYPTION_KEY: ${TOKEN_ENCRYPTION_KEY.substring(0, 8)}... (${TOKEN_ENCRYPTION_KEY.length} chars)`);
+  console.log(
+    `TOKEN_ENCRYPTION_KEY: ${TOKEN_ENCRYPTION_KEY.substring(0, 8)}... (${TOKEN_ENCRYPTION_KEY.length} chars)`,
+  );
   console.log(`Algorithm: ${ALGORITHM}\n`);
 
   const prisma = new PrismaClient();
@@ -57,7 +55,7 @@ async function main() {
   try {
     // Step 1: Check if the old `secret` column exists
     const columns = await prisma.$queryRawUnsafe(
-      "SELECT column_name FROM information_schema.columns WHERE table_name = 'Webhook' AND column_name IN ('secret', 'encryptedSecret')"
+      "SELECT column_name FROM information_schema.columns WHERE table_name = 'Webhook' AND column_name IN ('secret', 'encryptedSecret')",
     );
     const columnNames = columns.map((c) => c.column_name);
     console.log("Existing columns:", columnNames);
@@ -71,14 +69,14 @@ async function main() {
     if (!columnNames.includes("encryptedSecret")) {
       console.error(
         "ERROR: 'encryptedSecret' column does not exist.\n" +
-        "Run first: ALTER TABLE \"Webhook\" ADD COLUMN \"encryptedSecret\" TEXT;"
+          'Run first: ALTER TABLE "Webhook" ADD COLUMN "encryptedSecret" TEXT;',
       );
       process.exit(1);
     }
 
     // Step 2: Count webhooks that need migration
     const toMigrate = await prisma.$queryRawUnsafe(
-      `SELECT COUNT(*) as count FROM "Webhook" WHERE "secret" IS NOT NULL AND "encryptedSecret" IS NULL`
+      `SELECT COUNT(*) as count FROM "Webhook" WHERE "secret" IS NOT NULL AND "encryptedSecret" IS NULL`,
     );
     const count = Number(toMigrate[0].count);
     console.log(`\nWebhooks needing migration: ${count}`);
@@ -90,7 +88,7 @@ async function main() {
 
     // Step 3: Fetch all un-migrated webhooks
     const webhooks = await prisma.$queryRawUnsafe(
-      `SELECT id, secret FROM "Webhook" WHERE "secret" IS NOT NULL AND "encryptedSecret" IS NULL`
+      `SELECT id, secret FROM "Webhook" WHERE "secret" IS NOT NULL AND "encryptedSecret" IS NULL`,
     );
     console.log(`Fetched ${webhooks.length} webhooks for migration.\n`);
 
@@ -104,7 +102,7 @@ async function main() {
         await prisma.$executeRawUnsafe(
           `UPDATE "Webhook" SET "encryptedSecret" = $1 WHERE id = $2`,
           encryptedSecret,
-          webhook.id
+          webhook.id,
         );
         successCount++;
         if (successCount % 10 === 0) {
@@ -129,7 +127,7 @@ async function main() {
 
     // Step 6: Verification
     const remaining = await prisma.$queryRawUnsafe(
-      `SELECT COUNT(*) as count FROM "Webhook" WHERE "secret" IS NOT NULL AND "encryptedSecret" IS NULL`
+      `SELECT COUNT(*) as count FROM "Webhook" WHERE "secret" IS NOT NULL AND "encryptedSecret" IS NULL`,
     );
     const remainingCount = Number(remaining[0].count);
     console.log(`\nRemaining un-migrated: ${remainingCount}`);
@@ -138,7 +136,7 @@ async function main() {
       console.log("\nNext steps:");
       console.log("  1. Verify a sample of encryptedSecret values are valid AES-GCM format");
       console.log("  2. Deploy code that reads encryptedSecret instead of secret");
-      console.log("  3. Run: ALTER TABLE \"Webhook\" DROP COLUMN \"secret\";");
+      console.log('  3. Run: ALTER TABLE "Webhook" DROP COLUMN "secret";');
     }
   } catch (error) {
     console.error("\nFatal error:", error);

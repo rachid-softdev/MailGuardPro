@@ -1,10 +1,11 @@
 // Bulk processing service - CSV upload and job management
 
-import { prisma } from "@/lib/prisma";
-import { publishProgress, redis } from "@/lib/redis";
 import { Queue } from "bullmq";
 import { parse } from "csv-parse/sync";
 import { v4 as uuidv4 } from "uuid";
+import { sanitizeForHtml } from "@/lib/emailSanitizer";
+import { prisma } from "@/lib/prisma";
+import { redis } from "@/lib/redis";
 
 // BullMQ queue singleton (reused across all uploads)
 const bulkQueue = new Queue("bulk-validation", {
@@ -39,7 +40,7 @@ export interface ParsedEmail {
 export async function processBulkUpload(
   file: File,
   userId: string,
-  onProgress?: (processed: number, total: number) => void,
+  _onProgress?: (processed: number, total: number) => void,
 ): Promise<BulkUploadResult> {
   // Check file size
   if (file.size > MAX_FILE_SIZE) {
@@ -97,9 +98,15 @@ export async function processBulkUpload(
 
     emails.push({
       email: email.toLowerCase().trim(),
-      firstName: record.firstName || record.first_name || record.firstname || record.prenom,
-      lastName: record.lastName || record.last_name || record.lastname || record.nom,
-      company: record.company || record.Company || record.societe || record.entreprise,
+      firstName: sanitizeForHtml(
+        record.firstName || record.first_name || record.firstname || record.prenom || "",
+      ),
+      lastName: sanitizeForHtml(
+        record.lastName || record.last_name || record.lastname || record.nom || "",
+      ),
+      company: sanitizeForHtml(
+        record.company || record.Company || record.societe || record.entreprise || "",
+      ),
     });
   }
 
@@ -121,26 +128,17 @@ export async function processBulkUpload(
   // Calculate credit cost
   const creditCost = emails.length;
 
-  // Create job in database and deduct credits atomically within a transaction
   const jobId = uuidv4();
+  let dbCommitted = false;
 
   try {
-    // DB operations in a Prisma transaction: credit deduction + job creation are atomic
+    // 1. DB transaction first — credit deduction + job creation
     await prisma.$transaction(async (tx) => {
-      // Deduct credits atomically
       const deduction = await tx.user.updateMany({
-        where: {
-          id: userId,
-          credits: { gte: creditCost },
-        },
+        where: { id: userId, credits: { gte: creditCost } },
         data: { credits: { decrement: creditCost } },
       });
-
-      if (deduction.count === 0) {
-        throw new Error("Insufficient credits");
-      }
-
-      // Create the job
+      if (deduction.count === 0) throw new Error("Insufficient credits");
       await tx.bulkJob.create({
         data: {
           id: jobId,
@@ -148,39 +146,41 @@ export async function processBulkUpload(
           filename: file.name,
           totalEmails: emails.length,
           status: "PENDING",
+          emailsJson: JSON.stringify(emails), // Store email data in DB (outbox pattern)
         },
       });
     });
+    dbCommitted = true;
 
-    // All DB operations succeeded. Now do non-DB operations (Redis, queue).
-    await redis.setex(`bulk:job:${jobId}:data`, 3600, JSON.stringify(emails));
-    await bulkQueue.add("process", {
-      jobId,
-      totalEmails: emails.length,
-      userId,
-    });
+    // 2. Queue — submit job for processing
+    await bulkQueue.add("process", { jobId, totalEmails: emails.length, userId });
 
-    return {
-      success: true,
-      jobId,
-      totalEmails: emails.length,
-    };
+    return { success: true, jobId, totalEmails: emails.length };
   } catch (error) {
     console.error("Failed to create bulk job:", error);
-    // If Redis/queue failed after DB credit deduction, log for manual audit
-    if (error instanceof Error && error.message !== "Insufficient credits") {
-      console.error(
-        `BULK JOB PARTIAL FAILURE — Job ${jobId}, User ${userId}, Credits ${creditCost}. ` +
-          `Credits may have been deducted. Manual audit recommended.`,
-      );
+
+    if (error instanceof Error && error.message === "Insufficient credits") {
+      return {
+        success: false,
+        errors: [`Insufficient credits. Required: ${creditCost}`],
+      };
     }
+
+    // Compensating rollback: if DB committed but Redis/Queue failed, refund credits and delete job
+    if (dbCommitted) {
+      await prisma.user
+        .update({ where: { id: userId }, data: { credits: { increment: creditCost } } })
+        .catch((e: unknown) => console.error("[BulkProcessor] Rollback refund failed:", e));
+      await prisma.bulkJob
+        .delete({ where: { id: jobId } })
+        .catch((e: unknown) =>
+          console.error("[BulkProcessor] Compensating rollback: job deletion failed:", e),
+        );
+    }
+
     return {
       success: false,
-      errors: [
-        error instanceof Error && error.message === "Insufficient credits"
-          ? `Insufficient credits. Required: ${creditCost}`
-          : "Failed to create processing job",
-      ],
+      errors: ["Failed to create processing job"],
     };
   }
 }

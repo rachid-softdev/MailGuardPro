@@ -1,7 +1,10 @@
 import { Resend } from "resend";
 
 if (!process.env.RESEND_API_KEY) {
-  console.warn("RESEND_API_KEY is not defined");
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("RESEND_API_KEY is required in production");
+  }
+  console.warn("RESEND_API_KEY is not defined — email sending will fail");
 }
 
 export const resend = new Resend(process.env.RESEND_API_KEY || "re_placeholder");
@@ -24,6 +27,7 @@ export async function sendEmail({
       subject,
       html,
       text,
+      react: null as any,
     });
     return { success: true, data };
   } catch (error) {

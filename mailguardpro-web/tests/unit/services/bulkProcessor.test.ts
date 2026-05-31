@@ -21,13 +21,14 @@ const { mockPrisma, mockRedis } = vi.hoisted(() => ({
       updateMany: vi.fn(),
     },
     $transaction: vi.fn((cb: (tx: any) => Promise<any>) => {
-      // Execute the callback with a mock transactional client
+      // Execute the callback with a mock transactional client.
+      // Delegates bulkJob.create to the top-level mock so tests can spy on it.
       return cb({
         user: {
           updateMany: vi.fn().mockResolvedValue({ count: 1 }),
         },
         bulkJob: {
-          create: vi.fn().mockResolvedValue({ id: "test-uuid-123", userId: "user-123" }),
+          create: (...args: any[]) => mockPrisma.bulkJob.create(...args),
         },
         validation: {
           create: vi.fn(),
@@ -406,7 +407,7 @@ describe("bulkProcessor", () => {
         { id: "val-99", email: "test99@example.com", score: 50 },
       ]);
 
-      const result = await getBulkJobResultsCursor("job-123", "val-100", 50);
+      await getBulkJobResultsCursor("job-123", "val-100", 50);
 
       expect(mockPrisma.validation.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -464,11 +465,10 @@ describe("bulkProcessor", () => {
 
       await processBulkUpload(csvFile, "user-123");
 
-      expect(mockRedis.setex).toHaveBeenCalledWith(
-        expect.stringContaining("bulk:job:"),
-        3600,
-        expect.stringContaining('"firstName":"John"'),
-      );
+      const callArg = mockPrisma.bulkJob.create.mock.calls[0][0];
+      const emailsJson = JSON.parse(callArg.data.emailsJson);
+      expect(emailsJson[0].firstName).toBe("John");
+      expect(emailsJson[0].lastName).toBe("Doe");
     });
 
     it("should extract company from CSV", async () => {
@@ -484,11 +484,9 @@ describe("bulkProcessor", () => {
 
       await processBulkUpload(csvFile, "user-123");
 
-      expect(mockRedis.setex).toHaveBeenCalledWith(
-        expect.stringContaining("bulk:job:"),
-        3600,
-        expect.stringContaining('"company":"Acme Inc"'),
-      );
+      const callArg = mockPrisma.bulkJob.create.mock.calls[0][0];
+      const emailsJson = JSON.parse(callArg.data.emailsJson);
+      expect(emailsJson[0].company).toBe("Acme Inc");
     });
 
     it("should handle alternative column names", async () => {
@@ -521,11 +519,9 @@ describe("bulkProcessor", () => {
 
       await processBulkUpload(csvFile, "user-123");
 
-      expect(mockRedis.setex).toHaveBeenCalledWith(
-        expect.any(String),
-        3600,
-        expect.stringContaining("test@example.com"),
-      );
+      const callArg = mockPrisma.bulkJob.create.mock.calls[0][0];
+      const emailsJson = JSON.parse(callArg.data.emailsJson);
+      expect(emailsJson[0].email).toBe("test@example.com");
     });
 
     it("should process valid emails and skip invalid ones", async () => {
@@ -543,6 +539,86 @@ describe("bulkProcessor", () => {
 
       expect(result.success).toBe(true);
       expect(result.totalEmails).toBe(2);
+    });
+
+    // ----- H-02: CSV field sanitization -----
+
+    it("should sanitize <script> tags in firstName field", async () => {
+      const csvContent =
+        "email,firstName,lastName,company\ntest@example.com,<script>alert(1)</script>,Normal,Acme Corp";
+      const csvFile = new File([csvContent], "test.csv", { type: "text/csv" });
+
+      mockPrisma.bulkJob.create.mockResolvedValue({
+        id: "test-uuid-123",
+        userId: "user-123",
+        filename: "test.csv",
+        totalEmails: 1,
+      });
+
+      await processBulkUpload(csvFile, "user-123");
+
+      const callArg = mockPrisma.bulkJob.create.mock.calls[0][0];
+      const emailsJson = JSON.parse(callArg.data.emailsJson);
+      expect(emailsJson[0].firstName).toBe("&lt;script&gt;alert(1)&lt;/script&gt;");
+      expect(emailsJson[0].lastName).toBe("Normal");
+    });
+
+    it("should sanitize special characters in company field", async () => {
+      const csvContent = "email,company\ntest@example.com,O'Brien & Sons";
+      const csvFile = new File([csvContent], "test.csv", { type: "text/csv" });
+
+      mockPrisma.bulkJob.create.mockResolvedValue({
+        id: "test-uuid-123",
+        userId: "user-123",
+        filename: "test.csv",
+        totalEmails: 1,
+      });
+
+      await processBulkUpload(csvFile, "user-123");
+
+      const callArg = mockPrisma.bulkJob.create.mock.calls[0][0];
+      const emailsJson = JSON.parse(callArg.data.emailsJson);
+      expect(emailsJson[0].company).toBe("O&#x27;Brien &amp; Sons");
+    });
+
+    it("should preserve normal values unchanged", async () => {
+      const csvContent = "email,firstName,lastName,company\ntest@example.com,John,Doe,Acme Corp";
+      const csvFile = new File([csvContent], "test.csv", { type: "text/csv" });
+
+      mockPrisma.bulkJob.create.mockResolvedValue({
+        id: "test-uuid-123",
+        userId: "user-123",
+        filename: "test.csv",
+        totalEmails: 1,
+      });
+
+      await processBulkUpload(csvFile, "user-123");
+
+      const callArg = mockPrisma.bulkJob.create.mock.calls[0][0];
+      const emailsJson = JSON.parse(callArg.data.emailsJson);
+      expect(emailsJson[0].firstName).toBe("John");
+      expect(emailsJson[0].lastName).toBe("Doe");
+      expect(emailsJson[0].company).toBe("Acme Corp");
+    });
+
+    it("should default missing fields to empty string", async () => {
+      const csvContent = "email\ntest@example.com";
+      const csvFile = new File([csvContent], "test.csv", { type: "text/csv" });
+
+      mockPrisma.bulkJob.create.mockResolvedValue({
+        id: "test-uuid-123",
+        userId: "user-123",
+        filename: "test.csv",
+        totalEmails: 1,
+      });
+
+      await processBulkUpload(csvFile, "user-123");
+
+      const callArg = mockPrisma.bulkJob.create.mock.calls[0][0];
+      const emailsJson = JSON.parse(callArg.data.emailsJson);
+      expect(emailsJson[0].firstName).toBe("");
+      expect(emailsJson[0].lastName).toBe("");
+      expect(emailsJson[0].company).toBe("");
     });
   });
 });

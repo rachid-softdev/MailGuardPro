@@ -17,6 +17,16 @@ RUN npx prisma generate
 # Build Next.js
 RUN npm run build
 
+# Create non-root user
+RUN addgroup --system --gid 1001 mailguard && \
+    adduser --system --uid 1001 --ingroup mailguard mailguard
+
+# Ensure proper ownership
+RUN chown -R mailguard:mailguard /app
+
+# Switch to non-root user
+USER mailguard
+
 # Expose port
 EXPOSE 3000
 

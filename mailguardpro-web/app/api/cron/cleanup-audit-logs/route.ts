@@ -1,22 +1,13 @@
-import { prisma } from "@/lib/prisma";
-import { timingSafeEqual } from "@/lib/timingSafe";
 import { NextRequest, NextResponse } from "next/server";
+import { verifyCronRequest } from "@/lib/cronAuth";
+import { prisma } from "@/lib/prisma";
 
-const CRON_SECRET = process.env.CRON_SECRET;
 const AUDIT_RETENTION_DAYS = 90;
 
 export async function GET(req: NextRequest) {
-  // Verify cron authorization
-  if (!CRON_SECRET) {
-    console.error("[Cron] CRON_SECRET is not configured");
-    return NextResponse.json({ error: "Server configuration error" }, { status: 500 });
-  }
-
-  const authHeader = req.headers.get("authorization");
-  const expected = `Bearer ${CRON_SECRET}`;
-  if (!timingSafeEqual(authHeader ?? "", expected)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  // Verify cron authorization with rate limiting and failed-attempt logging
+  const { authorized, response } = await verifyCronRequest(req, "cleanup-audit-logs");
+  if (!authorized) return response;
 
   try {
     const cutoffDate = new Date();
@@ -26,9 +17,7 @@ export async function GET(req: NextRequest) {
       where: { createdAt: { lt: cutoffDate } },
     });
 
-    console.log(
-      `[Cron] Audit log cleanup: ${result.count} records deleted`,
-    );
+    console.log(`[Cron] Audit log cleanup: ${result.count} records deleted`);
 
     return NextResponse.json({
       success: true,
@@ -37,9 +26,6 @@ export async function GET(req: NextRequest) {
     });
   } catch (error) {
     console.error("[Cron] Audit log cleanup failed:", error);
-    return NextResponse.json(
-      { success: false, error: "Cleanup failed" },
-      { status: 500 },
-    );
+    return NextResponse.json({ success: false, error: "Cleanup failed" }, { status: 500 });
   }
 }

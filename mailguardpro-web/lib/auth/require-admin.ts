@@ -15,7 +15,8 @@ export async function requireAdmin(): Promise<{ id: string; email: string }> {
     throw new AuthError("Non authentifié", 401);
   }
 
-  if (session.user.role !== "ADMIN") {
+  // Check both the roles array (multi-role) and the scalar role (backward compat)
+  if (!session.user.roles?.includes("ADMIN") && session.user.role !== "ADMIN") {
     throw new AuthError("Accès non autorisé - rôle administrateur requis", 403);
   }
 

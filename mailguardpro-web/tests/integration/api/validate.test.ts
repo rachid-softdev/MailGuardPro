@@ -1,6 +1,6 @@
+import { NextRequest } from "next/server";
+import { describe, expect, it, vi } from "vitest";
 import { GET } from "@/app/api/v1/validate/route";
-import { NextRequest, NextResponse } from "next/server";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // Mock dependencies
 vi.mock("@/lib/auth", () => ({
@@ -36,6 +36,12 @@ vi.mock("@/services/emailValidator", () => ({
       domain: {},
       processingTimeMs: 100,
     }),
+  ),
+}));
+
+vi.mock("@/services/disposableChecker", () => ({
+  checkDisposable: vi.fn(() =>
+    Promise.resolve({ passed: true, message: "Not disposable", detail: "" }),
   ),
 }));
 
@@ -81,7 +87,9 @@ describe("/api/v1/validate", () => {
       const { checkRateLimit } = await import("@/lib/redis");
       vi.mocked(checkRateLimit).mockResolvedValueOnce({
         success: false,
-        resetAt: new Date(),
+        remaining: 0,
+        resetAt: Date.now(),
+        limit: 100,
       });
 
       const url = new URL("http://localhost:3000/api/v1/validate");
@@ -93,7 +101,7 @@ describe("/api/v1/validate", () => {
       expect(response.status).toBe(429);
     });
 
-    it("should include processing time in response", async () => {
+    it("should include processing time in response for anonymous users", async () => {
       const url = new URL("http://localhost:3000/api/v1/validate");
       url.searchParams.set("email", "test@example.com");
       const req = new NextRequest(url);
@@ -101,8 +109,10 @@ describe("/api/v1/validate", () => {
       const response = await GET(req);
 
       const json = await response.json();
-      expect(json.meta).toHaveProperty("processingTimeMs");
-      expect(json.meta).toHaveProperty("requestId");
+      // Anonymous users get a simplified response — processingTimeMs is in data, not meta
+      expect(json.data).toHaveProperty("processingTimeMs");
+      expect(json.data.checks).toHaveProperty("format");
+      expect(json.meta).not.toHaveProperty("requestId");
     });
 
     it("should handle valid email with all checks", async () => {
