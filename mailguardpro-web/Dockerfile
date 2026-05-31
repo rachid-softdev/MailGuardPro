@@ -2,20 +2,25 @@ FROM node:20-alpine
 
 WORKDIR /app
 
+# Enable pnpm via corepack
+RUN corepack enable && corepack prepare pnpm@9.15.9 --activate
+
 # Copy package files
-COPY package*.json ./
+COPY pnpm-lock.yaml ./
+COPY pnpm-workspace.yaml ./
+COPY mailguardpro-web/package.json ./mailguardpro-web/
 
 # Install dependencies
-RUN npm ci
+RUN pnpm install --frozen-lockfile
 
 # Copy source
 COPY . .
 
 # Generate Prisma client
-RUN npx prisma generate
+RUN pnpm exec prisma generate
 
 # Build Next.js
-RUN npm run build
+RUN pnpm run build
 
 # Create non-root user
 RUN addgroup --system --gid 1001 mailguard && \
@@ -31,4 +36,4 @@ USER mailguard
 EXPOSE 3000
 
 # Start
-CMD ["npm", "start"]
+CMD ["pnpm", "start"]
