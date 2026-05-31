@@ -35,6 +35,7 @@ Thumbs.db
 
 # Prisma
 prisma/*.db
+src/generated/prisma/
 
 # Test
 coverage/
