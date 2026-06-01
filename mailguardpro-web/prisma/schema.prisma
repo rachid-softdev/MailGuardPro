@@ -127,7 +127,7 @@ model Validation {
   bulkJob BulkJob? @relation(fields: [bulkJobId], references: [id])
 
   // Performance indexes
-  @@unique([emailHash])
+  @@unique([emailHash, userId])
   @@index([email])
   @@index([emailHash])
   @@index([userId, createdAt])

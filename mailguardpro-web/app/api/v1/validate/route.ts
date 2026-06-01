@@ -225,13 +225,13 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // Deduct credits atomically for authenticated users (wrapped in transaction)
+    // Deduct credits atomically for authenticated users (short transaction, no network I/O)
     let result: any = null;
     let creditsRemaining: number | null = null;
     if (user) {
       try {
-        const txResult = await prisma.$transaction(async (tx: TxPrismaClient) => {
-          // 1. Déduire les crédits
+        // === STEP 1: Short transaction — credit deduction + pending record ===
+        const pendingValidation = await prisma.$transaction(async (tx: TxPrismaClient) => {
           const deduction = await tx.user.updateMany({
             where: { id: user.id, credits: { gte: 1 } },
             data: { credits: { decrement: 1 } },
@@ -240,33 +240,43 @@ export async function GET(req: NextRequest) {
             throw new Error("INSUFFICIENT_CREDITS");
           }
 
-          // 2. Valider l'email
-          const validationResult = await validateEmail(email!);
-
-          // 3. Sauvegarder le résultat
-          await tx.validation.create({
+          return await tx.validation.create({
             data: {
-              email: maskEmail(validationResult.email),
-              emailHash: hashEmail(validationResult.email),
-              score: validationResult.score,
-              status: validationResult.status,
-              checksJson: validationResult.checks as any,
-              processingTimeMs: validationResult.processingTimeMs,
+              email: maskEmail(email!),
+              emailHash: hashEmail(email!),
+              score: 0,
+              status: "pending",
+              checksJson: { pending: true } as any,
+              processingTimeMs: 0,
               userId: user.id,
             },
           });
-
-          // 4. Récupérer les crédits restants
-          const updatedUser = await tx.user.findUnique({
-            where: { id: user.id },
-            select: { credits: true },
-          });
-
-          return { result: validationResult, creditsRemaining: updatedUser?.credits ?? null };
         });
 
-        result = txResult.result;
-        creditsRemaining = txResult.creditsRemaining;
+        // === STEP 2: Network I/O — no DB connection held ===
+        const validationResult = await validateEmail(email!);
+
+        // === STEP 3: Save results and get remaining credits ===
+        await prisma.validation.update({
+          where: { id: pendingValidation.id },
+          data: {
+            email: maskEmail(validationResult.email),
+            emailHash: hashEmail(validationResult.email),
+            score: validationResult.score,
+            status: validationResult.status,
+            checksJson: validationResult.checks as any,
+            processingTimeMs: validationResult.processingTimeMs,
+          },
+        });
+
+        creditsRemaining =
+          (
+            await prisma.user.findUnique({
+              where: { id: user.id },
+              select: { credits: true },
+            })
+          )?.credits ?? null;
+        result = validationResult;
       } catch (error) {
         if (error instanceof Error && error.message === "INSUFFICIENT_CREDITS") {
           await enforceTimingSafeResponse(startTime);
@@ -321,6 +331,7 @@ export async function GET(req: NextRequest) {
     return response;
   } catch (error) {
     console.error("[API] Validate error:", error);
+    await enforceTimingSafeResponse(startTime);
     return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 });
   }
 }

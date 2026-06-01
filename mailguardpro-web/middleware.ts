@@ -95,6 +95,7 @@ export default auth(async (req) => {
 
   const response = NextResponse.next({ request: { headers: requestHeaders } });
   response.headers.set("Content-Security-Policy", buildCsp(nonce));
+  response.headers.set("X-Content-Type-Options", "nosniff");
   return response;
 });
 

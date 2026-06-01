@@ -55,19 +55,22 @@ export function Modal({ isOpen, onClose, title, children, size = "md", id }: Mod
     if (isOpen) {
       previousActiveElement.current = document.activeElement as HTMLElement;
       document.addEventListener("keydown", handleKeyDown);
-      // Focus first element
-      setTimeout(() => {
+      // Focus first focusable element, or fall back to modal container
+      requestAnimationFrame(() => {
         const firstFocusable = modalRef.current?.querySelector<HTMLElement>(
           'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])',
         );
-        firstFocusable?.focus();
-      }, 50);
+        if (firstFocusable) {
+          firstFocusable.focus();
+        } else if (modalRef.current) {
+          modalRef.current.focus({ preventScroll: true });
+        }
+      });
     }
     return () => {
       document.removeEventListener("keydown", handleKeyDown);
-      if (!isOpen && previousActiveElement.current) {
-        previousActiveElement.current.focus();
-      }
+      // Always restore focus when modal unmounts
+      previousActiveElement.current?.focus();
     };
   }, [isOpen, handleKeyDown]);
 

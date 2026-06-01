@@ -48,7 +48,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           const rateKey = `magiclink:${email.address}`;
           const acquired = await redis.set(rateKey, "1", "EX", 60, "NX");
           if (acquired === null) {
-            console.warn(`[Auth] Magic link rate limited for ${email.address}`);
+            console.warn("[Auth] Magic link rate limited");
             return false;
           }
         } catch {
@@ -75,13 +75,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
       // FIX #6: Login audit
       if (!user) {
-        console.warn(`[Auth] Login failed for: ${email?.address || "unknown"}`);
+        console.warn("[Auth] Login failed");
         try {
           await logAudit({
             action: AuditAction.USER_LOGIN_FAILED,
             resource: AuditResource.USER,
             metadata: {
-              email: email?.address || "unknown",
               provider: account?.provider || "unknown",
             },
           });

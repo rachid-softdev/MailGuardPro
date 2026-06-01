@@ -364,7 +364,13 @@ export async function getBulkJobStats(jobId: string, userId: string) {
 
 // Function to get results with cursor-based pagination
 // More performant than offset for large tables
-export async function getBulkJobResultsCursor(jobId: string, cursor?: string, limit = 50) {
+export async function getBulkJobResultsCursor(
+  jobId: string,
+  userId: string,
+  cursor?: string,
+  limit = 50,
+) {
+  await requireJobOwnership(jobId, userId);
   // If no cursor, fetch first items
   const results = await prisma.validation.findMany({
     where: {

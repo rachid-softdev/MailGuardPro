@@ -64,6 +64,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ jobI
 
     const results = await getBulkJobResults(
       jobId,
+      session.user.id,
       validated.data.page,
       validated.data.limit,
       filterOptions,

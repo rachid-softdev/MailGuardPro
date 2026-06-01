@@ -2,6 +2,7 @@
 
 import { Job, Worker } from "bullmq";
 import Redis from "ioredis";
+import { maskEmail } from "../lib/emailHash";
 import { prisma } from "../lib/prisma";
 import { safeJsonParse } from "../lib/safeJson";
 import { validateEmail } from "../services/emailValidator";
@@ -84,7 +85,7 @@ const worker = new Worker<BulkJobData>(
         // Sauvegarder le résultat en base
         await prisma.validation.create({
           data: {
-            email: validation.email,
+            email: maskEmail(validation.email),
             score: validation.score,
             status: validation.status,
             checksJson: validation.checks as any,
@@ -122,7 +123,7 @@ const worker = new Worker<BulkJobData>(
         // Enregistrer comme erreur
         await prisma.validation.create({
           data: {
-            email: emailData.email,
+            email: maskEmail(emailData.email),
             score: 0,
             status: "unknown",
             checksJson: { error: (error as Error).message },

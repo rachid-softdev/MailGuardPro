@@ -57,7 +57,12 @@ vi.mock("bullmq", () => ({
 // =============================================================================
 
 import { prisma } from "@/lib/prisma";
-import { getBulkJobResults, getBulkJobStats, getBulkJobStatus } from "@/services/bulkProcessor";
+import {
+  getBulkJobResults,
+  getBulkJobResultsCursor,
+  getBulkJobStats,
+  getBulkJobStatus,
+} from "@/services/bulkProcessor";
 
 // =============================================================================
 // SHARED SETUP
@@ -353,6 +358,120 @@ describe("IDOR: Bulk job ownership enforcement", () => {
       vi.mocked(prisma.bulkJob.findFirst).mockResolvedValue(null as any);
 
       await expect(getBulkJobResults(JOB_ID, "wrong-user", 1, 50)).rejects.toThrow("JOB_NOT_FOUND");
+    });
+  });
+
+  // ===========================================================================
+  // CRIT-2: getBulkJobResultsCursor must enforce ownership
+  // ===========================================================================
+  // The original getBulkJobResultsCursor() took (jobId, cursor?, limit) without
+  // a userId parameter — this was an IDOR vulnerability allowing any user to
+  // cursor-paginate through any job's results by guessing the jobId.
+  //
+  // CRIT-2 fix: add userId parameter and requireJobOwnership check.
+  // ===========================================================================
+
+  describe("CRIT-2: getBulkJobResultsCursor ownership enforcement", () => {
+    // -------------------------------------------------------------------------
+    // Test 1 — Owner match → returns results
+    // -------------------------------------------------------------------------
+    it("should return results when userId matches (owner)", async () => {
+      vi.mocked(prisma.bulkJob.findFirst).mockResolvedValue(mockJobData);
+      vi.mocked(prisma.validation.findMany).mockResolvedValue([
+        { id: "val-1", email: "test@example.com", score: 85, status: "valid" },
+      ]);
+
+      // getBulkJobResultsCursor should now accept userId and check ownership
+      const result = await getBulkJobResultsCursor(JOB_ID, OWNER_ID, undefined, 50);
+
+      expect(result.results).toBeDefined();
+      expect(result.results).toHaveLength(1);
+
+      // Must have called requireJobOwnership (findFirst with jobId AND userId)
+      expect(prisma.bulkJob.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: JOB_ID, userId: OWNER_ID },
+        }),
+      );
+    });
+
+    // -------------------------------------------------------------------------
+    // Test 2 — Unauthorized user gets 403/404
+    // -------------------------------------------------------------------------
+    it("should throw JOB_NOT_FOUND when userId does not match (attacker)", async () => {
+      // The job exists but belongs to OWNER_ID
+      // When attacker queries, findFirst with attacker's userId returns null
+      vi.mocked(prisma.bulkJob.findFirst).mockResolvedValue(null as any);
+
+      await expect(getBulkJobResultsCursor(JOB_ID, ATTACKER_ID, undefined, 50)).rejects.toThrow(
+        "JOB_NOT_FOUND",
+      );
+
+      // Must query with attacker's userId (not just jobId)
+      expect(prisma.bulkJob.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: JOB_ID, userId: ATTACKER_ID },
+        }),
+      );
+    });
+
+    // -------------------------------------------------------------------------
+    // Test 3 — Non-existent job
+    // -------------------------------------------------------------------------
+    it("should throw JOB_NOT_FOUND when job does not exist", async () => {
+      vi.mocked(prisma.bulkJob.findFirst).mockResolvedValue(null as any);
+
+      await expect(
+        getBulkJobResultsCursor("non-existent-job", OWNER_ID, undefined, 50),
+      ).rejects.toThrow("JOB_NOT_FOUND");
+    });
+
+    // -------------------------------------------------------------------------
+    // Test 4 — Authorized user gets full cursor results
+    // -------------------------------------------------------------------------
+    it("should return cursor results for authorized user", async () => {
+      vi.mocked(prisma.bulkJob.findFirst).mockResolvedValue(mockJobData);
+      vi.mocked(prisma.validation.findMany).mockResolvedValue([
+        { id: "val-1", email: "a@b.com", score: 90, status: "valid" },
+        { id: "val-2", email: "c@d.com", score: 30, status: "invalid" },
+      ]);
+
+      const result = await getBulkJobResultsCursor(JOB_ID, OWNER_ID, undefined, 50);
+
+      expect(result.results).toHaveLength(2);
+      expect(result.hasNextPage).toBe(false);
+      expect(result.nextCursor).toBeUndefined();
+    });
+
+    // -------------------------------------------------------------------------
+    // Test 5 — Cursor pagination requires ownership
+    // -------------------------------------------------------------------------
+    it("should enforce ownership even with cursor pagination", async () => {
+      // Owner can use cursor pagination
+      vi.mocked(prisma.bulkJob.findFirst).mockResolvedValue(mockJobData);
+      vi.mocked(prisma.validation.findMany).mockResolvedValue([
+        { id: "val-50", email: "a@b.com", score: 80, status: "valid" },
+      ]);
+
+      const ownerResult = await getBulkJobResultsCursor(JOB_ID, OWNER_ID, "val-100", 50);
+      expect(ownerResult.results).toHaveLength(1);
+
+      // But attacker with same cursor should be blocked
+      vi.mocked(prisma.bulkJob.findFirst).mockResolvedValue(null as any);
+      await expect(getBulkJobResultsCursor(JOB_ID, ATTACKER_ID, "val-100", 50)).rejects.toThrow(
+        "JOB_NOT_FOUND",
+      );
+    });
+
+    // -------------------------------------------------------------------------
+    // Test 6 — Empty userId is rejected
+    // -------------------------------------------------------------------------
+    it("should not bypass ownership check with empty userId", async () => {
+      vi.mocked(prisma.bulkJob.findFirst).mockResolvedValue(null as any);
+
+      await expect(getBulkJobResultsCursor(JOB_ID, "" as any, undefined, 50)).rejects.toThrow(
+        "JOB_NOT_FOUND",
+      );
     });
   });
 });

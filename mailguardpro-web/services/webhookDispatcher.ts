@@ -24,6 +24,11 @@ export interface WebhookConfig {
 const MAX_RETRIES = 3;
 const RETRY_DELAYS = [2000, 4000, 8000]; // Backoff exponentiel
 
+function withJitter(delayMs: number): number {
+  const jitter = delayMs * 0.2; // ±20%
+  return Math.max(100, delayMs + Math.floor(Math.random() * jitter * 2) - jitter);
+}
+
 export class WebhookDispatcher {
   // Dispatcher un webhook spécifique
   static async dispatch(
@@ -105,9 +110,9 @@ export class WebhookDispatcher {
         console.error(`Webhook attempt ${attempt + 1} failed:`, error);
       }
 
-      // Attendre avant le retry
+      // Attendre avant le retry (with jitter to avoid thundering herd)
       if (attempt < MAX_RETRIES - 1) {
-        await new Promise((r) => setTimeout(r, RETRY_DELAYS[attempt]));
+        await new Promise((r) => setTimeout(r, withJitter(RETRY_DELAYS[attempt])));
       }
     }
 

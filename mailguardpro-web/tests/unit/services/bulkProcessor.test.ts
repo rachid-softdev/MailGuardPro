@@ -351,13 +351,27 @@ describe("bulkProcessor", () => {
   });
 
   describe("getBulkJobResultsCursor", () => {
+    beforeEach(() => {
+      mockPrisma.bulkJob.findFirst.mockResolvedValue({
+        id: "job-123",
+        userId: "user-123",
+        status: "COMPLETED",
+        totalEmails: 100,
+        processed: 100,
+        filename: "test.csv",
+        createdAt: new Date(),
+        startedAt: new Date(),
+        completedAt: new Date(),
+      });
+    });
+
     it("should return results without cursor", async () => {
       mockPrisma.validation.findMany.mockResolvedValue([
         { id: "val-1", email: "test1@example.com", score: 80 },
         { id: "val-2", email: "test2@example.com", score: 70 },
       ]);
 
-      const result = await getBulkJobResultsCursor("job-123", undefined, 50);
+      const result = await getBulkJobResultsCursor("job-123", "user-123", undefined, 50);
 
       expect(result.results).toHaveLength(2);
       expect(result.hasNextPage).toBe(false);
@@ -375,7 +389,7 @@ describe("bulkProcessor", () => {
         }));
       mockPrisma.validation.findMany.mockResolvedValue(mockResults);
 
-      const result = await getBulkJobResultsCursor("job-123", undefined, 50);
+      const result = await getBulkJobResultsCursor("job-123", "user-123", undefined, 50);
 
       expect(result.results).toHaveLength(50); // Should have limit items
       expect(result.hasNextPage).toBe(true);
@@ -387,7 +401,7 @@ describe("bulkProcessor", () => {
         { id: "val-99", email: "test99@example.com", score: 50 },
       ]);
 
-      await getBulkJobResultsCursor("job-123", "val-100", 50);
+      await getBulkJobResultsCursor("job-123", "user-123", "val-100", 50);
 
       expect(mockPrisma.validation.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -402,7 +416,7 @@ describe("bulkProcessor", () => {
     it("should order by createdAt descending", async () => {
       mockPrisma.validation.findMany.mockResolvedValue([]);
 
-      await getBulkJobResultsCursor("job-123");
+      await getBulkJobResultsCursor("job-123", "user-123");
 
       expect(mockPrisma.validation.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -414,7 +428,7 @@ describe("bulkProcessor", () => {
     it("should handle empty results with cursor", async () => {
       mockPrisma.validation.findMany.mockResolvedValue([]);
 
-      const result = await getBulkJobResultsCursor("job-123", "cursor-value", 50);
+      const result = await getBulkJobResultsCursor("job-123", "user-123", "cursor-value", 50);
 
       expect(result.results).toHaveLength(0);
       expect(result.hasNextPage).toBe(false);
