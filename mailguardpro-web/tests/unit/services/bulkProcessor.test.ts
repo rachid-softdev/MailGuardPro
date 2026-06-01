@@ -57,9 +57,9 @@ vi.mock("@/lib/redis", () => ({
 }));
 
 vi.mock("bullmq", () => ({
-  Queue: vi.fn().mockImplementation(() => ({
-    add: vi.fn().mockResolvedValue({ id: "job-123" }),
-  })),
+  Queue: vi.fn(function () {
+    return { add: vi.fn().mockResolvedValue({ id: "job-123" }) };
+  }),
 }));
 
 import {
@@ -159,17 +159,18 @@ describe("bulkProcessor", () => {
   });
 
   describe("getBulkJobStatus", () => {
-    it("should return null for non-existent job", async () => {
+    it("should throw for non-existent job", async () => {
       mockPrisma.bulkJob.findFirst.mockResolvedValue(null);
 
-      const result = await getBulkJobStatus("nonexistent-job");
-
-      expect(result).toBeNull();
+      await expect(getBulkJobStatus("nonexistent-job", "user-abc")).rejects.toThrow(
+        "JOB_NOT_FOUND",
+      );
     });
 
     it("should return job status with percentage", async () => {
       mockPrisma.bulkJob.findFirst.mockResolvedValue({
         id: "job-123",
+        userId: "user-abc",
         status: "PROCESSING",
         totalEmails: 100,
         processed: 50,
@@ -177,7 +178,7 @@ describe("bulkProcessor", () => {
         createdAt: new Date(),
       });
 
-      const result = await getBulkJobStatus("job-123");
+      const result = await getBulkJobStatus("job-123", "user-abc");
 
       expect(result).not.toBeNull();
       expect(result?.percentage).toBe(50);
@@ -208,52 +209,25 @@ describe("bulkProcessor", () => {
       );
     });
 
-    it("should return null when userId does not match (unauthorized access)", async () => {
+    it("should throw when userId does not match (unauthorized access)", async () => {
       mockPrisma.bulkJob.findFirst.mockResolvedValue(null);
 
-      const result = await getBulkJobStatus("job-123", "user-wrong");
-
-      expect(result).toBeNull();
+      await expect(getBulkJobStatus("job-123", "user-wrong")).rejects.toThrow("JOB_NOT_FOUND");
       expect(mockPrisma.bulkJob.findFirst).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id: "job-123", userId: "user-wrong" },
         }),
       );
     });
-
-    it("should return job without userId filter when called without userId (worker usage)", async () => {
-      const jobData = {
-        id: "job-123",
-        status: "PROCESSING",
-        totalEmails: 100,
-        processed: 50,
-        filename: "test.csv",
-        createdAt: new Date(),
-      };
-      mockPrisma.bulkJob.findFirst.mockResolvedValue(jobData);
-
-      const result = await getBulkJobStatus("job-123");
-
-      expect(result).not.toBeNull();
-      expect(result?.status).toBe("PROCESSING");
-      // Without userId, should only filter by id
-      expect(mockPrisma.bulkJob.findFirst).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { id: "job-123" },
-        }),
-      );
-      // userId should NOT be in the where clause
-      const callArgs = mockPrisma.bulkJob.findFirst.mock.calls[0][0];
-      expect(callArgs.where.userId).toBeUndefined();
-    });
   });
 
   describe("getBulkJobResults", () => {
     it("should return paginated results", async () => {
+      mockPrisma.bulkJob.findFirst.mockResolvedValue({ id: "job-123", userId: "user-abc" });
       mockPrisma.validation.findMany.mockResolvedValue([{ email: "test1@example.com", score: 80 }]);
       mockPrisma.validation.count.mockResolvedValue(1);
 
-      const result = await getBulkJobResults("job-123", 1, 50);
+      const result = await getBulkJobResults("job-123", "user-abc", 1, 50);
 
       expect(result.results).toHaveLength(1);
       expect(result.total).toBe(1);
@@ -261,10 +235,11 @@ describe("bulkProcessor", () => {
     });
 
     it("should filter by status", async () => {
+      mockPrisma.bulkJob.findFirst.mockResolvedValue({ id: "job-123", userId: "user-abc" });
       mockPrisma.validation.findMany.mockResolvedValue([]);
       mockPrisma.validation.count.mockResolvedValue(0);
 
-      await getBulkJobResults("job-123", 1, 50, { status: ["invalid"] });
+      await getBulkJobResults("job-123", "user-abc", 1, 50, { status: ["invalid"] });
 
       // Check that the query included status filter
       expect(mockPrisma.validation.findMany).toHaveBeenCalled();
@@ -273,6 +248,7 @@ describe("bulkProcessor", () => {
 
   describe("getBulkJobStats", () => {
     it("should return aggregated statistics", async () => {
+      mockPrisma.bulkJob.findFirst.mockResolvedValue({ id: "job-123", userId: "user-abc" });
       mockPrisma.validation.groupBy.mockResolvedValue([
         { status: "valid", _count: { status: 50 } },
         { status: "invalid", _count: { status: 30 } },
@@ -283,7 +259,7 @@ describe("bulkProcessor", () => {
         _count: { score: 100 },
       });
 
-      const result = await getBulkJobStats("job-123");
+      const result = await getBulkJobStats("job-123", "user-abc");
 
       expect(result.valid).toBe(50);
       expect(result.invalid).toBe(30);
@@ -293,19 +269,21 @@ describe("bulkProcessor", () => {
     });
 
     it("should handle empty results", async () => {
+      mockPrisma.bulkJob.findFirst.mockResolvedValue({ id: "job-123", userId: "user-abc" });
       mockPrisma.validation.groupBy.mockResolvedValue([]);
       mockPrisma.validation.aggregate.mockResolvedValue({
         _avg: { score: null },
         _count: { score: 0 },
       });
 
-      const result = await getBulkJobStats("job-123");
+      const result = await getBulkJobStats("job-123", "user-abc");
 
       expect(result.total).toBe(0);
       expect(result.avgScore).toBe(0);
     });
 
     it("should include unknown status in results", async () => {
+      mockPrisma.bulkJob.findFirst.mockResolvedValue({ id: "job-123", userId: "user-abc" });
       mockPrisma.validation.groupBy.mockResolvedValue([
         { status: "unknown", _count: { status: 10 } },
         { status: "valid", _count: { status: 50 } },
@@ -315,12 +293,13 @@ describe("bulkProcessor", () => {
         _count: { score: 60 },
       });
 
-      const result = await getBulkJobStats("job-123");
+      const result = await getBulkJobStats("job-123", "user-abc");
 
       expect(result.unknown).toBe(10);
     });
 
     it("should handle score distribution from raw query", async () => {
+      mockPrisma.bulkJob.findFirst.mockResolvedValue({ id: "job-123", userId: "user-abc" });
       mockPrisma.validation.groupBy.mockResolvedValue([
         { status: "valid", _count: { status: 50 } },
       ]);
@@ -336,7 +315,7 @@ describe("bulkProcessor", () => {
         { range: "81-100", count: BigInt(5) },
       ]);
 
-      const result = await getBulkJobStats("job-123");
+      const result = await getBulkJobStats("job-123", "user-abc");
 
       expect(result.scoreDistribution).toEqual({
         "0-20": 5,
@@ -348,6 +327,7 @@ describe("bulkProcessor", () => {
     });
 
     it("should fall back to empty distribution if raw query fails", async () => {
+      mockPrisma.bulkJob.findFirst.mockResolvedValue({ id: "job-123", userId: "user-abc" });
       mockPrisma.validation.groupBy.mockResolvedValue([
         { status: "valid", _count: { status: 50 } },
       ]);
@@ -357,7 +337,7 @@ describe("bulkProcessor", () => {
       });
       mockPrisma.$queryRaw.mockRejectedValue(new Error("Query failed"));
 
-      const result = await getBulkJobStats("job-123");
+      const result = await getBulkJobStats("job-123", "user-abc");
 
       // Should use fallback distribution
       expect(result.scoreDistribution).toEqual({

@@ -135,6 +135,19 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                 dbVersion: dbUser.tokenVersion,
               }),
             );
+            // ÉTAPE 1: Supprimer TOUTES les sessions de l'utilisateur
+            await prisma.session.deleteMany({ where: { userId: dbUser.id } });
+            // ÉTAPE 2: Logger l'événement (best-effort, non-bloquant)
+            // logAudit already catches errors internally — no .catch() needed
+            logAudit({
+              userId: dbUser.id,
+              action: AuditAction.SESSION_FORCED_INVALIDATION,
+              resource: AuditResource.SESSION,
+              metadata: {
+                previousTokenVersion: user.tokenVersion,
+                currentTokenVersion: dbUser.tokenVersion,
+              },
+            });
             // Return a session with no user data → NextAuth treats this as unauthenticated
             return { ...session, user: null as any, expires: new Date(0).toISOString() };
           }

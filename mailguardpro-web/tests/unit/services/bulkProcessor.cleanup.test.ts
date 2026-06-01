@@ -36,9 +36,9 @@ vi.mock("@/lib/redis", () => ({
 }));
 
 vi.mock("bullmq", () => ({
-  Queue: vi.fn().mockImplementation(() => ({
-    add: vi.fn().mockRejectedValue(new Error("Queue unavailable")),
-  })),
+  Queue: vi.fn(function () {
+    return { add: vi.fn().mockRejectedValue(new Error("Queue unavailable")) };
+  }),
 }));
 
 import { prisma } from "@/lib/prisma";

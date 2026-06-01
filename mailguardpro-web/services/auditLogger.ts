@@ -46,6 +46,9 @@ export enum AuditAction {
 
   // Validation actions
   VALIDATION_PERFORMED = "VALIDATION_PERFORMED",
+
+  // Session actions
+  SESSION_FORCED_INVALIDATION = "SESSION_FORCED_INVALIDATION",
 }
 
 export enum AuditResource {
@@ -56,6 +59,7 @@ export enum AuditResource {
   VALIDATION = "Validation",
   SUBSCRIPTION = "Subscription",
   ORGANIZATION = "Organization",
+  SESSION = "Session",
 }
 
 export interface AuditLogParams {

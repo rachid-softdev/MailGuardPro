@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Modal } from "@/components/ui/Modal";
 
 interface Webhook {
   id: string;
@@ -179,7 +180,13 @@ export default function WebhooksPage() {
             Receive real-time notifications when events occur
           </p>
         </div>
-        <button className="btn btn-primary" onClick={() => setShowCreateModal(true)}>
+        <button
+          className="btn btn-primary"
+          onClick={() => setShowCreateModal(true)}
+          aria-haspopup="dialog"
+          aria-expanded={showCreateModal}
+          aria-controls="modal-add-webhook"
+        >
           Add Webhook
         </button>
       </div>
@@ -235,6 +242,9 @@ export default function WebhooksPage() {
                   <button
                     onClick={() => handleTestWebhook(webhook)}
                     className="btn btn-ghost btn-sm"
+                    aria-haspopup="dialog"
+                    aria-expanded={showTestModal && testWebhook?.id === webhook.id}
+                    aria-controls="modal-test-webhook"
                   >
                     Test
                   </button>
@@ -273,86 +283,95 @@ export default function WebhooksPage() {
       </div>
 
       {/* Create Modal */}
-      {showCreateModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="card max-w-md w-full mx-4">
-            <h3 className="text-xl font-display font-semibold mb-4">Add Webhook</h3>
+      <Modal
+        isOpen={showCreateModal}
+        onClose={() => {
+          setShowCreateModal(false);
+          resetForm();
+        }}
+        title="Add Webhook"
+        id="modal-add-webhook"
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium mb-2">Name</label>
+            <input
+              type="text"
+              value={formName}
+              onChange={(e) => setFormName(e.target.value)}
+              placeholder="e.g., My Notification Endpoint"
+              className="input w-full"
+            />
+          </div>
 
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-2">Name</label>
-                <input
-                  type="text"
-                  value={formName}
-                  onChange={(e) => setFormName(e.target.value)}
-                  placeholder="e.g., My Notification Endpoint"
-                  className="input w-full"
-                />
-              </div>
+          <div>
+            <label className="block text-sm font-medium mb-2">URL</label>
+            <input
+              type="url"
+              value={formUrl}
+              onChange={(e) => setFormUrl(e.target.value)}
+              placeholder="https://your-server.com/webhook"
+              className="input w-full"
+            />
+          </div>
 
-              <div>
-                <label className="block text-sm font-medium mb-2">URL</label>
-                <input
-                  type="url"
-                  value={formUrl}
-                  onChange={(e) => setFormUrl(e.target.value)}
-                  placeholder="https://your-server.com/webhook"
-                  className="input w-full"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-2">Events</label>
-                <div className="space-y-2">
-                  {AVAILABLE_EVENTS.map((event) => (
-                    <label key={event.value} className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        checked={formEvents.includes(event.value)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setFormEvents([...formEvents, event.value]);
-                          } else {
-                            setFormEvents(formEvents.filter((ev) => ev !== event.value));
-                          }
-                        }}
-                        className="rounded"
-                      />
-                      <span className="text-sm">{event.label}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <div className="flex gap-3 mt-6">
-              <button
-                className="btn btn-ghost flex-1"
-                onClick={() => {
-                  setShowCreateModal(false);
-                  resetForm();
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                className="btn btn-primary flex-1"
-                onClick={createWebhook}
-                disabled={creating || !formUrl || !formName || formEvents.length === 0}
-              >
-                {creating ? "Creating..." : "Create Webhook"}
-              </button>
+          <div>
+            <label className="block text-sm font-medium mb-2">Events</label>
+            <div className="space-y-2">
+              {AVAILABLE_EVENTS.map((event) => (
+                <label key={event.value} className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={formEvents.includes(event.value)}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setFormEvents([...formEvents, event.value]);
+                      } else {
+                        setFormEvents(formEvents.filter((ev) => ev !== event.value));
+                      }
+                    }}
+                    className="rounded"
+                  />
+                  <span className="text-sm">{event.label}</span>
+                </label>
+              ))}
             </div>
           </div>
         </div>
-      )}
+
+        <div className="flex gap-3 mt-6">
+          <button
+            className="btn btn-ghost flex-1"
+            onClick={() => {
+              setShowCreateModal(false);
+              resetForm();
+            }}
+          >
+            Cancel
+          </button>
+          <button
+            className="btn btn-primary flex-1"
+            onClick={createWebhook}
+            disabled={creating || !formUrl || !formName || formEvents.length === 0}
+          >
+            {creating ? "Creating..." : "Create Webhook"}
+          </button>
+        </div>
+      </Modal>
 
       {/* Test Modal */}
-      {showTestModal && testWebhook && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="card max-w-md w-full mx-4">
-            <h3 className="text-xl font-display font-semibold mb-4">Test Webhook</h3>
-
+      <Modal
+        isOpen={showTestModal && !!testWebhook}
+        onClose={() => {
+          setShowTestModal(false);
+          setTestWebhook(null);
+          setTestResult(null);
+        }}
+        title="Test Webhook"
+        id="modal-test-webhook"
+      >
+        {testWebhook && (
+          <>
             <div className="mb-4">
               <p className="text-sm text-[var(--text-muted)]">Sending test to:</p>
               <code className="block font-mono text-sm mt-1">{testWebhook.url}</code>
@@ -381,9 +400,9 @@ export default function WebhooksPage() {
             >
               Close
             </button>
-          </div>
-        </div>
-      )}
+          </>
+        )}
+      </Modal>
     </div>
   );
 }

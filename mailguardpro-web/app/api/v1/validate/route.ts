@@ -7,8 +7,11 @@ import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { hasScope } from "@/lib/auth/require-scope";
 import { hashApiKey, hashApiKeyLegacy } from "@/lib/crypto";
-import { hashEmail } from "@/lib/emailHash";
+import { hashEmail, maskEmail } from "@/lib/emailHash";
 import { prisma } from "@/lib/prisma";
+
+type TxPrismaClient = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
+
 import { checkRateLimitByPlan, type Plan } from "@/lib/rateLimits";
 import { checkRateLimit } from "@/lib/redis";
 import { getClientIp } from "@/lib/ssrf";
@@ -222,55 +225,65 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // Deduct credits atomically for authenticated users
-    if (user) {
-      const deduction = await prisma.user.updateMany({
-        where: {
-          id: user.id,
-          credits: { gte: 1 },
-        },
-        data: { credits: { decrement: 1 } },
-      });
-
-      if (deduction.count === 0) {
-        await enforceTimingSafeResponse(startTime);
-        return NextResponse.json(
-          {
-            success: false,
-            error: "Insufficient credits",
-            code: "INSUFFICIENT_CREDITS",
-          },
-          { status: 403 },
-        );
-      }
-    }
-
-    // Validation de l'email
-    const result = await validateEmail(email!);
-
-    // Save to DB if user is authenticated
-    if (user) {
-      await prisma.validation.create({
-        data: {
-          email: result.email, // Keep original for search compatibility
-          emailHash: hashEmail(result.email), // Hash for privacy compliance
-          score: result.score,
-          status: result.status,
-          checksJson: result.checks as any,
-          processingTimeMs: result.processingTimeMs,
-          userId: user.id,
-        },
-      });
-    }
-
-    // Get remaining credits after atomic deduction
+    // Deduct credits atomically for authenticated users (wrapped in transaction)
+    let result: any = null;
     let creditsRemaining: number | null = null;
     if (user) {
-      const updatedUser = await prisma.user.findUnique({
-        where: { id: user.id },
-        select: { credits: true },
-      });
-      creditsRemaining = updatedUser?.credits ?? null;
+      try {
+        const txResult = await prisma.$transaction(async (tx: TxPrismaClient) => {
+          // 1. Déduire les crédits
+          const deduction = await tx.user.updateMany({
+            where: { id: user.id, credits: { gte: 1 } },
+            data: { credits: { decrement: 1 } },
+          });
+          if (deduction.count === 0) {
+            throw new Error("INSUFFICIENT_CREDITS");
+          }
+
+          // 2. Valider l'email
+          const validationResult = await validateEmail(email!);
+
+          // 3. Sauvegarder le résultat
+          await tx.validation.create({
+            data: {
+              email: maskEmail(validationResult.email),
+              emailHash: hashEmail(validationResult.email),
+              score: validationResult.score,
+              status: validationResult.status,
+              checksJson: validationResult.checks as any,
+              processingTimeMs: validationResult.processingTimeMs,
+              userId: user.id,
+            },
+          });
+
+          // 4. Récupérer les crédits restants
+          const updatedUser = await tx.user.findUnique({
+            where: { id: user.id },
+            select: { credits: true },
+          });
+
+          return { result: validationResult, creditsRemaining: updatedUser?.credits ?? null };
+        });
+
+        result = txResult.result;
+        creditsRemaining = txResult.creditsRemaining;
+      } catch (error) {
+        if (error instanceof Error && error.message === "INSUFFICIENT_CREDITS") {
+          await enforceTimingSafeResponse(startTime);
+          return NextResponse.json(
+            {
+              success: false,
+              error: "Insufficient credits",
+              code: "INSUFFICIENT_CREDITS",
+            },
+            { status: 403 },
+          );
+        }
+        throw error; // Sera catché par le block catch externe
+      }
+    } else {
+      // Anonymous user: validate without saving to DB
+      result = await validateEmail(email!);
     }
 
     // Anti-enumeration: enforce timing-safe response with jitter to prevent

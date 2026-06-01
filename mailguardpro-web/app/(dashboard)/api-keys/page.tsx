@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Modal } from "@/components/ui/Modal";
 
 interface ApiKey {
   id: string;
@@ -100,7 +101,13 @@ export default function ApiKeysPage() {
             Manage your API keys for programmatic access
           </p>
         </div>
-        <button className="btn btn-primary" onClick={() => setShowCreateModal(true)}>
+        <button
+          className="btn btn-primary"
+          onClick={() => setShowCreateModal(true)}
+          aria-haspopup="dialog"
+          aria-expanded={showCreateModal}
+          aria-controls="modal-create-api-key"
+        >
           Create New Key
         </button>
       </div>
@@ -212,67 +219,69 @@ export default function ApiKeysPage() {
       </div>
 
       {/* Create Modal */}
-      {showCreateModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="card max-w-md w-full mx-4">
-            <h3 className="text-xl font-display font-semibold mb-4">Create API Key</h3>
-
-            {newKey ? (
-              <div>
-                <div className="bg-[var(--accent-light)] border border-[var(--accent)] rounded-lg p-4 mb-4">
-                  <p className="font-medium mb-2">Your new API key:</p>
-                  <code className="block font-mono text-sm break-all">{newKey}</code>
-                </div>
-                <p className="text-sm text-[var(--text-muted)] mb-4">
-                  Make sure to copy this key now. You won&apos;t be able to see it again!
-                </p>
-                <button
-                  className="btn btn-primary w-full"
-                  onClick={() => {
-                    navigator.clipboard.writeText(newKey);
-                    setNewKey(null);
-                    setShowCreateModal(false);
-                    setNewKeyName("");
-                  }}
-                >
-                  Copy & Close
-                </button>
-              </div>
-            ) : (
-              <>
-                <div className="mb-4">
-                  <label className="block text-sm font-medium mb-2">Key Name</label>
-                  <input
-                    type="text"
-                    value={newKeyName}
-                    onChange={(e) => setNewKeyName(e.target.value)}
-                    placeholder="e.g., Production API"
-                    className="input w-full"
-                  />
-                </div>
-                <div className="flex gap-3">
-                  <button
-                    className="btn btn-ghost flex-1"
-                    onClick={() => {
-                      setShowCreateModal(false);
-                      setNewKeyName("");
-                    }}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    className="btn btn-primary flex-1"
-                    onClick={createKey}
-                    disabled={creating || !newKeyName.trim()}
-                  >
-                    {creating ? "Creating..." : "Create Key"}
-                  </button>
-                </div>
-              </>
-            )}
+      <Modal
+        isOpen={showCreateModal}
+        onClose={() => {
+          setShowCreateModal(false);
+          setNewKeyName("");
+        }}
+        title="Create API Key"
+        id="modal-create-api-key"
+      >
+        {newKey ? (
+          <div>
+            <div className="bg-[var(--accent-light)] border border-[var(--accent)] rounded-lg p-4 mb-4">
+              <p className="font-medium mb-2">Your new API key:</p>
+              <code className="block font-mono text-sm break-all">{newKey}</code>
+            </div>
+            <p className="text-sm text-[var(--text-muted)] mb-4">
+              Make sure to copy this key now. You won&apos;t be able to see it again!
+            </p>
+            <button
+              className="btn btn-primary w-full"
+              onClick={() => {
+                navigator.clipboard.writeText(newKey);
+                setNewKey(null);
+                setShowCreateModal(false);
+                setNewKeyName("");
+              }}
+            >
+              Copy & Close
+            </button>
           </div>
-        </div>
-      )}
+        ) : (
+          <>
+            <div className="mb-4">
+              <label className="block text-sm font-medium mb-2">Key Name</label>
+              <input
+                type="text"
+                value={newKeyName}
+                onChange={(e) => setNewKeyName(e.target.value)}
+                placeholder="e.g., Production API"
+                className="input w-full"
+              />
+            </div>
+            <div className="flex gap-3">
+              <button
+                className="btn btn-ghost flex-1"
+                onClick={() => {
+                  setShowCreateModal(false);
+                  setNewKeyName("");
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                className="btn btn-primary flex-1"
+                onClick={createKey}
+                disabled={creating || !newKeyName.trim()}
+              >
+                {creating ? "Creating..." : "Create Key"}
+              </button>
+            </div>
+          </>
+        )}
+      </Modal>
     </div>
   );
 }
