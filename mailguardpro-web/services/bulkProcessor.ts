@@ -133,7 +133,7 @@ export async function processBulkUpload(
 
   try {
     // 1. DB transaction first — credit deduction + job creation
-    await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx: any) => {
       const deduction = await tx.user.updateMany({
         where: { id: userId, credits: { gte: creditCost } },
         data: { credits: { decrement: creditCost } },
@@ -185,13 +185,33 @@ export async function processBulkUpload(
   }
 }
 
+export async function requireJobOwnership(jobId: string, userId: string) {
+  const job = await prisma.bulkJob.findFirst({
+    where: { id: jobId, userId },
+    select: {
+      id: true,
+      userId: true,
+      status: true,
+      totalEmails: true,
+      processed: true,
+      filename: true,
+      createdAt: true,
+      startedAt: true,
+      completedAt: true,
+    },
+  });
+  if (!job) {
+    throw new Error("JOB_NOT_FOUND");
+  }
+  return job;
+}
+
 // Function to get job status
-export async function getBulkJobStatus(jobId: string, userId?: string) {
-  const where: any = { id: jobId };
-  if (userId) where.userId = userId;
+export async function getBulkJobStatus(jobId: string, userId: string) {
+  await requireJobOwnership(jobId, userId);
 
   const job = await prisma.bulkJob.findFirst({
-    where,
+    where: { id: jobId, userId },
     select: {
       id: true,
       status: true,
@@ -217,6 +237,7 @@ export async function getBulkJobStatus(jobId: string, userId?: string) {
 // Function to get paginated results
 export async function getBulkJobResults(
   jobId: string,
+  userId: string,
   page = 1,
   limit = 50,
   filters?: {
@@ -225,9 +246,10 @@ export async function getBulkJobResults(
     maxScore?: number;
   },
 ) {
+  await requireJobOwnership(jobId, userId);
   const skip = (page - 1) * limit;
 
-  const where: any = { bulkJobId: jobId };
+  const where: Record<string, any> = { bulkJobId: jobId };
 
   if (filters?.status && filters.status.length > 0) {
     where.status = { in: filters.status };
@@ -262,7 +284,8 @@ export async function getBulkJobResults(
 
 // Function to get job stats - Optimized SQL version
 // Instead of loading all results in memory, use SQL aggregations
-export async function getBulkJobStats(jobId: string) {
+export async function getBulkJobStats(jobId: string, userId: string) {
+  await requireJobOwnership(jobId, userId);
   // Query 1: Count total + group by status
   const statusCounts = await prisma.validation.groupBy({
     by: ["status"],

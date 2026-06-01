@@ -14,13 +14,22 @@ function generateNonce(): string {
 }
 
 function buildCsp(nonce: string): string {
+  const stripeOrigins = process.env.CSP_STRIPE_ORIGINS || "https://js.stripe.com";
+  const sentryOrigins = process.env.CSP_SENTRY_ORIGINS || "https://o*.ingest.sentry.io";
+  const frameOrigins =
+    process.env.CSP_FRAME_ORIGINS || "https://js.stripe.com https://hooks.stripe.com";
+  const imgOrigins =
+    process.env.CSP_IMG_ORIGINS ||
+    "https://lh3.googleusercontent.com https://avatars.githubusercontent.com";
+
   return [
     `default-src 'self'`,
-    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'`,
+    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' ${stripeOrigins}`,
     `style-src 'self' 'unsafe-inline'`,
-    `img-src 'self' data: blob: https:`,
+    `img-src 'self' data: blob: https: ${imgOrigins}`,
     `font-src 'self' data:`,
-    `connect-src 'self' https:`,
+    `connect-src 'self' https: ${sentryOrigins}`,
+    `frame-src 'self' ${frameOrigins}`,
     `frame-ancestors 'none'`,
     `form-action 'self'`,
     `base-uri 'self'`,

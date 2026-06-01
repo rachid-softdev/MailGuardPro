@@ -111,9 +111,9 @@ vi.mock("@/lib/auth", () => ({
 // Mock BullMQ with hoisted reference for assertions
 const mockQueueAdd = vi.hoisted(() => vi.fn().mockResolvedValue({ id: "bull-job-123" }));
 vi.mock("bullmq", () => ({
-  Queue: vi.fn().mockImplementation(() => ({
-    add: mockQueueAdd,
-  })),
+  Queue: vi.fn(function () {
+    return { add: mockQueueAdd };
+  }),
 }));
 
 // Mock next/server
@@ -641,6 +641,17 @@ describe("Fix M2 — checkRateLimitByPlan (consolidated lib/rateLimits)", () => 
 // =============================================================================
 
 describe("Fix H3 — pre-deduction gate (format + disposable)", () => {
+  // Shared tx client mock for per-test overrides
+  const txMock = {
+    user: {
+      updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+      findUnique: vi.fn().mockResolvedValue({ id: "user-h3", credits: 99 }),
+    },
+    validation: {
+      create: vi.fn().mockResolvedValue({}),
+    },
+  };
+
   beforeEach(() => {
     // Default: user is authenticated
     vi.mocked(auth).mockResolvedValue({
@@ -653,8 +664,8 @@ describe("Fix H3 — pre-deduction gate (format + disposable)", () => {
       credits: 100,
       plan: "FREE",
     } as any);
-    vi.mocked(prisma.user.updateMany).mockResolvedValue({ count: 1 });
-    vi.mocked(prisma.validation.create).mockResolvedValue({} as any);
+    // Default: $transaction passes a mock transactional client
+    vi.mocked(prisma.$transaction).mockImplementation(async (fn: any) => fn(txMock));
 
     // Default: format and disposable pass
     vi.mocked(checkFormat).mockReturnValue({
@@ -790,8 +801,8 @@ describe("Fix H3 — pre-deduction gate (format + disposable)", () => {
     expect(json.meta.creditsUsed).toBe(1);
     expect(json.data.status).toBe("valid");
 
-    // Credits must have been deducted via updateMany
-    expect(prisma.user.updateMany).toHaveBeenCalledWith(
+    // Credits must have been deducted via tx.user.updateMany (inside transaction)
+    expect(txMock.user.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { id: "user-h3", credits: { gte: 1 } },
         data: { credits: { decrement: 1 } },
@@ -828,7 +839,8 @@ describe("Fix H3 — pre-deduction gate (format + disposable)", () => {
   // --------------------------------------------------------------------------
 
   test("should return 402 when user passes gate but has insufficient credits", async () => {
-    vi.mocked(prisma.user.updateMany).mockResolvedValue({ count: 0 });
+    // Override the transaction-level updateMany to return 0 (no credits)
+    txMock.user.updateMany.mockResolvedValue({ count: 0 });
 
     const url = new URL("http://localhost:3000/api/v1/validate?email=test@company.com");
     const req = new (await import("next/server")).NextRequest(url);
