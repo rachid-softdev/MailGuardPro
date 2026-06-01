@@ -36,8 +36,8 @@ export default auth(async (req) => {
   // to avoid Redis dependency at the edge)
   if (req.nextUrl.pathname.startsWith("/api/auth")) {
     const ip =
-      requestHeaders.get("x-forwarded-for")?.split(",")[0]?.trim() ||
       requestHeaders.get("x-real-ip") ||
+      requestHeaders.get("x-forwarded-for")?.split(",")[0]?.trim() ||
       "unknown";
     const rateCheck = await checkMemoryRateLimit(`auth:${ip}`, 20, 60);
     if (!rateCheck.success) {
