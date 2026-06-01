@@ -2,7 +2,8 @@
 
 import { formatDistanceToNow } from "date-fns";
 import Link from "next/link";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { usePolling } from "@/hooks/usePolling";
 import { logger } from "@/lib/logger";
 
 interface BulkJob {
@@ -21,11 +22,45 @@ export default function BulkPage() {
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [dragActive, setDragActive] = useState(false);
+  const [pollingJobId, setPollingJobId] = useState<string | null>(null);
+
+  // Polling hook — active when a job is being processed
+  const { cancel } = usePolling({
+    fetcher: async () => {
+      const res = await fetch(`/api/v1/bulk/${pollingJobId}/status`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res.json();
+    },
+    shouldStop: (data) => data?.data?.status === "COMPLETED" || data?.data?.status === "FAILED",
+    interval: 2000,
+    maxRetries: 50,
+    enabled: !!pollingJobId,
+    onError: (error) => {
+      logger.error({ err: error }, "Poll failed");
+    },
+    onComplete: (data) => {
+      if (data?.data) {
+        setJobs((prev) =>
+          prev.map((job) =>
+            job.id === pollingJobId
+              ? {
+                  ...job,
+                  status: data.data.status,
+                  processed: data.data.processed,
+                  completedAt: data.data.completedAt,
+                }
+              : job,
+          ),
+        );
+      }
+      setPollingJobId(null);
+    },
+  });
 
   // Fetch jobs on mount
-  useState(() => {
+  useEffect(() => {
     fetchJobs();
-  });
+  }, []);
 
   const fetchJobs = async () => {
     setLoading(true);
@@ -101,7 +136,7 @@ export default function BulkPage() {
         setJobs((prev) => [newJob, ...prev]);
 
         // Poll for status updates
-        pollJobStatus(data.data.jobId);
+        setPollingJobId(data.data.jobId);
       } else {
         alert(data.error || "Upload failed");
       }
@@ -111,43 +146,6 @@ export default function BulkPage() {
     } finally {
       setUploading(false);
     }
-  };
-
-  const pollJobStatus = async (jobId: string) => {
-    const poll = async () => {
-      try {
-        const res = await fetch(`/api/v1/bulk/${jobId}/status`);
-        if (res.ok) {
-          const data = await res.json();
-          if (data.data) {
-            setJobs((prev) =>
-              prev.map((job) =>
-                job.id === jobId
-                  ? {
-                      ...job,
-                      status: data.data.status,
-                      processed: data.data.processed,
-                      completedAt: data.data.completedAt,
-                    }
-                  : job,
-              ),
-            );
-
-            // Stop polling if completed or failed
-            if (data.data.status === "COMPLETED" || data.data.status === "FAILED") {
-              return;
-            }
-          }
-        }
-      } catch (error) {
-        logger.error({ err: error }, "Poll failed");
-      }
-
-      // Continue polling
-      setTimeout(poll, 2000);
-    };
-
-    poll();
   };
 
   const getStatusBadge = (status: string) => {
@@ -309,7 +307,12 @@ export default function BulkPage() {
                       )}
                       {job.status === "PROCESSING" && (
                         <button
-                          onClick={() => pollJobStatus(job.id)}
+                          onClick={() => {
+                            // Restart polling for this job (cancel any current, switch)
+                            cancel();
+                            setPollingJobId(null);
+                            setTimeout(() => setPollingJobId(job.id), 0);
+                          }}
                           className="btn btn-ghost btn-sm"
                         >
                           Refresh

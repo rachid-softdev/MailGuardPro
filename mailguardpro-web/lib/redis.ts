@@ -1,4 +1,5 @@
 import Redis from "ioredis";
+import { CircuitBreaker } from "./circuitBreaker";
 import { logger } from "./logger";
 import { checkMemoryRateLimit } from "./rateLimitMemory";
 import { safeJsonParse } from "./safeJson";
@@ -51,6 +52,12 @@ export const queueRedis =
   globalForRedis.queueRedis ?? createRedisClient(redisUrl, { maxRetriesPerRequest: null });
 export const rateLimitRedis = globalForRedis.rateLimitRedis ?? createRedisClient(redisUrl);
 
+export const redisCircuitBreaker = new CircuitBreaker({
+  name: "redis-rate-limit",
+  failureThreshold: 5,
+  timeoutMs: 15_000,
+});
+
 if (process.env.NODE_ENV !== "production") {
   globalForRedis.redis = redis;
   globalForRedis.queueRedis = queueRedis;
@@ -102,32 +109,35 @@ export async function checkRateLimit(
   resetAt: number;
   limit: number;
 }> {
-  try {
-    const result = (await rateLimitRedis.eval(
-      RATE_LIMIT_SCRIPT,
-      1,
-      `ratelimit:${key}`,
-      limit.toString(),
-      windowSeconds.toString(),
-    )) as [number, number];
+  return redisCircuitBreaker.execute(
+    async () => {
+      const result = (await rateLimitRedis.eval(
+        RATE_LIMIT_SCRIPT,
+        1,
+        `ratelimit:${key}`,
+        limit.toString(),
+        windowSeconds.toString(),
+      )) as [number, number];
 
-    const [current, ttl] = result;
-    const resetAt = Date.now() + (ttl > 0 ? ttl * 1000 : windowSeconds * 1000);
+      const [current, ttl] = result;
+      const resetAt = Date.now() + (ttl > 0 ? ttl * 1000 : windowSeconds * 1000);
 
-    // Round to nearest 10 seconds to prevent precise timing leakage
-    const roundedResetAt = Math.ceil(resetAt / 10000) * 10000;
+      // Round to nearest 10 seconds to prevent precise timing leakage
+      const roundedResetAt = Math.ceil(resetAt / 10000) * 10000;
 
-    return {
-      success: current <= limit,
-      remaining: Math.max(0, limit - current),
-      resetAt: roundedResetAt,
-      limit,
-    };
-  } catch {
-    // Fail-closed: fallback to in-memory rate limiter with stricter limits
-    logger.error("Rate limit check failed — falling back to memory rate limiter");
-    return checkMemoryRateLimit(key, limit, windowSeconds);
-  }
+      return {
+        success: current <= limit,
+        remaining: Math.max(0, limit - current),
+        resetAt: roundedResetAt,
+        limit,
+      };
+    },
+    async () => {
+      // Fail-closed: fallback to in-memory rate limiter with stricter limits
+      logger.error("Rate limit check failed — falling back to memory rate limiter");
+      return checkMemoryRateLimit(key, limit, windowSeconds);
+    },
+  );
 }
 
 // Pub/Sub for SSE
