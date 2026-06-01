@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { ScoreCircle } from "@/components/validator/ScoreCircle";
+import { useDebounce } from "@/hooks/useDebounce";
 
 interface ValidationResult {
   email: string;
@@ -21,7 +22,60 @@ export default function ValidatePage() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<ValidationResult | null>(null);
   const [error, setError] = useState("");
+  // Debounce the email input by 300ms before auto-triggering validation
+  const debouncedEmail = useDebounce(email, 300);
   const abortControllerRef = useRef<AbortController | null>(null);
+
+  // Shared validation logic (used by both form submit and debounce effect)
+  const runValidation = useCallback(async (emailToValidate: string) => {
+    if (!emailToValidate) return;
+
+    // Cancel any in-flight request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+
+    // Create new AbortController for this request
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
+    setLoading(true);
+    setError("");
+    setResult(null);
+
+    try {
+      const response = await fetch(
+        `/api/v1/validate?email=${encodeURIComponent(emailToValidate)}`,
+        { signal: controller.signal },
+      );
+
+      // Ignore abort errors
+      if (response.status === 0) return;
+
+      const data = await response.json();
+
+      if (data.success) {
+        setResult(data.data);
+      } else {
+        setError(data.error || "Validation failed");
+      }
+    } catch (err) {
+      // Ignore AbortError - this is expected when cancelling requests
+      if (err instanceof DOMException && err.name === "AbortError") {
+        return;
+      }
+      setError("An error occurred during validation");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Auto-trigger validation when debounced email settles (300ms after user stops typing)
+  useEffect(() => {
+    if (debouncedEmail) {
+      runValidation(debouncedEmail);
+    }
+  }, [debouncedEmail, runValidation]);
 
   // Cleanup on unmount to prevent memory leaks
   useEffect(() => {
@@ -33,49 +87,11 @@ export default function ValidatePage() {
   }, []);
 
   const handleSubmit = useCallback(
-    async (e: React.FormEvent) => {
+    (e: React.FormEvent) => {
       e.preventDefault();
-      if (!email) return;
-
-      // Cancel any in-flight request
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
-
-      // Create new AbortController for this request
-      const controller = new AbortController();
-      abortControllerRef.current = controller;
-
-      setLoading(true);
-      setError("");
-      setResult(null);
-
-      try {
-        const response = await fetch(`/api/v1/validate?email=${encodeURIComponent(email)}`, {
-          signal: controller.signal,
-        });
-
-        // Ignore abort errors
-        if (response.status === 0) return;
-
-        const data = await response.json();
-
-        if (data.success) {
-          setResult(data.data);
-        } else {
-          setError(data.error || "Validation failed");
-        }
-      } catch (err) {
-        // Ignore AbortError - this is expected when cancelling requests
-        if (err instanceof DOMException && err.name === "AbortError") {
-          return;
-        }
-        setError("An error occurred during validation");
-      } finally {
-        setLoading(false);
-      }
+      runValidation(email);
     },
-    [email],
+    [email, runValidation],
   );
 
   return (
@@ -88,10 +104,12 @@ export default function ValidatePage() {
           <div className="flex gap-4">
             <input
               type="email"
+              autoComplete="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="Enter an email address..."
               className="input flex-1"
+              disabled={loading}
               style={{ height: "56px", fontSize: "var(--text-base)" }}
             />
             <button type="submit" disabled={loading || !email} className="btn btn-accent btn-lg">

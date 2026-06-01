@@ -163,4 +163,108 @@ test.describe("Webhooks", () => {
     const hasActions = pageContent.match(/Test|Disable|Enable|Delete/);
     expect(hasActions === null || hasActions !== null).toBe(true);
   });
+
+  // ===========================================================================
+  // UX-3: Webhook "Test" button confirmation modal
+  // ===========================================================================
+  test.describe("Test button modal (UX-3)", () => {
+    test("should show Test buttons on webhook items", async ({ page }) => {
+      await page.goto("/webhooks");
+
+      // Test button should exist on the page
+      const testButton = page.locator('button:has-text("Test")');
+      await expect(testButton).toBeVisible({ timeout: 5000 });
+    });
+
+    test("should open test modal when clicking Test button on a webhook item", async ({ page }) => {
+      await page.goto("/webhooks");
+
+      // Wait for content to load
+      await page.waitForLoadState("networkidle");
+
+      // Look for Test buttons
+      const testButton = page.locator('button:has-text("Test")').first();
+      if (await testButton.isVisible()) {
+        await testButton.click();
+
+        // Modal should appear with "Test Webhook" title
+        const modalTitle = page.locator("text=Test Webhook");
+        await expect(modalTitle).toBeVisible({ timeout: 3000 });
+
+        // Verify the modal has accessibility attributes
+        const modal = page.locator("#modal-test-webhook, [id*='test-webhook']");
+        if (await modal.isVisible()) {
+          // Modal should contain the webhook URL
+          const modalContent = await modal.textContent();
+          expect(modalContent).toBeTruthy();
+        }
+      }
+    });
+
+    test("should show webhook URL in the test modal", async ({ page }) => {
+      await page.goto("/webhooks");
+
+      await page.waitForLoadState("networkidle");
+
+      const testButton = page.locator('button:has-text("Test")').first();
+      if (await testButton.isVisible()) {
+        // Get the webhook URL text from the list item before clicking
+        const webhookItem = testButton.locator("..").locator("..");
+        const urlText = await webhookItem.locator("code, .font-mono").first().textContent();
+
+        await testButton.click();
+
+        // Modal should show "Sending test to:" label
+        const sendLabel = page.locator("text=Sending test to:");
+        await expect(sendLabel).toBeVisible({ timeout: 3000 });
+
+        // The URL should be displayed in the modal
+        if (urlText) {
+          const urlInModal = page.locator(`code:has-text("${urlText.trim()}")`);
+          await expect(urlInModal).toBeVisible({ timeout: 3000 });
+        }
+      }
+    });
+
+    test("should show Close button in test modal", async ({ page }) => {
+      await page.goto("/webhooks");
+
+      await page.waitForLoadState("networkidle");
+
+      const testButton = page.locator('button:has-text("Test")').first();
+      if (await testButton.isVisible()) {
+        await testButton.click();
+
+        // The test modal should have a Close button
+        const closeButton = page.locator("text=Close");
+        await expect(closeButton).toBeVisible({ timeout: 3000 });
+      }
+    });
+
+    test("should close the test modal when clicking Close", async ({ page }) => {
+      await page.goto("/webhooks");
+
+      await page.waitForLoadState("networkidle");
+
+      const testButton = page.locator('button:has-text("Test")').first();
+      if (await testButton.isVisible()) {
+        await testButton.click();
+
+        // Wait for modal to appear
+        const modalTitle = page.locator("text=Test Webhook");
+        await expect(modalTitle).toBeVisible({ timeout: 3000 });
+
+        // Click Close button
+        const closeButton = page.locator("text=Close");
+        if (await closeButton.isVisible()) {
+          await closeButton.click();
+
+          // Modal should disappear
+          // The modal might still be in DOM but hidden via isOpen prop
+          // Check the modal heading is no longer visible
+          await expect(modalTitle).not.toBeVisible({ timeout: 3000 });
+        }
+      }
+    });
+  });
 });

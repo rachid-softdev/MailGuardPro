@@ -33,6 +33,14 @@ export default function SettingsPage() {
     fetchUser();
   }, []);
 
+  // Auto-dismiss success messages after 4 seconds
+  useEffect(() => {
+    if (message?.type !== "success") return;
+
+    const timer = setTimeout(() => setMessage(null), 4000);
+    return () => clearTimeout(timer);
+  }, [message]);
+
   const fetchUser = async () => {
     try {
       const res = await fetch("/api/v1/user/profile");
