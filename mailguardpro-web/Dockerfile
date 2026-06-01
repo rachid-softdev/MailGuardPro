@@ -1,39 +1,36 @@
-FROM node:20-alpine
-
+# Stage 1: Install dependencies
+FROM node:20-alpine AS deps
 WORKDIR /app
-
-# Enable pnpm via corepack
 RUN corepack enable && corepack prepare pnpm@9.15.9 --activate
-
-# Copy package files
 COPY pnpm-lock.yaml ./
 COPY pnpm-workspace.yaml ./
 COPY mailguardpro-web/package.json ./mailguardpro-web/
+COPY packages/ ./packages/
+RUN pnpm install --frozen-lockfile --prod
 
-# Install dependencies
-RUN pnpm install --frozen-lockfile
-
-# Copy source
+# Stage 2: Build
+FROM node:20-alpine AS builder
+WORKDIR /app
+RUN corepack enable && corepack prepare pnpm@9.15.9 --activate
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/packages ./packages
 COPY . .
-
-# Generate Prisma client
 RUN pnpm exec prisma generate
-
-# Build Next.js
 RUN pnpm run build
 
-# Create non-root user
+# Stage 3: Runner
+FROM node:20-alpine AS runner
+WORKDIR /app
+RUN corepack enable && corepack prepare pnpm@9.15.9 --activate
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/packages ./packages
+COPY --from=builder /app/mailguardpro-web/.next ./mailguardpro-web/.next
+COPY --from=builder /app/mailguardpro-web/public ./mailguardpro-web/public
+COPY --from=builder /app/mailguardpro-web/package.json ./mailguardpro-web/
+COPY --from=builder /app/pnpm-lock.yaml ./
 RUN addgroup --system --gid 1001 mailguard && \
-    adduser --system --uid 1001 --ingroup mailguard mailguard
-
-# Ensure proper ownership
-RUN chown -R mailguard:mailguard /app
-
-# Switch to non-root user
+    adduser --system --uid 1001 --ingroup mailguard mailguard && \
+    chown -R mailguard:mailguard /app
 USER mailguard
-
-# Expose port
 EXPOSE 3000
-
-# Start
 CMD ["pnpm", "start"]

@@ -2,6 +2,8 @@
 
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { getCorsHeaders, handleCors } from "@/lib/cors";
+import { getIdempotencyResult } from "@/lib/idempotency";
 import { logger } from "@/lib/logger";
 import { checkMemoryRateLimit } from "@/lib/rateLimitMemory";
 
@@ -42,6 +44,10 @@ function buildCsp(nonce: string): string {
 export default auth(async (req) => {
   const requestHeaders = new Headers(req.headers);
 
+  // Handle CORS preflight
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
+
   // Rate limiting for auth routes (20 req/min per IP — uses in-memory limiter
   // to avoid Redis dependency at the edge)
   if (req.nextUrl.pathname.startsWith("/api/auth")) {
@@ -62,6 +68,19 @@ export default auth(async (req) => {
   const nonce = generateNonce();
 
   const isLoggedIn = !!req.auth;
+
+  // Idempotency-Key check for mutating requests (after auth check to prevent unauthenticated replay)
+  if (["POST", "PUT", "PATCH"].includes(req.method)) {
+    const idempotencyKey = req.headers.get("Idempotency-Key");
+    if (idempotencyKey) {
+      const cached = await getIdempotencyResult(idempotencyKey);
+      if (cached && isLoggedIn) {
+        return NextResponse.json(cached.response, { status: cached.statusCode });
+      }
+      // Signal downstream handlers to cache the response
+      requestHeaders.set("x-idempotency-key", idempotencyKey);
+    }
+  }
 
   const PROTECTED_ROUTES = [
     "/dashboard",
@@ -95,6 +114,14 @@ export default auth(async (req) => {
   }
 
   const response = NextResponse.next({ request: { headers: requestHeaders } });
+
+  // Apply CORS headers
+  const origin = req.headers.get("origin");
+  const corsHeaders = getCorsHeaders(origin);
+  Object.entries(corsHeaders).forEach(([key, value]) => {
+    response.headers.set(key, value);
+  });
+
   response.headers.set("Content-Security-Policy", buildCsp(nonce));
   response.headers.set("X-Content-Type-Options", "nosniff");
   return response;

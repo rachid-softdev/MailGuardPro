@@ -106,6 +106,14 @@ export class WebhookDispatcher {
 
         if (response.ok) {
           loggerWebhook.info({ event, url: webhook.url }, "Webhook dispatched successfully");
+
+          // Record successful delivery
+          await this.persistDelivery(webhook, event, payload, {
+            status: "success",
+            statusCode: response.status,
+            requestBody: payload,
+          });
+
           return true;
         }
 
@@ -134,8 +142,47 @@ export class WebhookDispatcher {
       "Webhook dispatch failed after all attempts",
     );
 
-    // Ici on pourrait logger dans une table "webhook_logs" pour audit
+    // Enregistrer l'échec dans la table de livraison
+    await this.persistDelivery(webhook, event, payload, {
+      status: "failed",
+      error: lastError?.message || "Unknown error",
+      requestBody: payload,
+    });
+
     return false;
+  }
+
+  // Persist a delivery record in the database (for DLQ audit trail)
+  private static async persistDelivery(
+    webhook: WebhookConfig,
+    event: string,
+    data: unknown,
+    result: {
+      status: "success" | "failed";
+      statusCode?: number | null;
+      responseBody?: string | null;
+      durationMs?: number | null;
+      error?: string | null;
+      requestBody?: unknown;
+    },
+  ): Promise<void> {
+    try {
+      await prisma.webhookDelivery.create({
+        data: {
+          webhookId: webhook.id,
+          event,
+          url: webhook.url,
+          status: result.status,
+          statusCode: result.statusCode ?? null,
+          requestBody: result.requestBody ?? (data as Record<string, unknown>),
+          responseBody: result.responseBody ?? null,
+          durationMs: result.durationMs ?? null,
+          error: result.error ?? null,
+        },
+      });
+    } catch (err) {
+      loggerWebhook.error({ err, webhookId: webhook.id }, "Failed to persist delivery record");
+    }
   }
 
   // Dispatcher à tous les webhooks d'un utilisateur pour un événement donné

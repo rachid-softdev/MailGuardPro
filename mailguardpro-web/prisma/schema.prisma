@@ -160,18 +160,19 @@ model BulkJob {
 }
 
 model Webhook {
-  id              String   @id @default(cuid())
-  userId          String
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  url             String
-  name            String?
-  events          String[] // ['bulk_job_completed', 'daily_report']
-  encryptedSecret String   @db.Text // Secret pour HMAC signing (AES-256-GCM encrypted)
-  isActive        Boolean  @default(true)
-  privacyMode     Boolean  @default(false) // If true, mask email addresses in webhook payload
-  pinnedIps       Json? // ["1.2.3.4", "::1"] — IPs résolues au moment de la création
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id               String             @id @default(cuid())
+  userId           String
+  user             User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  url              String
+  name             String?
+  events           String[] // ['bulk_job_completed', 'daily_report']
+  encryptedSecret  String             @db.Text // Secret pour HMAC signing (AES-256-GCM encrypted)
+  isActive         Boolean            @default(true)
+  privacyMode      Boolean            @default(false) // If true, mask email addresses in webhook payload
+  pinnedIps        Json? // ["1.2.3.4", "::1"] — IPs résolues au moment de la création
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  webhookDeliveries WebhookDelivery[]
 }
 
 model RateLimit {
@@ -204,4 +205,34 @@ model AuditLog {
   @@index([resource, resourceId])
   @@index([action, createdAt])
   @@index([createdAt])
+}
+
+model IdempotencyKey {
+  id         String   @id @default(uuid()) @db.Uuid
+  key        String   @unique @db.VarChar(255)
+  response   Json     @db.JsonB
+  statusCode Int
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([key])
+  @@index([expiresAt])
+}
+
+model WebhookDelivery {
+  id           String   @id @default(uuid()) @db.Uuid
+  webhookId    String   @db.Uuid
+  webhook      Webhook  @relation(fields: [webhookId], references: [id], onDelete: Cascade)
+  event        String   @db.VarChar(100)
+  url          String   @db.VarChar(2048)
+  status       String   @db.VarChar(20)
+  statusCode   Int?
+  requestBody  Json     @db.JsonB
+  responseBody String?
+  durationMs   Int?
+  error        String?  @db.Text
+  createdAt    DateTime @default(now())
+
+  @@index([webhookId, createdAt])
 }
