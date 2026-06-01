@@ -26,6 +26,7 @@ vi.mock("@/services/reputationScorer", () => ({ getDomainReputation: vi.fn() }))
 
 // Mock scoring weights for L3b — allows us to verify the scoring formula
 vi.mock("@/config/scoringWeights", () => ({
+  SCORING_VERSION: 1,
   SCORING_WEIGHTS: {
     format: { pass: 15, fail: 0 },
     mx: { pass: 25, fail: 0 },
@@ -66,6 +67,7 @@ vi.mock("@/lib/prisma", () => ({
     },
     validation: {
       create: vi.fn(),
+      update: vi.fn(),
       findMany: vi.fn(),
       count: vi.fn(),
     },
@@ -88,6 +90,33 @@ vi.mock("@/lib/redis", () => ({
     incr: vi.fn().mockResolvedValue(1),
     expire: vi.fn().mockResolvedValue(1),
     duplicate: vi.fn(() => ({ connect: vi.fn() })),
+    publish: vi.fn().mockResolvedValue(1),
+    on: vi.fn(),
+    quit: vi.fn(),
+  },
+  queueRedis: {
+    get: vi.fn().mockResolvedValue(null),
+    set: vi.fn().mockResolvedValue("OK"),
+    setex: vi.fn().mockResolvedValue("OK"),
+    del: vi.fn().mockResolvedValue(1),
+    incr: vi.fn().mockResolvedValue(1),
+    expire: vi.fn().mockResolvedValue(1),
+    duplicate: vi.fn(() => ({ connect: vi.fn() })),
+    publish: vi.fn().mockResolvedValue(1),
+    on: vi.fn(),
+    quit: vi.fn(),
+  },
+  rateLimitRedis: {
+    get: vi.fn().mockResolvedValue(null),
+    set: vi.fn().mockResolvedValue("OK"),
+    setex: vi.fn().mockResolvedValue("OK"),
+    del: vi.fn().mockResolvedValue(1),
+    incr: vi.fn().mockResolvedValue(1),
+    expire: vi.fn().mockResolvedValue(1),
+    duplicate: vi.fn(() => ({ connect: vi.fn() })),
+    publish: vi.fn().mockResolvedValue(1),
+    on: vi.fn(),
+    quit: vi.fn(),
   },
   checkRateLimit: vi.fn().mockResolvedValue({
     success: true,
@@ -98,6 +127,7 @@ vi.mock("@/lib/redis", () => ({
   getCached: vi.fn().mockResolvedValue(null),
   setCached: vi.fn().mockResolvedValue(undefined),
   publishProgress: vi.fn().mockResolvedValue(undefined),
+  subscribeToProgress: vi.fn().mockReturnValue(vi.fn()),
 }));
 
 // Mock auth — returns null by default (no session)

@@ -1,5 +1,6 @@
 // Rate limiting par plan - Configuration et helper
 
+import { logger } from "./logger";
 import { checkRateLimit } from "./redis";
 
 export type Plan = "FREE" | "STARTER" | "PRO" | "BUSINESS";
@@ -70,9 +71,8 @@ export async function checkRateLimitByPlan(
     // Unknown action - use default
     const fallbackResult = await checkRateLimit(`user:${userId}:${action}`, 10, 60);
     if (!fallbackResult.success) {
-      console.warn(
-        "[RateLimit] REJECTED",
-        JSON.stringify({
+      logger.warn(
+        {
           userId,
           plan,
           action,
@@ -80,7 +80,8 @@ export async function checkRateLimitByPlan(
           window: 60,
           resetAt: new Date(fallbackResult.resetAt).toISOString(),
           source: "redis",
-        }),
+        },
+        "RateLimit REJECTED",
       );
     }
     return fallbackResult;
@@ -97,9 +98,8 @@ export async function checkRateLimitByPlan(
       actionLimits.window,
     );
     if (!bizResult.success) {
-      console.warn(
-        "[RateLimit] REJECTED",
-        JSON.stringify({
+      logger.warn(
+        {
           userId,
           plan,
           action,
@@ -107,7 +107,8 @@ export async function checkRateLimitByPlan(
           window: actionLimits.window,
           resetAt: new Date(bizResult.resetAt).toISOString(),
           source: "redis",
-        }),
+        },
+        "RateLimit REJECTED",
       );
     }
     return bizResult;
@@ -120,9 +121,8 @@ export async function checkRateLimitByPlan(
     actionLimits.window,
   );
   if (!rateCheckResult.success) {
-    console.warn(
-      "[RateLimit] REJECTED",
-      JSON.stringify({
+    logger.warn(
+      {
         userId,
         plan,
         action,
@@ -130,7 +130,8 @@ export async function checkRateLimitByPlan(
         window: actionLimits.window,
         resetAt: new Date(rateCheckResult.resetAt).toISOString(),
         source: "redis",
-      }),
+      },
+      "RateLimit REJECTED",
     );
   }
   return rateCheckResult;

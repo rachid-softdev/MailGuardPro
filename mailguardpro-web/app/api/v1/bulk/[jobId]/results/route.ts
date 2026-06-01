@@ -4,6 +4,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/lib/auth";
+import { loggerApi } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
 import { getBulkJobResults } from "@/services/bulkProcessor";
 
@@ -75,7 +76,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ jobI
       data: results,
     });
   } catch (error) {
-    console.error("[API] Bulk results error:", error);
+    loggerApi.error({ err: error }, "Bulk results error");
     return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 });
   }
 }

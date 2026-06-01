@@ -1,13 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// Mock resend
+// Mock resend — must be constructable with new Resend()
+class MockResend {
+  constructor() {
+    this.emails = { send: vi.fn() };
+  }
+}
+
 vi.mock("resend", () => ({
   __esModule: true,
-  Resend: vi.fn(() => ({
-    emails: {
-      send: vi.fn(),
-    },
-  })),
+  Resend: MockResend,
 }));
 
 describe("resend", () => {

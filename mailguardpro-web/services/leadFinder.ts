@@ -1,5 +1,6 @@
 // Lead Finder - Générer et valider des emails предполагаемые
 
+import { logger } from "../lib/logger";
 import { validateEmail } from "./emailValidator";
 import { ValidationResult } from "./types";
 
@@ -146,7 +147,10 @@ export async function findLeadEmail(
         }
       } catch (error) {
         // Continue au prochain pattern
-        console.warn(`Failed to validate ${email}:`, error);
+        logger.warn(
+          { err: error, email: email?.substring(0, 3) + "***@" + email?.split("@")[1] },
+          "Failed to validate email",
+        );
       }
     } else {
       // Sans validation, retourner le premier pattern

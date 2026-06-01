@@ -1,13 +1,17 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-// Mock stripe
+// Mock stripe — must be constructable with new Stripe()
+class MockStripe {
+  constructor() {
+    this.customers = { create: vi.fn() };
+    this.subscriptions = { create: vi.fn() };
+    this.checkout = { sessions: { create: vi.fn() } };
+  }
+}
+
 vi.mock("stripe", () => ({
   __esModule: true,
-  default: vi.fn(() => ({
-    customers: { create: vi.fn() },
-    subscriptions: { create: vi.fn() },
-    checkout: { sessions: { create: vi.fn() } },
-  })),
+  default: MockStripe,
 }));
 
 // Set env vars before importing

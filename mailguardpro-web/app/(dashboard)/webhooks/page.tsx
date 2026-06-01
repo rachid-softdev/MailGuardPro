@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Modal } from "@/components/ui/Modal";
+import { logger } from "@/lib/logger";
 
 interface Webhook {
   id: string;
@@ -48,7 +49,7 @@ export default function WebhooksPage() {
         setWebhooks(data.data || []);
       }
     } catch (error) {
-      console.error("Failed to fetch webhooks:", error);
+      logger.error({ err: error }, "Failed to fetch webhooks");
     } finally {
       setLoading(false);
     }
@@ -96,7 +97,7 @@ export default function WebhooksPage() {
         alert(data.error || "Failed to create webhook");
       }
     } catch (error) {
-      console.error("Failed to create webhook:", error);
+      logger.error({ err: error }, "Failed to create webhook");
       alert("Failed to create webhook");
     } finally {
       setCreating(false);
@@ -119,7 +120,7 @@ export default function WebhooksPage() {
         alert("Failed to delete webhook");
       }
     } catch (error) {
-      console.error("Failed to delete webhook:", error);
+      logger.error({ err: error }, "Failed to delete webhook");
       alert("Failed to delete webhook");
     }
   };
@@ -136,7 +137,7 @@ export default function WebhooksPage() {
         fetchWebhooks();
       }
     } catch (error) {
-      console.error("Failed to toggle webhook:", error);
+      logger.error({ err: error }, "Failed to toggle webhook");
     }
   };
 

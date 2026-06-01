@@ -22,6 +22,7 @@ const { mockPrisma, mockValidateEmail, mockCheckFormat, mockCheckDisposable } = 
     },
     validation: {
       create: vi.fn(),
+      update: vi.fn(),
     },
     session: {
       findMany: vi.fn().mockResolvedValue([]),
@@ -76,6 +77,18 @@ vi.mock("@/lib/auth", () => ({
 // Mock prisma
 vi.mock("@/lib/prisma", () => ({
   prisma: mockPrisma,
+}));
+
+// Mock logger — prevent loggerApi.error crashes in route's catch block
+vi.mock("@/lib/logger", () => ({
+  loggerApi: { error: vi.fn(), warn: vi.fn(), info: vi.fn() },
+  logger: { error: vi.fn(), warn: vi.fn(), info: vi.fn(), child: vi.fn() },
+  loggerWebhook: { error: vi.fn(), warn: vi.fn(), info: vi.fn() },
+  loggerWorker: { error: vi.fn(), warn: vi.fn(), info: vi.fn() },
+  loggerAuth: { error: vi.fn(), warn: vi.fn(), info: vi.fn() },
+  loggerValidation: { error: vi.fn(), warn: vi.fn(), info: vi.fn() },
+  loggerDb: { error: vi.fn(), warn: vi.fn(), info: vi.fn() },
+  loggerStripe: { error: vi.fn(), warn: vi.fn(), info: vi.fn() },
 }));
 
 // Mock redis

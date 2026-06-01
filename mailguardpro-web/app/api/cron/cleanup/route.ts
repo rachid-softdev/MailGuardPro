@@ -3,6 +3,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { verifyCronRequest } from "@/lib/cronAuth";
+import { logError, loggerApi } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
 import { AuditAction, AuditResource, logAudit } from "@/services/auditLogger";
 
@@ -14,7 +15,7 @@ export async function GET(req: NextRequest) {
   if (!authorized) return response;
 
   try {
-    console.log("[Cron] Starting validation cleanup...");
+    loggerApi.info("[Cron] Starting validation cleanup...");
 
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - RETENTION_DAYS);
@@ -30,7 +31,7 @@ export async function GET(req: NextRequest) {
       },
     });
 
-    console.log(`[Cron] Cleanup completed: ${result.count} records deleted`);
+    loggerApi.info(`[Cron] Cleanup completed: ${result.count} records deleted`);
 
     // Also cleanup old bulk job data (completed jobs older than 30 days)
     const jobsCutoff = new Date();
@@ -43,7 +44,7 @@ export async function GET(req: NextRequest) {
       },
     });
 
-    console.log(`[Cron] Bulk jobs cleanup: ${jobsResult.count} jobs deleted`);
+    loggerApi.info(`[Cron] Bulk jobs cleanup: ${jobsResult.count} jobs deleted`);
 
     // Audit log
     await logAudit({
@@ -63,7 +64,9 @@ export async function GET(req: NextRequest) {
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
-    console.error("[Cron] Cleanup failed:", error);
+    logError(error instanceof Error ? error : new Error(String(error)), {
+      context: "[Cron] Cleanup failed",
+    });
     return NextResponse.json({ success: false, error: "Cleanup failed" }, { status: 500 });
   }
 }

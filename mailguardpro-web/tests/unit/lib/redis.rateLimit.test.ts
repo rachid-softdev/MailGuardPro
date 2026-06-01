@@ -33,9 +33,12 @@ const { mockRedisInstance } = vi.hoisted(() => {
 // ---------------------------------------------------------------------------
 // Module mocks
 // ---------------------------------------------------------------------------
-vi.mock("ioredis", () => ({
-  default: vi.fn().mockImplementation(() => mockRedisInstance),
-}));
+vi.mock("ioredis", () => {
+  const Redis = function () {
+    return mockRedisInstance;
+  };
+  return { default: Redis };
+});
 
 // Override the global @/lib/redis mock from setup.ts so we get the real
 // checkRateLimit implementation but with our controlled redis client.
@@ -44,6 +47,8 @@ vi.mock("@/lib/redis", async () => {
   return {
     ...actual,
     redis: mockRedisInstance,
+    queueRedis: mockRedisInstance,
+    rateLimitRedis: mockRedisInstance,
   };
 });
 

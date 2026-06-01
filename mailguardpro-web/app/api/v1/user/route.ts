@@ -4,6 +4,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { validateCsrfOrigin } from "@/lib/csrf";
+import { logError, loggerApi } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
 import { stripe } from "@/lib/stripe";
 import { AuditAction, AuditResource, logAudit } from "@/services/auditLogger";
@@ -88,10 +89,9 @@ export async function DELETE(req: NextRequest) {
       try {
         await stripe.subscriptions.cancel(stripeSubscriptionId);
       } catch {
-        console.warn(
-          `[API] DB deleted but Stripe cancellation failed for subscription ${stripeSubscriptionId}. ` +
-            `User ${userId} may still have an active Stripe subscription. ` +
-            `A reconciler job should clean this up.`,
+        loggerApi.warn(
+          { stripeSubscriptionId, userId },
+          "DB deleted but Stripe cancellation failed. User may still have an active Stripe subscription. A reconciler job should clean this up.",
         );
       }
     }
@@ -105,12 +105,12 @@ export async function DELETE(req: NextRequest) {
         metadata: { reason: "user_requested_deletion", timestamp: now.toISOString() },
       });
     } catch (err) {
-      console.error("[API] Audit log failed (non-fatal):", err);
+      loggerApi.error({ err }, "Audit log failed (non-fatal)");
     }
 
     return NextResponse.json({ success: true, message: "Account deleted successfully" });
   } catch (error) {
-    console.error("[API] Account deletion error:", error);
+    loggerApi.error({ err: error }, "Account deletion error");
     return NextResponse.json(
       { success: false, error: "Failed to delete account" },
       { status: 500 },

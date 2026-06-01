@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import { logger } from "./logger";
 
 const EMAIL_HASH_SALT = process.env.EMAIL_HASH_SALT;
 
@@ -11,7 +12,7 @@ export function hashEmail(email: string): string {
           "WARNING: Changing this salt will invalidate all existing email hashes.",
       );
     }
-    console.warn(
+    logger.warn(
       "[EmailHash] EMAIL_HASH_SALT is not defined — using insecure default for development",
     );
     return crypto

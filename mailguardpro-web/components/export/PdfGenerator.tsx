@@ -3,6 +3,7 @@
 import DOMPurify from "dompurify";
 import { useState } from "react";
 import { sanitizeForHtml } from "@/lib/emailSanitizer";
+import { logger } from "@/lib/logger";
 
 interface ValidationResult {
   email: string;
@@ -49,7 +50,7 @@ export function PdfGenerator({ jobId }: Props) {
       // For full PDF, jspdf needs to be installed: npm install jspdf
       generatePdfWithBrowser(data);
     } catch (error) {
-      console.error("PDF generation failed:", error);
+      logger.error({ err: error }, "PDF generation failed");
       alert("Failed to generate PDF");
     } finally {
       setGenerating(false);

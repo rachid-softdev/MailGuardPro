@@ -1,6 +1,10 @@
 "use client";
 
 import { Component, ReactNode } from "react";
+// Note: logger import is safe in client components — pino auto-detects browser
+// environment and uses pino/browser in production builds (no transport needed).
+import { logger } from "@/lib/logger";
+import { captureException } from "@/lib/sentry";
 
 interface Props {
   children: ReactNode;
@@ -23,12 +27,9 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   override componentDidCatch(error: Error, errorInfo: any) {
-    console.error("ErrorBoundary caught:", error, errorInfo);
+    logger.error({ err: error, errorInfo }, "ErrorBoundary caught an error");
 
-    // Send to Sentry if available
-    if (typeof window !== "undefined" && (window as any).Sentry) {
-      (window as any).Sentry.captureException(error, { extra: errorInfo });
-    }
+    captureException(error, errorInfo);
   }
 
   override render() {
@@ -40,7 +41,7 @@ export class ErrorBoundary extends Component<Props, State> {
       return (
         <div className="min-h-screen flex items-center justify-center p-4 bg-[var(--bg-base)]">
           <div className="card max-w-md text-center">
-            <div className="w-16 h-16 bg-[var(--status-invalid)] bg-opacity-10 rounded-full flex items-center justify-center mx-auto mb-4">
+            <div className="w-16 h-16 bg-[var(--status-invalid)]/10 rounded-full flex items-center justify-center mx-auto mb-4">
               <svg
                 className="w-8 h-8 text-[var(--status-invalid)]"
                 fill="none"
@@ -84,7 +85,7 @@ export function ErrorFallback({ message = "Something went wrong" }: { message?: 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-[var(--bg-base)]">
       <div className="card max-w-md text-center">
-        <div className="w-16 h-16 bg-[var(--status-invalid)] bg-opacity-10 rounded-full flex items-center justify-center mx-auto mb-4">
+        <div className="w-16 h-16 bg-[var(--status-invalid)]/10 rounded-full flex items-center justify-center mx-auto mb-4">
           <span className="text-2xl">⚠️</span>
         </div>
         <h2 className="text-xl font-display font-bold mb-2">Oops!</h2>

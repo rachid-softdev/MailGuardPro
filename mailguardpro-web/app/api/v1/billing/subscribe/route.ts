@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { auth } from "@/lib/auth";
 import { validateCsrfOrigin } from "@/lib/csrf";
+import { logError, loggerApi } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
 import { parseJsonBody } from "@/lib/request";
 import { getPlanFromPriceId, stripe } from "@/lib/stripe";
@@ -141,7 +142,7 @@ export async function POST(req: NextRequest) {
         },
       });
     } catch (err) {
-      console.error("[API] Audit log failed (non-fatal):", err);
+      loggerApi.error({ err }, "Audit log failed (non-fatal)");
     }
 
     const latestInvoice = subscription.latest_invoice;
@@ -163,7 +164,7 @@ export async function POST(req: NextRequest) {
       },
     });
   } catch (error) {
-    console.error("[API] Subscribe error:", error);
+    loggerApi.error({ err: error }, "Subscribe error");
     return NextResponse.json(
       { success: false, error: "Failed to create subscription" },
       { status: 500 },

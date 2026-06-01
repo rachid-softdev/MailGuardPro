@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Modal } from "@/components/ui/Modal";
+import { logger } from "@/lib/logger";
 
 interface ApiKey {
   id: string;
@@ -33,7 +34,7 @@ export default function ApiKeysPage() {
         setKeys(data.data || []);
       }
     } catch (error) {
-      console.error("Failed to fetch keys:", error);
+      logger.error({ err: error }, "Failed to fetch keys");
     } finally {
       setLoading(false);
     }
@@ -59,7 +60,7 @@ export default function ApiKeysPage() {
         alert(data.error || "Failed to create key");
       }
     } catch (error) {
-      console.error("Failed to create key:", error);
+      logger.error({ err: error }, "Failed to create key");
       alert("Failed to create key");
     } finally {
       setCreating(false);
@@ -82,7 +83,7 @@ export default function ApiKeysPage() {
         alert("Failed to delete key");
       }
     } catch (error) {
-      console.error("Failed to delete key:", error);
+      logger.error({ err: error }, "Failed to delete key");
       alert("Failed to delete key");
     }
   };

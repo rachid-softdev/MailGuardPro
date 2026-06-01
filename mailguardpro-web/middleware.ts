@@ -2,6 +2,7 @@
 
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { logger } from "@/lib/logger";
 import { checkMemoryRateLimit } from "@/lib/rateLimitMemory";
 
 function generateNonce(): string {
@@ -50,7 +51,7 @@ export default auth(async (req) => {
       "unknown";
     const rateCheck = await checkMemoryRateLimit(`auth:${ip}`, 20, 60);
     if (!rateCheck.success) {
-      console.warn(`[Auth] Rate limited IP: ${ip}`);
+      logger.warn({ ip }, "Rate limited auth IP");
       return NextResponse.json(
         { error: "Too many requests", retryAfter: rateCheck.resetAt },
         { status: 429 },

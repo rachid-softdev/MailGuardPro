@@ -37,6 +37,7 @@ export interface ValidationResult {
   domain: DomainInfo;
   suggestion?: string;
   processingTimeMs: number;
+  algoVersion: number;
 }
 
 export interface BulkJobProgress {

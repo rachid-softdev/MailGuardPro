@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import { logger } from "./logger";
 
 // === TOKEN ENCRYPTION ===
 
@@ -44,7 +45,7 @@ export function decryptToken(ciphertext: string): string {
     decrypted += decipher.final("utf8");
     return decrypted;
   } catch (error) {
-    console.error("[Crypto] Token decryption failed:", error);
+    logger.error({ err: error }, "[Crypto] Token decryption failed");
     throw new Error("Failed to decrypt token — possible key rotation or data corruption");
   }
 }

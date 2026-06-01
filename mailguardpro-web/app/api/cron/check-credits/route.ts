@@ -3,6 +3,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { verifyCronRequest } from "@/lib/cronAuth";
+import { logError, loggerApi } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
 import { AuditAction, AuditResource, logAudit } from "@/services/auditLogger";
 
@@ -14,7 +15,7 @@ export async function GET(req: NextRequest) {
   if (!authorized) return response;
 
   try {
-    console.log("[Cron] Starting low credits check...");
+    loggerApi.info("[Cron] Starting low credits check...");
 
     // Find users with low credits (but not free plan, they get what they get)
     const usersWithLowCredits = await prisma.user.findMany({
@@ -30,13 +31,15 @@ export async function GET(req: NextRequest) {
       },
     });
 
-    console.log(`[Cron] Found ${usersWithLowCredits.length} users with low credits`);
+    loggerApi.info(`[Cron] Found ${usersWithLowCredits.length} users with low credits`);
 
     // In production, this would send emails via Resend
     // For now, just log and return the list
     if (process.env.NODE_ENV === "production") {
       for (const user of usersWithLowCredits) {
-        console.log(`[Cron] User ${user.id} has ${user.credits} credits left (plan: ${user.plan})`);
+        loggerApi.info(
+          `[Cron] User ${user.id} has ${user.credits} credits left (plan: ${user.plan})`,
+        );
 
         // Log for potential email sending
         await logAudit({
@@ -58,7 +61,9 @@ export async function GET(req: NextRequest) {
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
-    console.error("[Cron] Low credits check failed:", error);
+    logError(error instanceof Error ? error : new Error(String(error)), {
+      context: "[Cron] Low credits check failed",
+    });
     return NextResponse.json({ success: false, error: "Check failed" }, { status: 500 });
   }
 }

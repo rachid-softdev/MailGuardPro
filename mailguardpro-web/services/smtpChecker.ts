@@ -4,6 +4,7 @@ import type { MxRecord } from "dns";
 import dns from "dns/promises";
 import net from "net";
 import { SCORING_WEIGHTS } from "@/config/scoringWeights";
+import { logger } from "@/lib/logger";
 import { redis } from "@/lib/redis";
 import { safeJsonParse } from "@/lib/safeJson";
 import { validateResolvedIp } from "@/lib/ssrf";
@@ -102,7 +103,7 @@ async function cacheSmtpResult(email: string, result: SMTPResult): Promise<SMTPR
     const cacheKey = `smtp:email:${email}`;
     await redis.setex(cacheKey, 3600, JSON.stringify(result));
   } catch (err) {
-    console.warn("[SMTP] Failed to cache result:", err);
+    logger.warn({ err }, "Failed to cache SMTP result");
   }
   return result;
 }
@@ -118,7 +119,7 @@ export async function checkSMTP(email: string, timeoutMs = 5000): Promise<SMTPRe
       return safeJsonParse<SMTPResult>(cached);
     }
   } catch (err) {
-    console.warn("[SMTP] Redis unavailable, proceeding without cache:", err);
+    logger.warn({ err }, "Redis unavailable, proceeding without SMTP cache");
   }
 
   // Anti-enumeration: random delay

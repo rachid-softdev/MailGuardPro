@@ -2,6 +2,7 @@
 
 import type { Prisma } from "@prisma/client";
 import { hashIp } from "@/lib/ipHash";
+import { logger } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
 
 export enum AuditAction {
@@ -92,7 +93,7 @@ export async function logAuditEvent(params: AuditLogParams): Promise<void> {
     });
   } catch (error) {
     // Don't throw - audit logging should not break the main flow
-    console.error("[Audit] Failed to log event:", error);
+    logger.error({ err: error }, "Audit: Failed to log event");
   }
 }
 
@@ -101,7 +102,7 @@ export async function logAuditEvent(params: AuditLogParams): Promise<void> {
  * Wraps the async function
  */
 export function logAudit(params: AuditLogParams): Promise<void> {
-  return logAuditEvent(params).catch(console.error);
+  return logAuditEvent(params).catch((e) => logger.error({ err: e }, "Audit log failed"));
 }
 
 /**

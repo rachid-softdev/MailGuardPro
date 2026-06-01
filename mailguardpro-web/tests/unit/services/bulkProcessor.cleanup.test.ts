@@ -2,8 +2,7 @@
  * Unit tests for L-04 — BulkProcessor catch handler logging.
  *
  * Verifies that the compensating rollback in processBulkUpload() logs
- * errors via console.error with "[BulkProcessor]" prefix when the
- * rollback operations fail.
+ * errors via logger.error when the rollback operations fail.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -31,14 +30,60 @@ vi.mock("@/lib/redis", () => ({
     del: vi.fn(),
     get: vi.fn(),
     duplicate: vi.fn(() => ({ connect: vi.fn() })),
+    publish: vi.fn(),
+    on: vi.fn(),
+    quit: vi.fn(),
+  },
+  queueRedis: {
+    setex: vi.fn(),
+    del: vi.fn(),
+    get: vi.fn(),
+    duplicate: vi.fn(() => ({ connect: vi.fn() })),
+    publish: vi.fn(),
+    on: vi.fn(),
+    quit: vi.fn(),
+  },
+  rateLimitRedis: {
+    setex: vi.fn(),
+    del: vi.fn(),
+    get: vi.fn(),
+    duplicate: vi.fn(() => ({ connect: vi.fn() })),
+    publish: vi.fn(),
+    on: vi.fn(),
+    quit: vi.fn(),
   },
   publishProgress: vi.fn(),
+  checkRateLimit: vi.fn(),
+  getCached: vi.fn(),
+  setCached: vi.fn(),
+  deleteCached: vi.fn(),
+  subscribeToProgress: vi.fn(),
 }));
 
+// Queue add must use a non-vi.fn function that always rejects to survive vi.clearAllMocks()
 vi.mock("bullmq", () => ({
-  Queue: vi.fn(function () {
-    return { add: vi.fn().mockRejectedValue(new Error("Queue unavailable")) };
-  }),
+  Queue: function () {
+    return {
+      add: function () {
+        return Promise.reject(new Error("Queue unavailable"));
+      },
+    };
+  },
+}));
+
+// Mock logger — bulkProcessor uses logger.error (pino-style: logger.error(dataObj, msgStr))
+const mockLoggerError = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/logger", () => ({
+  logger: {
+    error: mockLoggerError,
+    warn: vi.fn(),
+    info: vi.fn(),
+    child: vi.fn(() => ({ error: vi.fn(), warn: vi.fn(), info: vi.fn() })),
+  },
+  loggerApi: { error: vi.fn(), warn: vi.fn(), info: vi.fn() },
+  loggerWebhook: { error: vi.fn(), warn: vi.fn(), info: vi.fn() },
+  loggerWorker: { error: vi.fn(), warn: vi.fn(), info: vi.fn() },
+  loggerAuth: { error: vi.fn(), warn: vi.fn(), info: vi.fn() },
 }));
 
 import { prisma } from "@/lib/prisma";
@@ -46,11 +91,8 @@ import { redis } from "@/lib/redis";
 import { processBulkUpload } from "@/services/bulkProcessor";
 
 describe("BulkProcessor cleanup logging [L-04]", () => {
-  let errorSpy: ReturnType<typeof vi.spyOn>;
-
   beforeEach(() => {
     vi.clearAllMocks();
-    errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
   });
 
   afterEach(() => {
@@ -87,10 +129,9 @@ describe("BulkProcessor cleanup logging [L-04]", () => {
 
     expect(result.success).toBe(false);
 
-    // Verify console.error was called with "[BulkProcessor]" prefix for refund failure
-    const refundLogs = errorSpy.mock.calls.filter(
-      (call) =>
-        typeof call[0] === "string" && call[0].includes("[BulkProcessor] Rollback refund failed"),
+    // Verify logger.error was called with "Rollback refund failed" message
+    const refundLogs = mockLoggerError.mock.calls.filter(
+      (call) => typeof call[1] === "string" && call[1].includes("Rollback refund failed"),
     );
     expect(refundLogs.length).toBeGreaterThanOrEqual(1);
   });
@@ -121,11 +162,11 @@ describe("BulkProcessor cleanup logging [L-04]", () => {
 
     expect(result.success).toBe(false);
 
-    // Verify console.error was called with "[BulkProcessor]" prefix for job deletion failure
-    const deletionLogs = errorSpy.mock.calls.filter(
+    // Verify logger.error was called with "Compensating rollback: job deletion failed" message
+    const deletionLogs = mockLoggerError.mock.calls.filter(
       (call) =>
-        typeof call[0] === "string" &&
-        call[0].includes("[BulkProcessor] Compensating rollback: job deletion failed"),
+        typeof call[1] === "string" &&
+        call[1].includes("Compensating rollback: job deletion failed"),
     );
     expect(deletionLogs.length).toBeGreaterThanOrEqual(1);
   });
@@ -154,9 +195,12 @@ describe("BulkProcessor cleanup logging [L-04]", () => {
 
     expect(result.success).toBe(false);
 
-    // Should have at least 2 BulkProcessor error logs
-    const bulkLogs = errorSpy.mock.calls.filter(
-      (call) => typeof call[0] === "string" && call[0].includes("[BulkProcessor]"),
+    // Should have at least 2 logger.error calls
+    const bulkLogs = mockLoggerError.mock.calls.filter(
+      (call) =>
+        typeof call[1] === "string" &&
+        (call[1].includes("Rollback refund failed") ||
+          call[1].includes("Compensating rollback: job deletion failed")),
     );
     expect(bulkLogs.length).toBeGreaterThanOrEqual(2);
   });

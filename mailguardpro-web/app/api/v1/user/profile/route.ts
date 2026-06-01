@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { validateCsrfOrigin } from "@/lib/csrf";
+import { loggerApi } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
 import { parseJsonBody } from "@/lib/request";
 
@@ -44,7 +45,7 @@ export async function GET(_req: NextRequest) {
       data: user,
     });
   } catch (error) {
-    console.error("[API] User profile error:", error);
+    loggerApi.error({ err: error }, "User profile error");
     return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 });
   }
 }
@@ -69,7 +70,7 @@ export async function PATCH(req: NextRequest) {
     if (bodyError) return bodyError;
     const validation = updateProfileSchema.safeParse(body);
     if (!validation.success) {
-      console.warn("[Validation] Input validation failed:", validation.error.errors);
+      loggerApi.warn({ errors: validation.error.errors }, "Input validation failed");
       return NextResponse.json({ success: false, error: "Invalid input" }, { status: 400 });
     }
     const { name } = validation.data;
@@ -94,7 +95,7 @@ export async function PATCH(req: NextRequest) {
       data: updated,
     });
   } catch (error) {
-    console.error("[API] User profile update error:", error);
+    loggerApi.error({ err: error }, "User profile update error");
     return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 });
   }
 }

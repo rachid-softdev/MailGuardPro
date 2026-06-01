@@ -1,5 +1,6 @@
 import dns from "dns/promises";
 import { isIP } from "net";
+import { logger } from "./logger";
 
 const IPV4_MAPPED_IPV6_RE = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/;
 
@@ -128,7 +129,7 @@ export async function validateWebhookUrlWithDns(urlString: string): Promise<{
     try {
       resolvedIps = await dns.resolve6(hostname);
     } catch (dnsError) {
-      console.warn(`[SSRF] DNS resolution failed for ${hostname}:`, dnsError);
+      logger.warn({ hostname, err: dnsError }, "[SSRF] DNS resolution failed (IPv4)");
       return { valid: false, error: `Cannot resolve hostname: ${hostname}` };
     }
   }
@@ -138,7 +139,7 @@ export async function validateWebhookUrlWithDns(urlString: string): Promise<{
     try {
       resolvedIps = await dns.resolve6(hostname);
     } catch (dnsError) {
-      console.warn(`[SSRF] DNS resolution failed for ${hostname}:`, dnsError);
+      logger.warn({ hostname, err: dnsError }, "[SSRF] DNS resolution failed (IPv6)");
       return { valid: false, error: `Cannot resolve hostname: ${hostname}` };
     }
   }

@@ -8,6 +8,7 @@ import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { encryptToken } from "@/lib/crypto";
 import { validateCsrfOrigin } from "@/lib/csrf";
+import { logError, loggerApi } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
 import { checkRateLimitByPlan, type Plan } from "@/lib/rateLimits";
 import { parseJsonBody } from "@/lib/request";
@@ -48,7 +49,7 @@ export async function GET(_req: NextRequest) {
       data: webhooks,
     });
   } catch (error) {
-    console.error("[API] Webhooks list error:", error);
+    loggerApi.error({ err: error }, "Webhooks list error");
     return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 });
   }
 }
@@ -91,7 +92,7 @@ export async function POST(req: NextRequest) {
     const validation = createWebhookSchema.safeParse(body);
 
     if (!validation.success) {
-      console.warn("[Validation] Input validation failed:", validation.error.errors);
+      loggerApi.warn({ errors: validation.error.errors }, "Input validation failed");
       return NextResponse.json(
         {
           success: false,
@@ -178,7 +179,7 @@ export async function POST(req: NextRequest) {
       { status: 201 },
     );
   } catch (error) {
-    console.error("[API] Webhook create error:", error);
+    loggerApi.error({ err: error }, "Webhook create error");
     return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 });
   }
 }

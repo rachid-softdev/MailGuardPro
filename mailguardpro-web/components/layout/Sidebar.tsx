@@ -8,12 +8,14 @@ import {
   Settings,
   Upload,
   Webhook,
+  X,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 interface SidebarProps {
   credits: number;
+  onClose?: () => void;
 }
 
 const navItems = [
@@ -26,16 +28,25 @@ const navItems = [
   { href: "/settings", label: "Settings", Icon: Settings },
 ] as const;
 
-export function Sidebar({ credits }: SidebarProps) {
+export function Sidebar({ credits, onClose }: SidebarProps) {
   const pathname = usePathname();
 
   return (
     <>
-      <div className="p-4 border-b border-[var(--border)]">
+      <div className="p-4 border-b border-[var(--border)] flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2">
           <div className="w-8 h-8 bg-[var(--accent)] rounded-lg" />
           <span className="font-display font-bold">MailGuard</span>
         </Link>
+        {onClose && (
+          <button
+            onClick={onClose}
+            className="md:hidden p-1 text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+            aria-label="Close sidebar"
+          >
+            <X size={20} />
+          </button>
+        )}
       </div>
 
       <nav className="p-4">
@@ -48,7 +59,7 @@ export function Sidebar({ credits }: SidebarProps) {
               aria-current={isActive ? "page" : undefined}
               className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm mb-1 ${
                 isActive
-                  ? "bg-[var(--accent)] bg-opacity-10 text-[var(--accent)]"
+                  ? "bg-[var(--accent)]/10 text-[var(--accent)]"
                   : "hover:bg-[var(--bg-subtle)]"
               }`}
             >

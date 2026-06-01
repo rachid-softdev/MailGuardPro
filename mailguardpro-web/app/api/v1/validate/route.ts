@@ -8,10 +8,12 @@ import { auth } from "@/lib/auth";
 import { hasScope } from "@/lib/auth/require-scope";
 import { hashApiKey, hashApiKeyLegacy } from "@/lib/crypto";
 import { hashEmail, maskEmail } from "@/lib/emailHash";
+import { loggerApi } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
 
 type TxPrismaClient = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
 
+import { SCORING_VERSION } from "@/config/scoringWeights";
 import { checkRateLimitByPlan, type Plan } from "@/lib/rateLimits";
 import { checkRateLimit } from "@/lib/redis";
 import { getClientIp } from "@/lib/ssrf";
@@ -97,11 +99,14 @@ export async function GET(req: NextRequest) {
     // Si pas authentifié, rate limit STRICT (5 req/min/IP)
     if (!user) {
       const anonIp = getClientIp(req);
-      const anonRateCheck = await checkRateLimit(`anon:validate:${anonIp}`, 5, 60);
+      const anonRateCheck = await checkRateLimit(`anon:validate:${anonIp}`, 10, 60);
       if (!anonRateCheck.success) {
         await enforceTimingSafeResponse(startTime);
         return NextResponse.json(
-          { success: false, error: "Rate limit exceeded. Authenticate for higher limits." },
+          {
+            success: false,
+            error: "Rate limit exceeded. Create a free account for 100 free validations/month.",
+          },
           { status: 429 },
         );
       }
@@ -118,6 +123,7 @@ export async function GET(req: NextRequest) {
             status: "invalid",
             checks: { format: formatCheck },
             processingTimeMs: Date.now() - startTime,
+            algoVersion: SCORING_VERSION,
           },
           meta: { creditsUsed: 0, creditsRemaining: null },
         });
@@ -132,6 +138,7 @@ export async function GET(req: NextRequest) {
           status: disposableCheck.passed ? "unknown" : "invalid",
           checks: { format: formatCheck, disposable: disposableCheck },
           processingTimeMs: Date.now() - startTime,
+          algoVersion: SCORING_VERSION,
         },
         meta: {
           creditsUsed: 0,
@@ -185,6 +192,7 @@ export async function GET(req: NextRequest) {
             },
             domain: { name: email!.split("@")[1] || "", reputation: "neutral" },
             processingTimeMs,
+            algoVersion: SCORING_VERSION,
           },
           meta: { requestId, processingTimeMs, creditsUsed: 0, creditsRemaining: remaining },
         });
@@ -219,6 +227,7 @@ export async function GET(req: NextRequest) {
             },
             domain: { name: email!.split("@")[1] || "", reputation: "neutral" },
             processingTimeMs,
+            algoVersion: SCORING_VERSION,
           },
           meta: { requestId, processingTimeMs, creditsUsed: 0, creditsRemaining: remaining },
         });
@@ -330,7 +339,7 @@ export async function GET(req: NextRequest) {
 
     return response;
   } catch (error) {
-    console.error("[API] Validate error:", error);
+    loggerApi.error({ err: error }, "Validate error");
     await enforceTimingSafeResponse(startTime);
     return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 });
   }

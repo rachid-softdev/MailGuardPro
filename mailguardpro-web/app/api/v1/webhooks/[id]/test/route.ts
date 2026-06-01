@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { decryptToken } from "@/lib/crypto";
 import { validateCsrfOrigin } from "@/lib/csrf";
+import { loggerApi } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
 import { validateWebhookUrlWithDns } from "@/lib/ssrf";
 
@@ -95,7 +96,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       });
     }
   } catch (error) {
-    console.error("[API] Webhook test error:", error);
+    loggerApi.error({ err: error }, "Webhook test error");
     return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 });
   }
 }

@@ -8,6 +8,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { logger } from "./logger";
 import { redis } from "./redis";
 import { timingSafeEqual } from "./timingSafe";
 
@@ -17,7 +18,7 @@ async function checkCronRateLimit(endpoint: string): Promise<boolean> {
     const acquired = await redis.set(key, "1", "EX", 300, "NX"); // 5 minutes
     return acquired !== null;
   } catch {
-    console.warn(`[Cron] Redis unavailable for rate limit — allowing ${endpoint}`);
+    logger.warn({ endpoint }, "[Cron] Redis unavailable for rate limit — allowing");
     return true; // Allow if Redis is down (cron is better than no cron)
   }
 }
@@ -44,7 +45,7 @@ export async function verifyCronRequest(
   const CRON_SECRET = process.env.CRON_SECRET;
 
   if (!CRON_SECRET) {
-    console.error(`[Cron/${endpointName}] CRON_SECRET is not configured`);
+    logger.error({ endpointName }, "[Cron] CRON_SECRET is not configured");
     return {
       authorized: false,
       response: NextResponse.json({ error: "Server configuration error" }, { status: 500 }),
@@ -55,9 +56,9 @@ export async function verifyCronRequest(
   const expected = `Bearer ${CRON_SECRET}`;
   if (!timingSafeEqual(authHeader ?? "", expected)) {
     const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
-    console.error(
-      `[Cron/${endpointName}] Unauthorized access attempt — ` +
-        `IP: ${ip}, Method: ${req.method}, Path: ${req.nextUrl.pathname}`,
+    logger.error(
+      { endpointName, ip, method: req.method, path: req.nextUrl.pathname },
+      "[Cron] Unauthorized access attempt",
     );
     reportToSentry(`Cron auth failure: ${endpointName}`, {
       endpoint: endpointName,
@@ -72,7 +73,7 @@ export async function verifyCronRequest(
 
   const rateLimitOk = await checkCronRateLimit(endpointName);
   if (!rateLimitOk) {
-    console.warn(`[Cron/${endpointName}] Rate limit exceeded`);
+    logger.warn({ endpointName }, "[Cron] Rate limit exceeded");
     return {
       authorized: false,
       response: NextResponse.json({ error: "Too many requests" }, { status: 429 }),

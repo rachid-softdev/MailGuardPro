@@ -3,6 +3,7 @@
 import dns from "dns/promises";
 import type { WhoisResult } from "whois";
 import whois from "whois";
+import { logger } from "@/lib/logger";
 import { redis } from "@/lib/redis";
 import { safeJsonParse } from "@/lib/safeJson";
 import { validateResolvedIp } from "@/lib/ssrf";
@@ -149,7 +150,7 @@ async function fetchWHOIS(
       for (const ip of resolvedIps) {
         const ipCheck = validateResolvedIp(ip);
         if (!ipCheck.valid) {
-          console.warn(`[Reputation] Skipping WHOIS for ${domain} — resolves to blocked IP: ${ip}`);
+          logger.warn({ domain, ip }, "Skipping WHOIS — resolves to blocked IP");
           return null;
         }
       }

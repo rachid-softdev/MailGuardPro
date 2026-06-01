@@ -4,6 +4,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/lib/auth";
+import { loggerApi } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
 import { checkRateLimitByPlan, type Plan } from "@/lib/rateLimits";
 import { exportResults } from "@/services/exportService";
@@ -146,7 +147,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ jobI
       },
     });
   } catch (error) {
-    console.error("[API] Export error:", error);
+    loggerApi.error({ err: error }, "Export error");
     return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 });
   }
 }

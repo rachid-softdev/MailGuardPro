@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { Sidebar } from "@/components/layout/Sidebar";
+import { DashboardShell } from "@/components/layout/DashboardShell";
 import { auth } from "@/lib/auth";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -17,15 +17,5 @@ export default async function DashboardLayout({ children }: { children: React.Re
   });
   const credits = user?.credits ?? 0;
 
-  return (
-    <div className="min-h-screen bg-[var(--bg-base)] flex">
-      {/* Sidebar */}
-      <aside className="w-[var(--sidebar-width)] border-r border-[var(--border)] bg-[var(--bg-surface)] fixed h-full">
-        <Sidebar credits={credits} />
-      </aside>
-
-      {/* Main content */}
-      <main className="flex-1 ml-[var(--sidebar-width)]">{children}</main>
-    </div>
-  );
+  return <DashboardShell credits={credits}>{children}</DashboardShell>;
 }

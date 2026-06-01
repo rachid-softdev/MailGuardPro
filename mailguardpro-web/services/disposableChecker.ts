@@ -1,6 +1,7 @@
 // Detection of disposable email domains
 
 import { SCORING_WEIGHTS } from "@/config/scoringWeights";
+import { logger } from "@/lib/logger";
 import { redis } from "@/lib/redis";
 import { safeJsonParse } from "@/lib/safeJson";
 import { validateWebhookUrlWithDns } from "@/lib/ssrf";
@@ -120,13 +121,13 @@ export async function initializeDisposableDomains(): Promise<void> {
     if (cached) {
       const domains: string[] = safeJsonParse<string[]>(cached);
       for (const domain of domains) KNOWN_DISPOSABLE_DOMAINS.add(domain);
-      console.log(`[Disposable] Loaded ${domains.length} domains from Redis cache`);
+      logger.info({ domainCount: domains.length }, "Loaded domains from Redis cache");
       return;
     }
   } catch {}
   const result = await syncDisposableDomains();
   if (result.added > 0) {
-    console.log(`[Disposable] Synced ${result.added} domains`);
+    logger.info({ added: result.added }, "Synced disposable domains");
     try {
       await redis.setex(
         "disposable:sync:all",
@@ -145,7 +146,7 @@ export async function syncDisposableDomains(url?: string): Promise<{ added: numb
   if (url) {
     const validation = await validateWebhookUrlWithDns(url);
     if (!validation.valid) {
-      console.error(`[Disposable] SSRF validation failed for custom URL: ${validation.error}`);
+      logger.error({ error: validation.error }, "SSRF validation failed for custom URL");
       return { added: 0 };
     }
   }
@@ -171,7 +172,7 @@ export async function syncDisposableDomains(url?: string): Promise<{ added: numb
 
     return { added: domains.length };
   } catch (error) {
-    console.error("Failed to sync disposable domains:", error);
+    logger.error({ err: error }, "Failed to sync disposable domains");
     return { added: 0 };
   }
 }

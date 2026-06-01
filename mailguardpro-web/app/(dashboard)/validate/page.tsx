@@ -1,5 +1,6 @@
 "use client";
 
+import { Check, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { ScoreCircle } from "@/components/validator/ScoreCircle";
@@ -108,9 +109,9 @@ export default function ValidatePage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="Enter an email address..."
-              className="input flex-1"
               disabled={loading}
-              style={{ height: "56px", fontSize: "var(--text-base)" }}
+              style={{ fontSize: "var(--text-base)" }}
+              className="input flex-1 h-14 md:h-16"
             />
             <button type="submit" disabled={loading || !email} className="btn btn-accent btn-lg">
               {loading ? "Analyzing..." : "Analyze"}
@@ -154,9 +155,13 @@ export default function ValidatePage() {
                       className="flex items-start gap-3 py-2 border-b border-[var(--border)] last:border-0"
                     >
                       <span
-                        className={`text-lg ${check.passed ? "text-[var(--status-valid)]" : "text-[var(--status-invalid)]"}`}
+                        className={
+                          check.passed
+                            ? "text-[var(--status-valid)]"
+                            : "text-[var(--status-invalid)]"
+                        }
                       >
-                        {check.passed ? "✓" : "✗"}
+                        {check.passed ? <Check size={20} /> : <X size={20} />}
                       </span>
                       <div>
                         <p className="font-mono text-sm capitalize">{key}</p>

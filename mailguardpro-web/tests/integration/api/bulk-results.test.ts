@@ -33,8 +33,28 @@ vi.mock("@/lib/prisma", () => ({
 vi.mock("@/lib/redis", () => ({
   redis: {
     duplicate: vi.fn(() => ({ connect: vi.fn() })),
+    publish: vi.fn(),
+    on: vi.fn(),
+    quit: vi.fn(),
+  },
+  queueRedis: {
+    duplicate: vi.fn(() => ({ connect: vi.fn() })),
+    publish: vi.fn(),
+    on: vi.fn(),
+    quit: vi.fn(),
+  },
+  rateLimitRedis: {
+    duplicate: vi.fn(() => ({ connect: vi.fn() })),
+    publish: vi.fn(),
+    on: vi.fn(),
+    quit: vi.fn(),
   },
   publishProgress: vi.fn(),
+  checkRateLimit: vi.fn(),
+  getCached: vi.fn(),
+  setCached: vi.fn(),
+  deleteCached: vi.fn(),
+  subscribeToProgress: vi.fn(),
 }));
 
 vi.mock("bullmq", () => ({

@@ -1,3 +1,5 @@
+export const SCORING_VERSION = 1;
+
 export const SCORING_WEIGHTS = {
   format: { pass: 15, fail: 0 },
   mx: { pass: 25, fail: 0 },
