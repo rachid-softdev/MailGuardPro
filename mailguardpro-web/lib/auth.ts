@@ -7,13 +7,14 @@ import Google from "next-auth/providers/google";
 import Resend from "next-auth/providers/resend";
 import { AuditAction, AuditResource, logAudit } from "@/services/auditLogger";
 import { validateAuthSecret } from "./authSecretValidator";
+import { loggerAuth } from "./logger";
 import { prisma } from "./prisma";
 import { redis } from "./redis";
 
 // Validate AUTH_SECRET at module load time
 const secretCheck = validateAuthSecret();
 if (!secretCheck.valid) {
-  console.error("[Auth] " + secretCheck.message);
+  loggerAuth.error({ msg: secretCheck.message }, "Auth secret validation failed");
   if (process.env.NODE_ENV === "production") {
     throw new Error("Startup validation failed: " + secretCheck.message);
   }
@@ -48,12 +49,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           const rateKey = `magiclink:${email.address}`;
           const acquired = await redis.set(rateKey, "1", "EX", 60, "NX");
           if (acquired === null) {
-            console.warn("[Auth] Magic link rate limited");
+            loggerAuth.warn("Magic link rate limited");
             return false;
           }
         } catch {
           // Redis unavailable — allow the request
-          console.warn("[Auth] Redis unavailable for magic link rate limit");
+          loggerAuth.warn("Redis unavailable for magic link rate limit");
         }
 
         // IP-based rate limiting to prevent targeted magic link DoS (6 req/min per IP)
@@ -65,17 +66,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           const ipRateKey = `magiclink:ip:${ip}`;
           const ipAcquired = await redis.set(ipRateKey, "1", "EX", 10, "NX");
           if (ipAcquired === null) {
-            console.warn(`[Auth] Magic link IP rate limited for ${ip}`);
+            loggerAuth.warn({ ip }, "Magic link IP rate limited");
             return false;
           }
         } catch {
-          console.warn("[Auth] Redis unavailable for magic link IP rate limit");
+          loggerAuth.warn("Redis unavailable for magic link IP rate limit");
         }
       }
 
       // FIX #6: Login audit
       if (!user) {
-        console.warn("[Auth] Login failed");
+        loggerAuth.warn("Login failed");
         try {
           await logAudit({
             action: AuditAction.USER_LOGIN_FAILED,
@@ -85,7 +86,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             },
           });
         } catch (err) {
-          console.error("[Auth] Failed to log login failure:", err);
+          loggerAuth.error({ err }, "Failed to log login failure");
         }
         return false;
       }
@@ -126,18 +127,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           }
           // Enforce session invalidation (tokenVersion was incremented via key revocation)
           if (dbUser.tokenVersion > 0 && dbUser.tokenVersion !== user.tokenVersion) {
-            console.warn(
-              "[Auth] Session invalidated — tokenVersion mismatch",
-              JSON.stringify({
+            loggerAuth.warn(
+              {
                 userId: dbUser.id,
                 sessionVersion: user.tokenVersion,
                 dbVersion: dbUser.tokenVersion,
-              }),
+              },
+              "Session invalidated — tokenVersion mismatch",
             );
             // ÉTAPE 1: Supprimer TOUTES les sessions de l'utilisateur
             await prisma.session.deleteMany({ where: { userId: dbUser.id } });
             // ÉTAPE 2: Logger l'événement (best-effort, non-bloquant)
-            // logAudit already catches errors internally — no .catch() needed
             logAudit({
               userId: dbUser.id,
               action: AuditAction.SESSION_FORCED_INVALIDATION,
@@ -146,6 +146,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                 previousTokenVersion: user.tokenVersion,
                 currentTokenVersion: dbUser.tokenVersion,
               },
+            }).catch((err: unknown) => {
+              loggerAuth.error({ err }, "Failed to log audit event during session invalidation");
             });
             // Return a session with no user data → NextAuth treats this as unauthenticated
             return { ...session, user: null as any, expires: new Date(0).toISOString() };

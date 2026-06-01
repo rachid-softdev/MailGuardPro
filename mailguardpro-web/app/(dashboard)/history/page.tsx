@@ -4,6 +4,7 @@ import { formatDistanceToNow } from "date-fns";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { StatusBadge } from "@/components/ui/StatusBadge";
+import { logger } from "@/lib/logger";
 
 interface Validation {
   id: string;
@@ -47,7 +48,7 @@ export default function HistoryPage() {
         setPagination(data.meta?.pagination || pagination);
       }
     } catch (error) {
-      console.error("Failed to fetch validations:", error);
+      logger.error({ err: error }, "Failed to fetch validations");
     } finally {
       setLoading(false);
     }
@@ -61,21 +62,21 @@ export default function HistoryPage() {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     const search = formData.get("search") as string;
-    router.push(`/history?search=${encodeURIComponent(search)}`);
+    router.replace(`/history?search=${encodeURIComponent(search)}`);
   };
 
   const handleStatusFilter = (status: string) => {
     if (status) {
-      router.push(`/history?status=${status}`);
+      router.replace(`/history?status=${status}`);
     } else {
-      router.push("/history");
+      router.replace("/history");
     }
   };
 
   const handlePageChange = (newPage: number) => {
     const params = new URLSearchParams(searchParams);
     params.set("page", newPage.toString());
-    router.push(`/history?${params.toString()}`);
+    router.replace(`/history?${params.toString()}`);
   };
 
   return (
@@ -228,7 +229,7 @@ export default function HistoryPage() {
           <div className="text-center py-12 text-[var(--text-muted)]">
             <p>No validations found</p>
             {(searchQuery || statusFilter) && (
-              <button onClick={() => router.push("/history")} className="btn btn-ghost mt-4">
+              <button onClick={() => router.replace("/history")} className="btn btn-ghost mt-4">
                 Clear filters
               </button>
             )}

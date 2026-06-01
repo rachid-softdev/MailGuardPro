@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { logger } from "@/lib/logger";
 
 interface User {
   id: string;
@@ -53,7 +54,7 @@ export default function SettingsPage() {
         }
       }
     } catch (error) {
-      console.error("Failed to fetch user:", error);
+      logger.error({ err: error }, "Failed to fetch user");
     } finally {
       setLoading(false);
     }
@@ -94,7 +95,7 @@ export default function SettingsPage() {
         window.location.href = data.url;
       }
     } catch (error) {
-      console.error("Failed to open billing portal:", error);
+      logger.error({ err: error }, "Failed to open billing portal");
     }
   };
 
@@ -123,7 +124,7 @@ export default function SettingsPage() {
         alert("Failed to delete account");
       }
     } catch (error) {
-      console.error("Failed to delete account:", error);
+      logger.error({ err: error }, "Failed to delete account");
     }
   };
 
@@ -258,7 +259,7 @@ export default function SettingsPage() {
           </h2>
 
           <div className="space-y-4">
-            <div className="p-4 bg-[var(--status-invalid)] bg-opacity-10 rounded-lg">
+            <div className="p-4 bg-[var(--status-invalid)]/10 rounded-lg">
               <p className="font-medium">Delete Account</p>
               <p className="text-sm text-[var(--text-secondary)] mt-1">
                 Permanently delete your account and all associated data. This action cannot be

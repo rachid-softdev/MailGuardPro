@@ -1,13 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // Use vi.hoisted for proper hoisting
-const { mockPrisma, mockFetch } = vi.hoisted(() => ({
+const { mockPrisma, mockFetch, mockLoggerWebhookWarn, mockLoggerWebhookError } = vi.hoisted(() => ({
   mockPrisma: {
     webhook: {
       findMany: vi.fn().mockResolvedValue([]),
     },
   },
   mockFetch: vi.fn(),
+  mockLoggerWebhookWarn: vi.fn(),
+  mockLoggerWebhookError: vi.fn(),
 }));
 
 // Setup global fetch mock
@@ -15,6 +17,14 @@ global.fetch = mockFetch;
 
 vi.mock("@/lib/prisma", () => ({
   prisma: mockPrisma,
+}));
+
+vi.mock("@/lib/logger", () => ({
+  logger: { error: vi.fn(), warn: vi.fn(), info: vi.fn(), child: vi.fn() },
+  loggerApi: { error: vi.fn(), warn: vi.fn(), info: vi.fn() },
+  loggerWebhook: { error: mockLoggerWebhookError, warn: mockLoggerWebhookWarn, info: vi.fn() },
+  loggerWorker: { error: vi.fn(), warn: vi.fn(), info: vi.fn() },
+  loggerAuth: { error: vi.fn(), warn: vi.fn(), info: vi.fn() },
 }));
 
 vi.mock("@/lib/ssrf", () => ({
@@ -145,15 +155,20 @@ describe("webhookDispatcher", () => {
         statusText: "Internal Server Error",
       } as any);
 
-      const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-
       const result = await WebhookDispatcher.dispatch(mockWebhook, "bulk_job_completed", {
         test: "data",
       });
 
       expect(result).toBe(false);
-      expect(warnSpy).toHaveBeenCalled();
-      warnSpy.mockRestore();
+      // The function logs via loggerWebhook.warn or loggerWebhook.error
+      const hasWarnOrError =
+        mockLoggerWebhookWarn.mock.calls.some(
+          (c: any) => typeof c[1] === "string" && c[1].includes("non-ok status"),
+        ) ||
+        mockLoggerWebhookError.mock.calls.some(
+          (c: any) => typeof c[1] === "string" && c[1].includes("failed"),
+        );
+      expect(hasWarnOrError).toBe(true);
     }, 20000);
   });
 

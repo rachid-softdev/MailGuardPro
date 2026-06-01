@@ -20,6 +20,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const mockFindUnique = vi.hoisted(() => vi.fn());
 const mockUpdate = vi.hoisted(() => vi.fn());
 const mockValidationCreate = vi.hoisted(() => vi.fn());
+const mockValidationCreateMany = vi.hoisted(() => vi.fn());
 const mockValidateEmail = vi.hoisted(() => vi.fn());
 const mockPublish = vi.hoisted(() => vi.fn());
 const mockDispatchToUser = vi.hoisted(() => vi.fn());
@@ -28,31 +29,39 @@ const mockDispatchToUser = vi.hoisted(() => vi.fn());
 let capturedProcessor: ((job: any) => Promise<any>) | null = null;
 
 const mockWorkerOn = vi.hoisted(() => vi.fn());
-const mockWorkerConstructor = vi.hoisted(() =>
-  vi.fn((_name: string, processor: (job: any) => Promise<any>) => {
-    capturedProcessor = processor;
-    return {
-      on: mockWorkerOn,
-      close: vi.fn().mockResolvedValue(undefined),
-    };
-  }),
+const mockWorkerCtor = vi.hoisted(
+  () =>
+    function MockWorker(_name: string, processor: (job: any) => Promise<any>) {
+      capturedProcessor = processor;
+      return {
+        on: mockWorkerOn,
+        close: vi.fn().mockResolvedValue(undefined),
+      };
+    },
 );
 
 // ---------------------------------------------------------------------------
 // Module mocks
 // ---------------------------------------------------------------------------
 vi.mock("bullmq", () => ({
-  Worker: mockWorkerConstructor,
+  Worker: mockWorkerCtor,
   Job: vi.fn(),
 }));
 
-vi.mock("ioredis", () => ({
-  default: vi.fn(() => ({
+vi.mock("ioredis", () => {
+  const redisInstance = {
     publish: mockPublish,
     quit: vi.fn().mockResolvedValue(undefined),
     on: vi.fn(),
-  })),
-}));
+    get: vi.fn(),
+    set: vi.fn(),
+    duplicate: vi.fn(),
+  };
+  const Redis = function () {
+    return redisInstance;
+  };
+  return { default: Redis };
+});
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
@@ -62,6 +71,7 @@ vi.mock("@/lib/prisma", () => ({
     },
     validation: {
       create: mockValidationCreate,
+      createMany: mockValidationCreateMany,
     },
     $connect: vi.fn(),
     $disconnect: vi.fn(),
@@ -158,7 +168,7 @@ describe("Worker — DB read + resume logic", () => {
 
     const emails = [makeEmail(0, "alice@test.com"), makeEmail(1, "bob@test.com")];
     mockFindUnique.mockResolvedValue({
-      emailsJson: JSON.stringify(emails),
+      emailsJson: emails,
       processed: 0,
     });
 
@@ -210,7 +220,7 @@ describe("Worker — DB read + resume logic", () => {
       makeEmail(3, "keep3@test.com"),
     ];
     mockFindUnique.mockResolvedValue({
-      emailsJson: JSON.stringify(emails),
+      emailsJson: emails,
       processed: 2, // first 2 already processed
     });
 
@@ -233,7 +243,7 @@ describe("Worker — DB read + resume logic", () => {
 
     const emails = [makeEmail(0, "first@test.com"), makeEmail(1, "second@test.com")];
     mockFindUnique.mockResolvedValue({
-      emailsJson: JSON.stringify(emails),
+      emailsJson: emails,
       processed: 0,
     });
 
@@ -250,7 +260,7 @@ describe("Worker — DB read + resume logic", () => {
 
     const emails = Array.from({ length: 10 }, (_, i) => makeEmail(i));
     mockFindUnique.mockResolvedValue({
-      emailsJson: JSON.stringify(emails),
+      emailsJson: emails,
       processed: 7, // 3 remaining
     });
 
@@ -268,7 +278,7 @@ describe("Worker — DB read + resume logic", () => {
 
     const emails = Array.from({ length: 10 }, (_, i) => makeEmail(i));
     mockFindUnique.mockResolvedValue({
-      emailsJson: JSON.stringify(emails),
+      emailsJson: emails,
       processed: 10, // all done
     });
 
@@ -287,21 +297,23 @@ describe("Worker — DB read + resume logic", () => {
 
     const emails = [makeEmail(0, "alice@test.com")];
     mockFindUnique.mockResolvedValue({
-      emailsJson: JSON.stringify(emails),
+      emailsJson: emails,
       processed: 0,
     });
 
     await processor!(createMockJob({ totalEmails: 1 }));
 
-    expect(mockValidationCreate).toHaveBeenCalledWith(
+    expect(mockValidationCreateMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({
-          email: "alice@test.com",
-          score: 85,
-          status: "valid",
-          userId: "user-123",
-          bulkJobId: "job-123",
-        }),
+        data: expect.arrayContaining([
+          expect.objectContaining({
+            email: "a***@test.com",
+            score: 85,
+            status: "valid",
+            userId: "user-123",
+            bulkJobId: "job-123",
+          }),
+        ]),
       }),
     );
   });
@@ -311,7 +323,7 @@ describe("Worker — DB read + resume logic", () => {
 
     const emails = Array.from({ length: 12 }, (_, i) => makeEmail(i));
     mockFindUnique.mockResolvedValue({
-      emailsJson: JSON.stringify(emails),
+      emailsJson: emails,
       processed: 0,
     });
 
@@ -332,7 +344,7 @@ describe("Worker — DB read + resume logic", () => {
 
     const emails = [makeEmail(0, "bad@test.com")];
     mockFindUnique.mockResolvedValue({
-      emailsJson: JSON.stringify(emails),
+      emailsJson: emails,
       processed: 0,
     });
 
@@ -341,14 +353,16 @@ describe("Worker — DB read + resume logic", () => {
 
     await processor!(createMockJob({ totalEmails: 1 }));
 
-    // Should have created an error validation record
-    expect(mockValidationCreate).toHaveBeenCalledWith(
+    // Should have created an error validation record via createMany
+    expect(mockValidationCreateMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({
-          email: "bad@test.com",
-          score: 0,
-          status: "unknown",
-        }),
+        data: expect.arrayContaining([
+          expect.objectContaining({
+            email: "b***@test.com",
+            score: 0,
+            status: "unknown",
+          }),
+        ]),
       }),
     );
   });
@@ -362,7 +376,7 @@ describe("Worker — DB read + resume logic", () => {
 
     const emails = [makeEmail(0, "a@test.com")];
     mockFindUnique.mockResolvedValue({
-      emailsJson: JSON.stringify(emails),
+      emailsJson: emails,
       processed: 0,
     });
 
@@ -385,7 +399,7 @@ describe("Worker — DB read + resume logic", () => {
 
     const emails = [makeEmail(0, "a@test.com")];
     mockFindUnique.mockResolvedValue({
-      emailsJson: JSON.stringify(emails),
+      emailsJson: emails,
       processed: 0,
     });
 

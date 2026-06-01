@@ -1,6 +1,7 @@
 // Validation Cache Service
 // Cache les résultats de validation pour améliorer les performances
 
+import { logger } from "@/lib/logger";
 import { checkRateLimit, redis } from "@/lib/redis";
 import { safeJsonParse } from "@/lib/safeJson";
 import { ValidationResult } from "./types";
@@ -21,7 +22,7 @@ export async function getCachedValidation(email: string): Promise<ValidationResu
       return safeJsonParse<ValidationResult>(cached);
     }
   } catch (error) {
-    console.error("[ValidationCache] Get error:", error);
+    logger.error({ err: error }, "ValidationCache Get error");
   }
   return null;
 }
@@ -37,7 +38,7 @@ export async function setCachedValidation(email: string, result: ValidationResul
       JSON.stringify(result),
     );
   } catch (error) {
-    console.error("[ValidationCache] Set error:", error);
+    logger.error({ err: error }, "ValidationCache Set error:", error);
   }
 }
 
@@ -48,7 +49,7 @@ export async function invalidateValidationCache(email: string): Promise<void> {
   try {
     await redis.del(`validation:${email.toLowerCase()}`);
   } catch (error) {
-    console.error("[ValidationCache] Invalidate error:", error);
+    logger.error({ err: error }, "ValidationCache Invalidate error");
   }
 }
 
@@ -68,7 +69,7 @@ export async function getCachedDomainChecks(domain: string): Promise<{
       return safeJsonParse(cached);
     }
   } catch (error) {
-    console.error("[ValidationCache] Get domain checks error:", error);
+    logger.error({ err: error }, "ValidationCache Get domain checks error");
   }
   return null;
 }
@@ -88,7 +89,7 @@ export async function setCachedDomainChecks(
   try {
     await redis.setex(`domain-checks:${domain}`, DOMAIN_CACHE_TTL_SECONDS, JSON.stringify(checks));
   } catch (error) {
-    console.error("[ValidationCache] Set domain checks error:", error);
+    logger.error({ err: error }, "ValidationCache Set domain checks error");
   }
 }
 
@@ -102,7 +103,7 @@ export async function getRecentValidationCount(email: string): Promise<number> {
     const count = await redis.get(key);
     return count ? parseInt(count, 10) : 0;
   } catch (error) {
-    console.error("[ValidationCache] Recent count error:", error);
+    logger.error({ err: error }, "ValidationCache Recent count error");
     return 0;
   }
 }
@@ -118,7 +119,7 @@ export async function incrementRecentValidation(email: string): Promise<void> {
       await redis.expire(key, 60 * 60); // 1 hour TTL
     }
   } catch (error) {
-    console.error("[ValidationCache] Increment error:", error);
+    logger.error({ err: error }, "ValidationCache Increment error");
   }
 }
 
@@ -144,7 +145,7 @@ export async function clearAllValidationCaches(): Promise<number> {
       } while (cursor !== 0);
     }
   } catch (error) {
-    console.error("[ValidationCache] Clear all error:", error);
+    logger.error({ err: error }, "ValidationCache Clear all error");
   }
 
   return cleared;

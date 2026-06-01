@@ -4,12 +4,13 @@ import { Queue } from "bullmq";
 import { parse } from "csv-parse/sync";
 import { v4 as uuidv4 } from "uuid";
 import { sanitizeForHtml } from "@/lib/emailSanitizer";
+import { logger } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
-import { redis } from "@/lib/redis";
+import { queueRedis } from "@/lib/redis";
 
 // BullMQ queue singleton (reused across all uploads)
 const bulkQueue = new Queue("bulk-validation", {
-  connection: redis.duplicate(),
+  connection: queueRedis,
   defaultJobOptions: {
     attempts: 3,
     backoff: {
@@ -110,6 +111,26 @@ export async function processBulkUpload(
     });
   }
 
+  // Email deduplication
+  const seen = new Set<string>();
+  const deduplicated: ParsedEmail[] = [];
+  let duplicatesRemoved = 0;
+
+  for (const entry of emails) {
+    const key = entry.email.toLowerCase();
+    if (seen.has(key)) {
+      duplicatesRemoved++;
+    } else {
+      seen.add(key);
+      deduplicated.push(entry);
+    }
+  }
+
+  if (duplicatesRemoved > 0) {
+    errors.push(`${duplicatesRemoved} duplicate email(s) removed and not charged`);
+    emails.splice(0, emails.length, ...deduplicated);
+  }
+
   // Check limit
   if (emails.length > MAX_BULK_ROWS) {
     return {
@@ -146,7 +167,7 @@ export async function processBulkUpload(
           filename: file.name,
           totalEmails: emails.length,
           status: "PENDING",
-          emailsJson: JSON.stringify(emails), // Store email data in DB (outbox pattern)
+          emailsJson: emails, // Store email data in DB (outbox pattern)
         },
       });
     });
@@ -157,7 +178,7 @@ export async function processBulkUpload(
 
     return { success: true, jobId, totalEmails: emails.length };
   } catch (error) {
-    console.error("Failed to create bulk job:", error);
+    logger.error({ err: error }, "Failed to create bulk job");
 
     if (error instanceof Error && error.message === "Insufficient credits") {
       return {
@@ -170,11 +191,16 @@ export async function processBulkUpload(
     if (dbCommitted) {
       await prisma.user
         .update({ where: { id: userId }, data: { credits: { increment: creditCost } } })
-        .catch((e: unknown) => console.error("[BulkProcessor] Rollback refund failed:", e));
+        .catch((e: unknown) =>
+          logger.error({ err: e, context: "refund" }, "Rollback refund failed"),
+        );
       await prisma.bulkJob
         .delete({ where: { id: jobId } })
         .catch((e: unknown) =>
-          console.error("[BulkProcessor] Compensating rollback: job deletion failed:", e),
+          logger.error(
+            { err: e, jobId, context: "rollback" },
+            "Compensating rollback: job deletion failed",
+          ),
         );
     }
 
@@ -339,7 +365,7 @@ export async function getBulkJobStats(jobId: string, userId: string) {
   } catch (error) {
     // Fallback: use statusCounts data if query fails
     // (ou si ce n'est pas PostgreSQL)
-    console.warn("SQL distribution query failed, using fallback:", error);
+    logger.warn({ err: error }, "SQL distribution query failed, using fallback");
   }
 
   // Transform results into object

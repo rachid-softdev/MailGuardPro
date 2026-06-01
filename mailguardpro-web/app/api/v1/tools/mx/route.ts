@@ -5,6 +5,7 @@ import type { MxRecord } from "dns";
 import dns from "dns/promises";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import { loggerApi } from "@/lib/logger";
 import { checkRateLimit } from "@/lib/redis";
 import { getClientIp } from "@/lib/ssrf";
 
@@ -58,7 +59,7 @@ export async function GET(req: NextRequest) {
       },
     });
   } catch (error) {
-    console.error("[API] MX lookup error:", error);
+    loggerApi.error({ err: error }, "MX lookup error");
     return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 });
   }
 }

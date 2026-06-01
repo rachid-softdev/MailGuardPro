@@ -11,6 +11,7 @@
 import { headers } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
+import { logError, loggerStripe } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
 import { checkRateLimit, redis } from "@/lib/redis";
 import { getPlanFromPriceId, stripe } from "@/lib/stripe";
@@ -27,9 +28,9 @@ async function findUserByStripeCustomerId(customerId: string, eventType: string)
   });
 
   if (!user) {
-    console.error(
-      `[Stripe] ORPHAN EVENT — No user found for customer ${customerId}. ` +
-        `Event: ${eventType}. User may have been deleted.`,
+    loggerStripe.error(
+      { customerId, eventType },
+      "ORPHAN EVENT — No user found for customer. User may have been deleted.",
     );
   }
 
@@ -46,7 +47,7 @@ async function checkIdempotency(eventId: string): Promise<"new" | "duplicate" | 
     if (acquired === null) return "duplicate";
     return "new";
   } catch {
-    console.warn(`[Stripe] Redis unavailable — using PostgreSQL idempotency fallback`);
+    loggerStripe.warn("Redis unavailable — using PostgreSQL idempotency fallback");
   }
 
   // Layer 2: PostgreSQL (reliable fallback)
@@ -58,7 +59,7 @@ async function checkIdempotency(eventId: string): Promise<"new" | "duplicate" | 
       // Prisma unique constraint violation
       return "duplicate";
     }
-    console.error(`[Stripe] PostgreSQL idempotency check failed:`, err);
+    loggerStripe.error({ err }, "PostgreSQL idempotency check failed");
     return "error";
   }
 }
@@ -77,7 +78,7 @@ export async function POST(req: NextRequest) {
     const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
     const rateCheck = await checkRateLimit(`stripe:webhook:ip:${ip}`, 60, 60);
     if (!rateCheck.success) {
-      console.warn(`[Stripe] Rate limit exceeded for IP ${ip}`);
+      loggerStripe.warn({ ip }, "Rate limit exceeded");
       return NextResponse.json({ error: "Too many requests" }, { status: 429 });
     }
   } catch {
@@ -91,7 +92,7 @@ export async function POST(req: NextRequest) {
 
   const signature = (await headers()).get("stripe-signature");
   if (!signature) {
-    console.error("[Stripe] Missing stripe-signature header");
+    loggerStripe.error("Missing stripe-signature header");
     return NextResponse.json({ error: "Missing signature header" }, { status: 400 });
   }
 
@@ -100,7 +101,7 @@ export async function POST(req: NextRequest) {
   try {
     event = stripe.webhooks.constructEvent(body, signature, WEBHOOK_SECRET || "");
   } catch (err) {
-    console.error("[Stripe] Webhook signature verification failed:", err);
+    loggerStripe.error({ err }, "Webhook signature verification failed");
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
   }
 
@@ -109,7 +110,7 @@ export async function POST(req: NextRequest) {
 
   const idempotencyResult = await checkIdempotency(eventId);
   if (idempotencyResult === "duplicate") {
-    console.log(`[Stripe] Duplicate event skipped: ${eventId}`);
+    loggerStripe.info({ eventId }, "Duplicate event skipped");
     return NextResponse.json({ received: true, deduplicated: true });
   }
   if (idempotencyResult === "error") {
@@ -149,8 +150,9 @@ export async function POST(req: NextRequest) {
               },
             });
 
-            console.log(
-              `[Stripe] Checkout.session: User ${user.id} activated plan ${plan} with initial credits`,
+            loggerStripe.info(
+              { userId: user.id, plan },
+              "Checkout.session: User activated plan with initial credits",
             );
           }
         }
@@ -174,7 +176,7 @@ export async function POST(req: NextRequest) {
           data: { plan: newPlan },
         });
 
-        console.log(`[Stripe] User ${user.id} plan updated to ${newPlan}`);
+        loggerStripe.info({ userId: user.id, newPlan }, "User plan updated");
       }
       break;
     }
@@ -202,10 +204,10 @@ export async function POST(req: NextRequest) {
             metadata: { subscriptionId: subscription.id },
           });
         } catch (err) {
-          console.error("[Stripe] Audit log failed (non-fatal):", err);
+          loggerStripe.error({ err }, "Audit log failed (non-fatal)");
         }
 
-        console.log(`[Stripe] User ${user.id} subscription cancelled, reverted to FREE`);
+        loggerStripe.info({ userId: user.id }, "User subscription cancelled, reverted to FREE");
       }
       break;
     }
@@ -225,10 +227,9 @@ export async function POST(req: NextRequest) {
             const plan = getPlanFromPriceId(priceId ?? "");
 
             if (!plan) {
-              console.error(
-                `[Stripe] invoice.payment_succeeded: unknown priceId "${priceId}" ` +
-                  `for customer ${customerId}, subscription ${subscriptionId}. ` +
-                  `Plan not updated. Check STRIPE_PRICE_ID env vars.`,
+              loggerStripe.error(
+                { priceId, customerId, subscriptionId },
+                "invoice.payment_succeeded: unknown priceId. Plan not updated. Check STRIPE_PRICE_ID env vars.",
               );
             }
 
@@ -240,11 +241,11 @@ export async function POST(req: NextRequest) {
                 data: { plan },
               });
 
-              console.log(`[Stripe] Recurring payment confirmed for user ${user.id}: ${plan}`);
+              loggerStripe.info({ userId: user.id, plan }, "Recurring payment confirmed");
             }
           }
         } catch (error) {
-          console.error("[Stripe] Failed to process invoice.payment_succeeded:", error);
+          loggerStripe.error({ err: error }, "Failed to process invoice.payment_succeeded");
         }
       }
       break;
@@ -256,8 +257,9 @@ export async function POST(req: NextRequest) {
       const attemptCount = invoice.attempt_count ?? 1;
       const threshold = Number(process.env.STRIPE_DOWNGRADE_ATTEMPT_THRESHOLD) || 3;
 
-      console.warn(
-        `[Stripe] Invoice ${invoice.id} payment failed (attempt ${attemptCount}/${threshold})`,
+      loggerStripe.warn(
+        { invoiceId: invoice.id, attemptCount, threshold },
+        "Invoice payment failed",
       );
 
       if (customerId && attemptCount >= threshold) {
@@ -269,12 +271,13 @@ export async function POST(req: NextRequest) {
               where: { id: user.id },
               data: { plan: "FREE", stripeSubscriptionId: null },
             });
-            console.log(
-              `[Stripe] User ${user.id} reverted to FREE after ${attemptCount} failed attempts`,
+            loggerStripe.info(
+              { userId: user.id, attemptCount },
+              "User reverted to FREE after failed payment attempts",
             );
           }
         } catch (error) {
-          console.error("[Stripe] Failed to process payment failure:", error);
+          loggerStripe.error({ err: error }, "Failed to process payment failure");
         }
       }
       break;

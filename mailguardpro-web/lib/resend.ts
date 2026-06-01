@@ -1,10 +1,11 @@
 import { Resend } from "resend";
+import { logger } from "./logger";
 
 if (!process.env.RESEND_API_KEY) {
   if (process.env.NODE_ENV === "production") {
     throw new Error("RESEND_API_KEY is required in production");
   }
-  console.warn("RESEND_API_KEY is not defined — email sending will fail");
+  logger.warn("RESEND_API_KEY is not defined — email sending will fail");
 }
 
 export const resend = new Resend(process.env.RESEND_API_KEY || "re_placeholder");
@@ -31,7 +32,7 @@ export async function sendEmail({
     });
     return { success: true, data };
   } catch (error) {
-    console.error("Failed to send email:", error);
+    logger.error({ err: error }, "Failed to send email");
     return { success: false, error };
   }
 }

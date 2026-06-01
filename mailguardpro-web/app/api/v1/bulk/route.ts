@@ -4,6 +4,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/lib/auth";
+import { loggerApi } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
 
 const bulkQuerySchema = z.object({
@@ -29,7 +30,7 @@ export async function GET(req: NextRequest) {
     });
 
     if (!queryValidation.success) {
-      console.warn("[Validation] Input validation failed:", queryValidation.error.errors);
+      loggerApi.warn({ errors: queryValidation.error.errors }, "Input validation failed");
       return NextResponse.json(
         {
           success: false,
@@ -73,7 +74,7 @@ export async function GET(req: NextRequest) {
       },
     });
   } catch (error) {
-    console.error("[API] Bulk list error:", error);
+    loggerApi.error({ err: error }, "Bulk list error");
     return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 });
   }
 }

@@ -4,6 +4,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { validateCsrfOrigin } from "@/lib/csrf";
+import { loggerApi } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
 import { checkRateLimitByPlan, Plan } from "@/lib/rateLimits";
 import { processBulkUpload } from "@/services/bulkProcessor";
@@ -85,7 +86,7 @@ export async function POST(req: NextRequest) {
       },
     });
   } catch (error) {
-    console.error("[API] Bulk upload error:", error);
+    loggerApi.error({ err: error }, "Bulk upload error");
     return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 });
   }
 }

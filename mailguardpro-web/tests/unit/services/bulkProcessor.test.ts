@@ -53,7 +53,14 @@ vi.mock("@/lib/prisma", () => ({
 
 vi.mock("@/lib/redis", () => ({
   redis: mockRedis,
+  queueRedis: mockRedis,
+  rateLimitRedis: mockRedis,
   publishProgress: vi.fn(),
+  checkRateLimit: vi.fn(),
+  getCached: vi.fn(),
+  setCached: vi.fn(),
+  deleteCached: vi.fn(),
+  subscribeToProgress: vi.fn(),
 }));
 
 vi.mock("bullmq", () => ({
@@ -460,7 +467,8 @@ describe("bulkProcessor", () => {
       await processBulkUpload(csvFile, "user-123");
 
       const callArg = mockPrisma.bulkJob.create.mock.calls[0][0];
-      const emailsJson = JSON.parse(callArg.data.emailsJson);
+      const emailsJson = callArg.data.emailsJson;
+      expect(Array.isArray(emailsJson)).toBe(true);
       expect(emailsJson[0].firstName).toBe("John");
       expect(emailsJson[0].lastName).toBe("Doe");
     });
@@ -479,7 +487,8 @@ describe("bulkProcessor", () => {
       await processBulkUpload(csvFile, "user-123");
 
       const callArg = mockPrisma.bulkJob.create.mock.calls[0][0];
-      const emailsJson = JSON.parse(callArg.data.emailsJson);
+      const emailsJson = callArg.data.emailsJson;
+      expect(Array.isArray(emailsJson)).toBe(true);
       expect(emailsJson[0].company).toBe("Acme Inc");
     });
 
@@ -514,7 +523,7 @@ describe("bulkProcessor", () => {
       await processBulkUpload(csvFile, "user-123");
 
       const callArg = mockPrisma.bulkJob.create.mock.calls[0][0];
-      const emailsJson = JSON.parse(callArg.data.emailsJson);
+      const emailsJson = callArg.data.emailsJson;
       expect(emailsJson[0].email).toBe("test@example.com");
     });
 
@@ -552,7 +561,7 @@ describe("bulkProcessor", () => {
       await processBulkUpload(csvFile, "user-123");
 
       const callArg = mockPrisma.bulkJob.create.mock.calls[0][0];
-      const emailsJson = JSON.parse(callArg.data.emailsJson);
+      const emailsJson = callArg.data.emailsJson;
       expect(emailsJson[0].firstName).toBe("&lt;script&gt;alert(1)&lt;/script&gt;");
       expect(emailsJson[0].lastName).toBe("Normal");
     });
@@ -571,7 +580,7 @@ describe("bulkProcessor", () => {
       await processBulkUpload(csvFile, "user-123");
 
       const callArg = mockPrisma.bulkJob.create.mock.calls[0][0];
-      const emailsJson = JSON.parse(callArg.data.emailsJson);
+      const emailsJson = callArg.data.emailsJson;
       expect(emailsJson[0].company).toBe("O&#x27;Brien &amp; Sons");
     });
 
@@ -589,7 +598,7 @@ describe("bulkProcessor", () => {
       await processBulkUpload(csvFile, "user-123");
 
       const callArg = mockPrisma.bulkJob.create.mock.calls[0][0];
-      const emailsJson = JSON.parse(callArg.data.emailsJson);
+      const emailsJson = callArg.data.emailsJson;
       expect(emailsJson[0].firstName).toBe("John");
       expect(emailsJson[0].lastName).toBe("Doe");
       expect(emailsJson[0].company).toBe("Acme Corp");
@@ -609,7 +618,7 @@ describe("bulkProcessor", () => {
       await processBulkUpload(csvFile, "user-123");
 
       const callArg = mockPrisma.bulkJob.create.mock.calls[0][0];
-      const emailsJson = JSON.parse(callArg.data.emailsJson);
+      const emailsJson = callArg.data.emailsJson;
       expect(emailsJson[0].firstName).toBe("");
       expect(emailsJson[0].lastName).toBe("");
       expect(emailsJson[0].company).toBe("");

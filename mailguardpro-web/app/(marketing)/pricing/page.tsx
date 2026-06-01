@@ -16,7 +16,7 @@ export default function PricingPage() {
   const plans = [
     {
       name: "Free",
-      price: "$0",
+      price: "€0",
       period: "/month",
       credits: "100",
       description: "Perfect for testing",

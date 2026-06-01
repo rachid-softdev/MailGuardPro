@@ -5,6 +5,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireAdmin } from "@/lib/auth/require-admin";
+import { loggerApi } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
 
 const VALID_ROLES = ["USER", "ADMIN"] as const;
@@ -33,7 +34,7 @@ export async function GET() {
 
     return NextResponse.json(users);
   } catch (error) {
-    console.error("Admin GET users error:", error);
+    loggerApi.error({ err: error }, "Admin GET users error");
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
@@ -74,7 +75,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json(user, { status: 201 });
   } catch (error) {
-    console.error("Admin POST users error:", error);
+    loggerApi.error({ err: error }, "Admin POST users error");
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

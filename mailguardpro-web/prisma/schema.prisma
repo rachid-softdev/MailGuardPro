@@ -118,6 +118,7 @@ model Validation {
   status           String
   checksJson       Json
   processingTimeMs Int
+  algoVersion      Int      @default(1)
   userId           String?
   apiKeyId         String?
   bulkJobId        String?
@@ -144,7 +145,7 @@ model BulkJob {
   totalEmails Int
   processed   Int       @default(0)
   status      JobStatus @default(PENDING)
-  emailsJson  String?   @db.Text // Outbox pattern: email data stored in DB, not Redis
+  emailsJson  Json? // Outbox pattern: email data stored in DB, not Redis
   resultUrl   String?
   reportUrl   String?
   startedAt   DateTime?
@@ -168,8 +169,9 @@ model Webhook {
   encryptedSecret String   @db.Text // Secret pour HMAC signing (AES-256-GCM encrypted)
   isActive        Boolean  @default(true)
   privacyMode     Boolean  @default(false) // If true, mask email addresses in webhook payload
-  pinnedIps       String?  @db.Text // JSON ["1.2.3.4", "::1"] — IPs résolues au moment de la création
+  pinnedIps       Json? // ["1.2.3.4", "::1"] — IPs résolues au moment de la création
   createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 }
 
 model RateLimit {

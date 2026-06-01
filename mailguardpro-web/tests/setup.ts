@@ -220,32 +220,48 @@ vi.mock("@/lib/prisma", () => ({
 }));
 
 // ==========================================
-// REDIS MOCK
+// REDIS MOCK (must include all exports from lib/redis.ts)
 // ==========================================
+const redisMockInstance = {
+  get: vi.fn().mockResolvedValue(null),
+  set: vi.fn().mockResolvedValue("OK"),
+  setex: vi.fn().mockResolvedValue("OK"),
+  del: vi.fn().mockResolvedValue(1),
+  incr: vi.fn().mockResolvedValue(1),
+  expire: vi.fn().mockResolvedValue(1),
+  publish: vi.fn().mockResolvedValue(1),
+  connect: vi.fn().mockResolvedValue(undefined),
+  disconnect: vi.fn().mockResolvedValue(undefined),
+  keys: vi.fn().mockResolvedValue([]),
+  ttl: vi.fn().mockResolvedValue(60),
+  eval: vi.fn().mockResolvedValue([1, 60]),
+  duplicate: vi.fn(() => ({
+    subscribe: vi.fn(),
+    unsubscribe: vi.fn(),
+    disconnect: vi.fn(),
+    on: vi.fn(),
+  })),
+  on: vi.fn(),
+  quit: vi.fn().mockResolvedValue(undefined),
+};
+
 vi.mock("@/lib/redis", () => ({
-  redis: {
-    get: vi.fn().mockResolvedValue(null),
-    set: vi.fn().mockResolvedValue("OK"),
-    setex: vi.fn().mockResolvedValue("OK"),
-    del: vi.fn().mockResolvedValue(1),
-    incr: vi.fn().mockResolvedValue(1),
-    expire: vi.fn().mockResolvedValue(1),
-    publish: vi.fn().mockResolvedValue(1),
-    connect: vi.fn().mockResolvedValue(undefined),
-    disconnect: vi.fn().mockResolvedValue(undefined),
-    keys: vi.fn().mockResolvedValue([]),
-    ttl: vi.fn().mockResolvedValue(60),
-  },
+  redis: redisMockInstance,
+  queueRedis: redisMockInstance,
+  rateLimitRedis: redisMockInstance,
   checkRateLimit: vi.fn(() =>
     Promise.resolve({
       success: true,
       resetAt: Date.now() + 60000,
       remaining: 100,
+      limit: 100,
     }),
   ),
   getCached: vi.fn().mockResolvedValue(null),
   setCached: vi.fn().mockResolvedValue(undefined),
   deleteCached: vi.fn().mockResolvedValue(undefined),
+  publishProgress: vi.fn().mockResolvedValue(undefined),
+  subscribeToProgress: vi.fn(() => vi.fn()),
 }));
 
 // ==========================================
@@ -298,25 +314,33 @@ vi.mock("pino", () => ({
 }));
 
 // ==========================================
-// STRIPE MOCK
+// STRIPE MOCK (must be constructable with new Stripe())
 // ==========================================
+class MockStripe {
+  constructor() {
+    this.customers = { create: vi.fn() };
+    this.subscriptions = { create: vi.fn() };
+    this.checkout = { sessions: { create: vi.fn() } };
+  }
+}
+
 vi.mock("stripe", () => ({
   __esModule: true,
-  default: vi.fn(() => ({
-    customers: { create: vi.fn() },
-    subscriptions: { create: vi.fn() },
-    checkout: { sessions: { create: vi.fn() } },
-  })),
+  default: MockStripe,
 }));
 
 // ==========================================
-// RESEND MOCK
+// RESEND MOCK (must be constructable with new Resend())
 // ==========================================
+class MockResend {
+  constructor() {
+    this.emails = { send: vi.fn().mockResolvedValue({ id: "email-123" }) };
+  }
+}
+
 vi.mock("resend", () => ({
   __esModule: true,
-  Resend: vi.fn(() => ({
-    emails: { send: vi.fn().mockResolvedValue({ id: "email-123" }) },
-  })),
+  Resend: MockResend,
 }));
 
 export {};

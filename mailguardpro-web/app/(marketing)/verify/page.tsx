@@ -91,7 +91,7 @@ export default function VerifyPage() {
 
           {status === "success" && (
             <div className="text-center py-8">
-              <div className="w-16 h-16 bg-[var(--status-valid)] bg-opacity-10 rounded-full flex items-center justify-center mx-auto mb-4">
+              <div className="w-16 h-16 bg-[var(--status-valid)]/10 rounded-full flex items-center justify-center mx-auto mb-4">
                 <svg
                   className="w-8 h-8 text-[var(--status-valid)]"
                   fill="none"
@@ -114,7 +114,7 @@ export default function VerifyPage() {
 
           {status === "error" && (
             <div className="text-center py-8">
-              <div className="w-16 h-16 bg-[var(--status-invalid)] bg-opacity-10 rounded-full flex items-center justify-center mx-auto mb-4">
+              <div className="w-16 h-16 bg-[var(--status-invalid)]/10 rounded-full flex items-center justify-center mx-auto mb-4">
                 <svg
                   className="w-8 h-8 text-[var(--status-invalid)]"
                   fill="none"

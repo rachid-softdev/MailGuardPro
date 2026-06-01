@@ -1,15 +1,14 @@
 /**
  * Unit tests for M-04 — Rate limit logging.
  *
- * Verifies that console.warn is called when rate limits are exceeded,
- * both via the Redis-backed checkRateLimitByPlan and the in-memory
- * checkMemoryRateLimit fallback.
+ * Verifies that logger.warn (checkRateLimitByPlan) or console.warn
+ * (checkMemoryRateLimit) is called when rate limits are exceeded.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-// Mock ioredis to prevent actual connection at module load time
-vi.mock("ioredis", () => ({
-  default: vi.fn().mockImplementation(() => ({
+// Mock ioredis — use a proper constructor function (not arrow) so new Redis() works
+vi.mock("ioredis", () => {
+  const mockInstance = {
     get: vi.fn(),
     set: vi.fn(),
     setex: vi.fn(),
@@ -24,8 +23,13 @@ vi.mock("ioredis", () => ({
     subscribe: vi.fn(),
     unsubscribe: vi.fn(),
     on: vi.fn(),
-  })),
-}));
+    quit: vi.fn(),
+  };
+  const Redis = function () {
+    return mockInstance;
+  };
+  return { default: Redis };
+});
 
 // Override @/lib/redis to control checkRateLimit's return value
 vi.mock("@/lib/redis", async () => {
@@ -40,6 +44,21 @@ vi.mock("@/lib/redis", async () => {
     }),
   };
 });
+
+// Mock logger — checkRateLimitByPlan uses logger.warn (pino-style)
+const mockLoggerWarn = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/logger", () => ({
+  logger: {
+    warn: mockLoggerWarn,
+    error: vi.fn(),
+    info: vi.fn(),
+    child: vi.fn(() => ({ warn: vi.fn(), error: vi.fn(), info: vi.fn() })),
+  },
+  loggerApi: { error: vi.fn(), warn: vi.fn(), info: vi.fn() },
+  loggerWebhook: { error: vi.fn(), warn: vi.fn(), info: vi.fn() },
+  loggerWorker: { error: vi.fn(), warn: vi.fn(), info: vi.fn() },
+  loggerAuth: { error: vi.fn(), warn: vi.fn(), info: vi.fn() },
+}));
 
 import { checkMemoryRateLimit, clearSweeper } from "@/lib/rateLimitMemory";
 import { checkRateLimitByPlan } from "@/lib/rateLimits";
@@ -59,56 +78,57 @@ describe("Rate limit logging [M-04]", () => {
 
   // ────────────────────────────────────────────
   // checkRateLimitByPlan logging (Redis path)
+  // Uses logger.warn (pino-style: logger.warn(dataObj, msgStr))
   // ────────────────────────────────────────────
 
   it("should log warning when rate limit exceeded via checkRateLimitByPlan", async () => {
     const result = await checkRateLimitByPlan("user-1", "FREE", "validate");
 
     expect(result.success).toBe(false);
-    expect(warnSpy).toHaveBeenCalledTimes(1);
+    expect(mockLoggerWarn).toHaveBeenCalledTimes(1);
 
-    const warnArg = warnSpy.mock.calls[0];
-    expect(warnArg[0]).toBe("[RateLimit] REJECTED");
-
-    const logged = JSON.parse(warnArg[1] as string);
-    expect(logged.userId).toBe("user-1");
-    expect(logged.plan).toBe("FREE");
-    expect(logged.action).toBe("validate");
-    expect(logged.limit).toBe(20);
-    expect(logged.window).toBe(60);
-    expect(logged.source).toBe("redis");
-    expect(logged).toHaveProperty("resetAt");
+    const data = mockLoggerWarn.mock.calls[0][0];
+    const msg = mockLoggerWarn.mock.calls[0][1];
+    expect(msg).toBe("RateLimit REJECTED");
+    expect(data.userId).toBe("user-1");
+    expect(data.plan).toBe("FREE");
+    expect(data.action).toBe("validate");
+    expect(data.limit).toBe(20);
+    expect(data.window).toBe(60);
+    expect(data.source).toBe("redis");
+    expect(data).toHaveProperty("resetAt");
   });
 
   it("should log warning with correct plan and action fields", async () => {
     await checkRateLimitByPlan("user-pro", "PRO", "bulk");
 
-    expect(warnSpy).toHaveBeenCalledTimes(1);
-    const logged = JSON.parse(warnSpy.mock.calls[0][1] as string);
-    expect(logged.userId).toBe("user-pro");
-    expect(logged.plan).toBe("PRO");
-    expect(logged.action).toBe("bulk");
+    expect(mockLoggerWarn).toHaveBeenCalledTimes(1);
+    const data = mockLoggerWarn.mock.calls[0][0];
+    expect(data.userId).toBe("user-pro");
+    expect(data.plan).toBe("PRO");
+    expect(data.action).toBe("bulk");
   });
 
   it("should log warning for export action type", async () => {
     await checkRateLimitByPlan("user-export", "STARTER", "export");
 
-    expect(warnSpy).toHaveBeenCalledTimes(1);
-    const logged = JSON.parse(warnSpy.mock.calls[0][1] as string);
-    expect(logged.action).toBe("export");
-    expect(logged.plan).toBe("STARTER");
+    expect(mockLoggerWarn).toHaveBeenCalledTimes(1);
+    const data = mockLoggerWarn.mock.calls[0][0];
+    expect(data.action).toBe("export");
+    expect(data.plan).toBe("STARTER");
   });
 
   it("should log warning for billing action type", async () => {
     await checkRateLimitByPlan("user-billing", "FREE", "billing");
 
-    expect(warnSpy).toHaveBeenCalledTimes(1);
-    const logged = JSON.parse(warnSpy.mock.calls[0][1] as string);
-    expect(logged.action).toBe("billing");
+    expect(mockLoggerWarn).toHaveBeenCalledTimes(1);
+    const data = mockLoggerWarn.mock.calls[0][0];
+    expect(data.action).toBe("billing");
   });
 
   // ────────────────────────────────────────────
   // checkMemoryRateLimit logging (memory fallback)
+  // Uses console.warn directly
   // ────────────────────────────────────────────
 
   it("should log warning when memory rate limit exceeded", async () => {

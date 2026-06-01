@@ -1,6 +1,6 @@
 // Email validation engine - Orchestrator of all checks
 
-import { SCORING_WEIGHTS } from "@/config/scoringWeights";
+import { SCORING_VERSION, SCORING_WEIGHTS } from "@/config/scoringWeights";
 import { checkCatchAll } from "./catchAllChecker";
 import { checkDisposable } from "./disposableChecker";
 import { checkDNSBL } from "./dnsblChecker";
@@ -23,6 +23,7 @@ export async function validateEmail(email: string): Promise<ValidationResult> {
   if (cached) {
     return {
       ...cached,
+      algoVersion: SCORING_VERSION,
       processingTimeMs: Date.now() - startTime,
     };
   }
@@ -55,6 +56,7 @@ export async function validateEmail(email: string): Promise<ValidationResult> {
         typo: { passed: true, message: "Not checked", detail: "" },
       },
       processingTimeMs: 0,
+      algoVersion: SCORING_VERSION,
     };
   }
 
@@ -167,6 +169,7 @@ export async function validateEmail(email: string): Promise<ValidationResult> {
         ? (typoResult as any).suggestion
         : undefined,
     processingTimeMs: Date.now() - startTime,
+    algoVersion: SCORING_VERSION,
   };
 
   // Cache the result

@@ -3,6 +3,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { loggerApi } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(_req: NextRequest) {
@@ -88,7 +89,7 @@ export async function GET(_req: NextRequest) {
       },
     });
   } catch (error) {
-    console.error("[API] Usage error:", error);
+    loggerApi.error({ err: error }, "Usage error");
     return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 });
   }
 }

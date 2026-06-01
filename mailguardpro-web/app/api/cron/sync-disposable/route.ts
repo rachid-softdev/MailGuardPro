@@ -3,6 +3,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { verifyCronRequest } from "@/lib/cronAuth";
+import { logError, loggerApi } from "@/lib/logger";
 import { AuditAction, AuditResource, logAudit } from "@/services/auditLogger";
 import { syncDisposableDomains } from "@/services/disposableChecker";
 
@@ -12,11 +13,11 @@ export async function GET(req: NextRequest) {
   if (!authorized) return response;
 
   try {
-    console.log("[Cron] Starting disposable domains sync...");
+    loggerApi.info("[Cron] Starting disposable domains sync...");
 
     const result = await syncDisposableDomains();
 
-    console.log(`[Cron] Disposable domains sync completed: ${result.added} domains added`);
+    loggerApi.info(`[Cron] Disposable domains sync completed: ${result.added} domains added`);
 
     // Audit log
     await logAudit({
@@ -34,7 +35,9 @@ export async function GET(req: NextRequest) {
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
-    console.error("[Cron] Disposable domains sync failed:", error);
+    logError(error instanceof Error ? error : new Error(String(error)), {
+      context: "[Cron] Disposable domains sync failed",
+    });
     return NextResponse.json({ success: false, error: "Sync failed" }, { status: 500 });
   }
 }

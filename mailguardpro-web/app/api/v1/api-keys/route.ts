@@ -8,6 +8,7 @@ import { auth } from "@/lib/auth";
 import { VALID_SCOPES } from "@/lib/auth/require-scope";
 import { hashApiKey } from "@/lib/crypto";
 import { validateCsrfOrigin } from "@/lib/csrf";
+import { loggerApi } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
 import { checkRateLimitByPlan, type Plan } from "@/lib/rateLimits";
 import { parseJsonBody } from "@/lib/request";
@@ -49,7 +50,7 @@ export async function GET(_req: NextRequest) {
       data: keys,
     });
   } catch (error) {
-    console.error("[API] API keys list error:", error);
+    loggerApi.error({ err: error }, "API keys list error");
     return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 });
   }
 }
@@ -165,7 +166,7 @@ export async function POST(req: NextRequest) {
       { status: 201 },
     );
   } catch (error) {
-    console.error("[API] API key create error:", error);
+    loggerApi.error({ err: error }, "API key create error");
     return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 });
   }
 }

@@ -1,9 +1,12 @@
 import Redis from "ioredis";
+import { logger } from "./logger";
 import { checkMemoryRateLimit } from "./rateLimitMemory";
 import { safeJsonParse } from "./safeJson";
 
 const globalForRedis = globalThis as unknown as {
   redis: Redis | undefined;
+  queueRedis: Redis | undefined;
+  rateLimitRedis: Redis | undefined;
 };
 
 function createRedisClient(url: string, extraOpts: Record<string, unknown> = {}): Redis {
@@ -38,15 +41,21 @@ if (!redisUrl) throw new Error("REDIS_URL is required in production");
 
 // Warning if Redis doesn't use TLS in production
 if (process.env.NODE_ENV === "production" && redisUrl.startsWith("redis://")) {
-  console.warn(
-    "[Redis] WARNING: REDIS_URL uses unencrypted redis:// protocol in production. " +
-      "Use rediss:// (TLS) for encrypted communication.",
+  logger.warn(
+    "WARNING: REDIS_URL uses unencrypted redis:// protocol in production. Use rediss:// (TLS) for encrypted communication.",
   );
 }
 
 export const redis = globalForRedis.redis ?? createRedisClient(redisUrl);
+export const queueRedis =
+  globalForRedis.queueRedis ?? createRedisClient(redisUrl, { maxRetriesPerRequest: null });
+export const rateLimitRedis = globalForRedis.rateLimitRedis ?? createRedisClient(redisUrl);
 
-if (process.env.NODE_ENV !== "production") globalForRedis.redis = redis;
+if (process.env.NODE_ENV !== "production") {
+  globalForRedis.redis = redis;
+  globalForRedis.queueRedis = queueRedis;
+  globalForRedis.rateLimitRedis = rateLimitRedis;
+}
 
 // Helper functions pour le cache
 export async function getCached<T>(key: string): Promise<T | null> {
@@ -94,7 +103,7 @@ export async function checkRateLimit(
   limit: number;
 }> {
   try {
-    const result = (await redis.eval(
+    const result = (await rateLimitRedis.eval(
       RATE_LIMIT_SCRIPT,
       1,
       `ratelimit:${key}`,
@@ -116,7 +125,7 @@ export async function checkRateLimit(
     };
   } catch {
     // Fail-closed: fallback to in-memory rate limiter with stricter limits
-    console.error("[Redis] Rate limit check failed — falling back to memory rate limiter");
+    logger.error("Rate limit check failed — falling back to memory rate limiter");
     return checkMemoryRateLimit(key, limit, windowSeconds);
   }
 }
@@ -135,7 +144,7 @@ export function subscribeToProgress(jobId: string, callback: (data: unknown) => 
     try {
       callback(safeJsonParse(message));
     } catch (err) {
-      console.warn("[Redis] Failed to parse progress message:", err);
+      logger.warn({ err }, "Failed to parse progress message");
     }
   });
 

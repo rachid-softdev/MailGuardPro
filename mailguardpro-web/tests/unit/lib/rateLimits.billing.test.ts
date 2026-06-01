@@ -30,10 +30,13 @@ const { mockRedisInstance } = vi.hoisted(() => {
   return { mockRedisInstance: instance };
 });
 
-// Mock ioredis to return our controlled instance
-vi.mock("ioredis", () => ({
-  default: vi.fn().mockImplementation(() => mockRedisInstance),
-}));
+// Mock ioredis — use a proper constructor function (not arrow) so new Redis() works
+vi.mock("ioredis", () => {
+  const Redis = function () {
+    return mockRedisInstance;
+  };
+  return { default: Redis };
+});
 
 // Override the global @/lib/redis mock from setup.ts
 vi.mock("@/lib/redis", async () => {
@@ -41,6 +44,8 @@ vi.mock("@/lib/redis", async () => {
   return {
     ...actual,
     redis: mockRedisInstance,
+    queueRedis: mockRedisInstance,
+    rateLimitRedis: mockRedisInstance,
   };
 });
 

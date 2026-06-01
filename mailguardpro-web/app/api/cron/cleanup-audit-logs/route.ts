@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyCronRequest } from "@/lib/cronAuth";
+import { logError, loggerApi } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
 
 const AUDIT_RETENTION_DAYS = 90;
@@ -17,7 +18,7 @@ export async function GET(req: NextRequest) {
       where: { createdAt: { lt: cutoffDate } },
     });
 
-    console.log(`[Cron] Audit log cleanup: ${result.count} records deleted`);
+    loggerApi.info(`[Cron] Audit log cleanup: ${result.count} records deleted`);
 
     return NextResponse.json({
       success: true,
@@ -25,7 +26,9 @@ export async function GET(req: NextRequest) {
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
-    console.error("[Cron] Audit log cleanup failed:", error);
+    logError(error instanceof Error ? error : new Error(String(error)), {
+      context: "[Cron] Audit log cleanup failed",
+    });
     return NextResponse.json({ success: false, error: "Cleanup failed" }, { status: 500 });
   }
 }

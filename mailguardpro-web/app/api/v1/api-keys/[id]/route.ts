@@ -4,6 +4,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { validateCsrfOrigin } from "@/lib/csrf";
+import { loggerApi } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
 import { AuditAction, AuditResource, logAudit } from "@/services/auditLogger";
 
@@ -67,7 +68,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
       message: "API key revoked. All sessions invalidated — please re-login on other devices.",
     });
   } catch (error) {
-    console.error("[API] API key delete error:", error);
+    loggerApi.error({ err: error }, "API key delete error");
     return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 });
   }
 }

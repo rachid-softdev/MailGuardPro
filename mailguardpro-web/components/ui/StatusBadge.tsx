@@ -39,7 +39,6 @@ export function StatusBadge({ status, showDot = true }: StatusBadgeProps) {
       style={{
         backgroundColor: config.bg,
         color: config.color,
-        letterSpacing: "0.12em",
       }}
       role="status"
       aria-label={`Email status: ${config.label}`}

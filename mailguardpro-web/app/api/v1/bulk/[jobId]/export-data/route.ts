@@ -3,6 +3,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { loggerApi } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ jobId: string }> }) {
@@ -94,7 +95,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ job
       },
     });
   } catch (error) {
-    console.error("[API] Export data error:", error);
+    loggerApi.error({ err: error }, "Export data error");
     return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 });
   }
 }

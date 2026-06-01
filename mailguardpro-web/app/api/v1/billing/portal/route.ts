@@ -4,6 +4,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { validateCsrfOrigin } from "@/lib/csrf";
+import { loggerApi } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
 import { stripe } from "@/lib/stripe";
 
@@ -73,7 +74,7 @@ export async function POST(req: NextRequest) {
       url: portalSession.url,
     });
   } catch (error) {
-    console.error("[API] Billing portal error:", error);
+    loggerApi.error({ err: error }, "Billing portal error");
     return NextResponse.json(
       { success: false, error: "Failed to create billing portal session" },
       { status: 500 },

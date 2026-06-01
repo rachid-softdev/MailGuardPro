@@ -2,6 +2,7 @@
 
 import crypto from "crypto";
 import { decryptToken } from "@/lib/crypto";
+import { loggerWebhook } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
 import { resolveWebhookIps } from "@/lib/ssrf";
 
@@ -17,7 +18,7 @@ export interface WebhookConfig {
   secret: string;
   events: string[];
   isActive: boolean;
-  pinnedIps?: string; // JSON array of IPs
+  pinnedIps?: string[]; // IPs resolved at creation time
 }
 
 // Retry configuration
@@ -27,6 +28,14 @@ const RETRY_DELAYS = [2000, 4000, 8000]; // Backoff exponentiel
 function withJitter(delayMs: number): number {
   const jitter = delayMs * 0.2; // ±20%
   return Math.max(100, delayMs + Math.floor(Math.random() * jitter * 2) - jitter);
+}
+
+function batch<T>(items: T[], size: number): T[][] {
+  const batches: T[][] = [];
+  for (let i = 0; i < items.length; i += size) {
+    batches.push(items.slice(i, i + size));
+  }
+  return batches;
 }
 
 export class WebhookDispatcher {
@@ -42,7 +51,7 @@ export class WebhookDispatcher {
 
     // DNS Pinning : re-résoudre et comparer avec les IPs stockées
     if (!webhook.pinnedIps) {
-      console.error(`[Webhook] No pinned IPs for webhook ${webhook.id} — rejecting`);
+      loggerWebhook.error({ webhookId: webhook.id }, "No pinned IPs for webhook — rejecting");
       return false;
     }
 
@@ -51,20 +60,17 @@ export class WebhookDispatcher {
 
     const currentResolution = await resolveWebhookIps(hostname);
     if (!currentResolution.valid || !currentResolution.ips) {
-      console.error(`[Webhook] DNS resolution failed for ${hostname}: ${currentResolution.error}`);
+      loggerWebhook.error({ hostname, error: currentResolution.error }, "DNS resolution failed");
       return false;
     }
 
-    const storedIps: string[] = JSON.parse(webhook.pinnedIps);
+    const storedIps = webhook.pinnedIps;
     const currentIps: string[] = currentResolution.ips;
 
     // Vérifier que les IPs courantes sont toujours dans la liste des IPs stockées
     const hasMismatch = currentIps.some((ip) => !storedIps.includes(ip));
     if (hasMismatch) {
-      console.error(
-        `[Webhook] DNS REBINDING DETECTED for ${webhook.url}. ` +
-          `Stored: [${storedIps.join(", ")}], Current: [${currentIps.join(", ")}]`,
-      );
+      loggerWebhook.error({ url: webhook.url, storedIps, currentIps }, "DNS REBINDING DETECTED");
       // En production, on bloque. En dev, on log juste.
       if (process.env.NODE_ENV === "production") {
         return false;
@@ -99,15 +105,21 @@ export class WebhookDispatcher {
         });
 
         if (response.ok) {
-          console.log(`Webhook dispatched successfully: ${event} to ${webhook.url}`);
+          loggerWebhook.info({ event, url: webhook.url }, "Webhook dispatched successfully");
           return true;
         }
 
         // Log la réponse pour debugging
-        console.warn(`Webhook returned non-ok status: ${response.status} ${response.statusText}`);
+        loggerWebhook.warn(
+          { status: response.status, statusText: response.statusText, url: webhook.url, event },
+          "Webhook returned non-ok status",
+        );
       } catch (error) {
         lastError = error as Error;
-        console.error(`Webhook attempt ${attempt + 1} failed:`, error);
+        loggerWebhook.error(
+          { err: error, attempt: attempt + 1, url: webhook.url },
+          "Webhook attempt failed",
+        );
       }
 
       // Attendre avant le retry (with jitter to avoid thundering herd)
@@ -117,7 +129,10 @@ export class WebhookDispatcher {
     }
 
     // Tous les retries ont échoué
-    console.error(`Webhook dispatch failed after ${MAX_RETRIES} attempts:`, lastError);
+    loggerWebhook.error(
+      { err: lastError, maxRetries: MAX_RETRIES, url: webhook.url },
+      "Webhook dispatch failed after all attempts",
+    );
 
     // Ici on pourrait logger dans une table "webhook_logs" pour audit
     return false;
@@ -133,28 +148,37 @@ export class WebhookDispatcher {
       },
     });
 
-    const results = await Promise.allSettled(
-      webhooks.map((webhook) =>
-        this.dispatch(
-          {
-            id: webhook.id,
-            url: webhook.url,
-            secret: webhook.encryptedSecret,
-            events: webhook.events,
-            isActive: webhook.isActive,
-            pinnedIps: webhook.pinnedIps ?? undefined,
-          },
-          event,
-          data,
-        ),
-      ),
-    );
+    // Rate-limit: process webhooks in batches of 5 to avoid overwhelming the outgoing connection pool
+    const CONCURRENCY = 5;
+    type WebhookRecord = (typeof webhooks)[number];
+    const chunks: WebhookRecord[][] = batch(webhooks, CONCURRENCY);
+    const allResults: PromiseSettledResult<boolean>[] = [];
 
-    const successful = results.filter(
+    for (const chunk of chunks) {
+      const chunkResults = await Promise.allSettled(
+        chunk.map((webhook) =>
+          this.dispatch(
+            {
+              id: webhook.id,
+              url: webhook.url,
+              secret: webhook.encryptedSecret,
+              events: webhook.events,
+              isActive: webhook.isActive,
+              pinnedIps: webhook.pinnedIps ?? undefined,
+            },
+            event,
+            data,
+          ),
+        ),
+      );
+      allResults.push(...chunkResults);
+    }
+
+    const successful = allResults.filter(
       (r): r is PromiseFulfilledResult<boolean> => r.status === "fulfilled" && r.value,
     ).length;
 
-    const failed = results.filter(
+    const failed = allResults.filter(
       (r) => r.status === "rejected" || (r.status === "fulfilled" && !r.value),
     ).length;
 

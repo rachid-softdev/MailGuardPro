@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { logger } from "./lib/logger";
 
 const nodeBuiltins = [
   "_http_agent",
@@ -196,7 +197,7 @@ try {
   })(nextConfig);
 } catch {
   // Bundle analyzer not installed, skip silently
-  console.log("Tip: Install @next/bundle-analyzer for bundle analysis");
+  logger.info("Tip: Install @next/bundle-analyzer for bundle analysis");
 }
 
 export default finalConfig;

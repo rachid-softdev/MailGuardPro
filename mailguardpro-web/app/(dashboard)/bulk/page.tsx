@@ -3,6 +3,7 @@
 import { formatDistanceToNow } from "date-fns";
 import Link from "next/link";
 import { useCallback, useRef, useState } from "react";
+import { logger } from "@/lib/logger";
 
 interface BulkJob {
   id: string;
@@ -35,7 +36,7 @@ export default function BulkPage() {
         setJobs(data.data || []);
       }
     } catch (error) {
-      console.error("Failed to fetch jobs:", error);
+      logger.error({ err: error }, "Failed to fetch jobs");
     } finally {
       setLoading(false);
     }
@@ -105,7 +106,7 @@ export default function BulkPage() {
         alert(data.error || "Upload failed");
       }
     } catch (error) {
-      console.error("Upload failed:", error);
+      logger.error({ err: error }, "Upload failed");
       alert("Upload failed. Please try again.");
     } finally {
       setUploading(false);
@@ -139,7 +140,7 @@ export default function BulkPage() {
           }
         }
       } catch (error) {
-        console.error("Poll failed:", error);
+        logger.error({ err: error }, "Poll failed");
       }
 
       // Continue polling

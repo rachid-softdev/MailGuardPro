@@ -3,6 +3,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { loggerApi } from "@/lib/logger";
 import { getBulkJobStatus } from "@/services/bulkProcessor";
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ jobId: string }> }) {
@@ -30,7 +31,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ job
       data: status,
     });
   } catch (error) {
-    console.error("[API] Bulk status error:", error);
+    loggerApi.error({ err: error }, "Bulk status error");
     return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 });
   }
 }
