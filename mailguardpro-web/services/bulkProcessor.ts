@@ -38,10 +38,15 @@ export interface ParsedEmail {
   company?: string;
 }
 
+export interface BulkUploadOptions {
+  requestId?: string;
+}
+
 export async function processBulkUpload(
   file: File,
   userId: string,
   _onProgress?: (processed: number, total: number) => void,
+  options?: BulkUploadOptions,
 ): Promise<BulkUploadResult> {
   // Check file size
   if (file.size > MAX_FILE_SIZE) {
@@ -174,7 +179,15 @@ export async function processBulkUpload(
     dbCommitted = true;
 
     // 2. Queue — submit job for processing
-    await bulkQueue.add("process", { jobId, totalEmails: emails.length, userId });
+    const requestId = options?.requestId || uuidv4();
+    await bulkQueue.add("process", { jobId, totalEmails: emails.length, userId, requestId });
+
+    logger.info({
+      jobId,
+      totalEmails: emails.length,
+      userId,
+      requestId,
+    }, "Bulk job submitted to queue");
 
     return { success: true, jobId, totalEmails: emails.length };
   } catch (error) {

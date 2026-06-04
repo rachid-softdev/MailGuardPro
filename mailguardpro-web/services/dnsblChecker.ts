@@ -2,7 +2,17 @@
 
 import dns from "dns/promises";
 import { SCORING_WEIGHTS } from "@/config/scoringWeights";
-import { CheckResult } from "./types";
+import type { CheckResult } from "./types";
+
+const DNSBL_TIMEOUT_MS = 3000;
+
+// Résolution DNS avec timeout
+async function resolveWithTimeout<T>(fn: () => Promise<T>, timeoutMs = DNSBL_TIMEOUT_MS): Promise<T> {
+  const timeout = new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error("DNSBL resolution timeout")), timeoutMs),
+  );
+  return Promise.race([fn(), timeout]);
+}
 
 // Liste des serveurs DNSBL populaires
 const DNSBL_SERVERS = [
@@ -22,8 +32,8 @@ async function checkIPBlacklist(
     const reversedIP = ip.split(".").reverse().join(".");
     const lookupHost = `${reversedIP}.${dnsbl}`;
 
-    // Résoudre l'adresse
-    const addresses = await dns.resolve4(lookupHost);
+    // Résoudre l'adresse avec timeout
+    const addresses = await resolveWithTimeout(() => dns.resolve4(lookupHost));
 
     if (addresses && addresses.length > 0) {
       // L'IP est listée
@@ -60,7 +70,7 @@ export async function checkDNSBL(domain: string): Promise<CheckResult> {
     // Résoudre les adresses IP du domaine
     let addresses: string[] = [];
     try {
-      addresses = await dns.resolve4(domain);
+      addresses = await resolveWithTimeout(() => dns.resolve4(domain));
     } catch {
       // Impossible de résoudre → pas de blacklist check
       return {

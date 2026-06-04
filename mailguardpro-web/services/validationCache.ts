@@ -75,7 +75,8 @@ export async function getCachedDomainChecks(domain: string): Promise<{
 }
 
 /**
- * Set cached domain checks
+ * Set cached domain checks — merges with existing cache to avoid overwriting
+ * partial results (e.g. MX check and SPF check set independently).
  */
 export async function setCachedDomainChecks(
   domain: string,
@@ -87,7 +88,9 @@ export async function setCachedDomainChecks(
   },
 ): Promise<void> {
   try {
-    await redis.setex(`domain-checks:${domain}`, DOMAIN_CACHE_TTL_SECONDS, JSON.stringify(checks));
+    const existing = await getCachedDomainChecks(domain);
+    const merged = { ...existing, ...checks };
+    await redis.setex(`domain-checks:${domain}`, DOMAIN_CACHE_TTL_SECONDS, JSON.stringify(merged));
   } catch (error) {
     logger.error({ err: error }, "ValidationCache Set domain checks error");
   }

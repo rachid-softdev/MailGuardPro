@@ -81,6 +81,7 @@ async function getAuthenticatedUser(req: NextRequest) {
 
 export async function GET(req: NextRequest) {
   const startTime = Date.now();
+  const requestId = req.headers.get("x-request-id") || uuidv4();
   try {
     const { searchParams } = new URL(req.url);
     const email = searchParams.get("email");
@@ -107,7 +108,7 @@ export async function GET(req: NextRequest) {
             success: false,
             error: "Rate limit exceeded. Create a free account for 100 free validations/month.",
           },
-          { status: 429 },
+          { status: 429, headers: { "x-request-id": requestId } },
         );
       }
 
@@ -125,8 +126,8 @@ export async function GET(req: NextRequest) {
             processingTimeMs: Date.now() - startTime,
             algoVersion: SCORING_VERSION,
           },
-          meta: { creditsUsed: 0, creditsRemaining: null },
-        });
+          meta: { requestId, creditsUsed: 0, creditsRemaining: null },
+        }, { headers: { "x-request-id": requestId } });
       }
       const disposableCheck = await checkDisposable(email!);
       await enforceTimingSafeResponse(startTime);
@@ -141,11 +142,12 @@ export async function GET(req: NextRequest) {
           algoVersion: SCORING_VERSION,
         },
         meta: {
+          requestId,
           creditsUsed: 0,
           creditsRemaining: null,
           note: "Full validation requires authentication",
         },
-      });
+      }, { headers: { "x-request-id": requestId } });
     }
 
     // Rate limiting for authenticated users
@@ -155,8 +157,8 @@ export async function GET(req: NextRequest) {
     if (!rateLimit.success) {
       await enforceTimingSafeResponse(startTime);
       return NextResponse.json(
-        { success: false, error: "Rate limit exceeded", retryAfter: rateLimit.resetAt },
-        { status: 429 },
+        { success: false, error: "Rate limit exceeded", retryAfter: rateLimit.resetAt, requestId },
+        { status: 429, headers: { "x-request-id": requestId } },
       );
     }
 
@@ -204,7 +206,6 @@ export async function GET(req: NextRequest) {
         const remaining =
           (await prisma.user.findUnique({ where: { id: user.id }, select: { credits: true } }))
             ?.credits ?? null;
-        const requestId = uuidv4();
         const processingTimeMs = Date.now() - startTime;
         return NextResponse.json({
           success: true,
@@ -230,7 +231,7 @@ export async function GET(req: NextRequest) {
             algoVersion: SCORING_VERSION,
           },
           meta: { requestId, processingTimeMs, creditsUsed: 0, creditsRemaining: remaining },
-        });
+        }, { headers: { "x-request-id": requestId } });
       }
     }
 
@@ -309,7 +310,6 @@ export async function GET(req: NextRequest) {
     // timing-based email enumeration attacks
     await enforceTimingSafeResponse(startTime);
 
-    const requestId = uuidv4();
     const processingTimeMs = Date.now() - startTime;
 
     const response = NextResponse.json({
@@ -322,6 +322,21 @@ export async function GET(req: NextRequest) {
         creditsRemaining,
       },
     });
+
+    // Correlation ID: propagate for distributed tracing
+    response.headers.set("x-request-id", requestId);
+
+    // Log RED metrics for observability
+    loggerApi.info({
+      requestId,
+      method: "GET",
+      path: "/api/v1/validate",
+      status: 200,
+      durationMs: processingTimeMs,
+      authenticated: !!user,
+      plan: plan || "anonymous",
+      emailDomain: email!.split("@")[1],
+    }, "Request completed");
 
     // HTTP cache - differs by user plan
     // Free/anonymous users: no cache (potentially dynamic data)
@@ -339,8 +354,16 @@ export async function GET(req: NextRequest) {
 
     return response;
   } catch (error) {
-    loggerApi.error({ err: error }, "Validate error");
+    loggerApi.error({
+      err: error,
+      requestId,
+      durationMs: Date.now() - startTime,
+    }, "Validate error");
     await enforceTimingSafeResponse(startTime);
-    return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 });
+    return NextResponse.json({
+      success: false,
+      error: "Internal server error",
+      requestId,
+    }, { status: 500, headers: { "x-request-id": requestId } });
   }
 }

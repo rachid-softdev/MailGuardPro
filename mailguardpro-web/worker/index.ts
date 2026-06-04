@@ -20,15 +20,16 @@ interface BulkJobData {
   jobId: string;
   totalEmails: number;
   userId: string;
+  requestId?: string;
 }
 
 // Créer le worker
 const worker = new Worker<BulkJobData>(
   "bulk-validation",
   async (job: Job<BulkJobData>) => {
-    const { jobId, totalEmails, userId } = job.data;
+    const { jobId, totalEmails, userId, requestId } = job.data;
 
-    loggerWorker.info({ jobId, totalEmails }, "Starting job");
+    loggerWorker.info({ jobId, totalEmails, requestId }, "Starting job");
 
     // Mettre à jour le statut du job en premier (B-3: éviter lecture avant status)
     await prisma.bulkJob.update({
@@ -98,7 +99,7 @@ const worker = new Worker<BulkJobData>(
         processed++;
       } catch (error) {
         loggerWorker.error(
-          { err: error, email: maskEmail(emailData.email), jobId },
+          { err: error, email: maskEmail(emailData.email), jobId, requestId },
           "Failed to validate email",
         );
         processed++;
@@ -122,7 +123,7 @@ const worker = new Worker<BulkJobData>(
           buffer.length = 0;
         } catch (flushError) {
           loggerWorker.error(
-            { err: flushError, jobId },
+            { err: flushError, jobId, requestId },
             "Batch flush failed, job will be retried via DLQ",
           );
           throw flushError;
@@ -154,7 +155,7 @@ const worker = new Worker<BulkJobData>(
         await prisma.validation.createMany({ data: buffer });
       } catch (flushError) {
         loggerWorker.error(
-          { err: flushError, jobId },
+          { err: flushError, jobId, requestId },
           "Final flush failed, job will be retried via DLQ",
         );
         throw flushError;
@@ -177,10 +178,10 @@ const worker = new Worker<BulkJobData>(
         ...createBulkJobCompletedPayload(jobId, totalEmails, results),
       });
     } catch (error) {
-      loggerWorker.error({ err: error, jobId }, "Failed to dispatch webhooks");
+      loggerWorker.error({ err: error, jobId, requestId }, "Failed to dispatch webhooks");
     }
 
-    loggerWorker.info({ jobId, ...results }, "Job completed");
+    loggerWorker.info({ jobId, requestId, ...results }, "Job completed");
 
     return {
       processed: totalEmails,
@@ -199,7 +200,8 @@ const worker = new Worker<BulkJobData>(
 
 // Events
 worker.on("completed", (job) => {
-  loggerWorker.info({ jobId: job.id }, "Job completed successfully");
+  const requestId = job.data?.requestId;
+  loggerWorker.info({ jobId: job.id, requestId }, "Job completed successfully");
 });
 
 worker.on("failed", (job, err) => {
@@ -211,17 +213,18 @@ worker.on("failed", (job, err) => {
     return;
   }
 
+  const requestId = job.data?.requestId;
   const maxAttempts = job.opts.attempts || 3;
   const isFinalAttempt = job.attemptsMade >= maxAttempts;
 
   if (isFinalAttempt) {
     loggerWorker.error(
-      { err: { message: err.message }, jobId: job.id, attemptsMade: job.attemptsMade, maxAttempts },
+      { err: { message: err.message }, jobId: job.id, requestId, attemptsMade: job.attemptsMade, maxAttempts },
       "Job FAILED after all attempts (sent to DLQ)",
     );
   } else {
     loggerWorker.error(
-      { err: { message: err.message }, jobId: job.id, attemptsMade: job.attemptsMade, maxAttempts },
+      { err: { message: err.message }, jobId: job.id, requestId, attemptsMade: job.attemptsMade, maxAttempts },
       "Job failed",
     );
   }

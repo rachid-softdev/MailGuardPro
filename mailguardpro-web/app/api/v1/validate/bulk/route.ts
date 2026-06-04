@@ -2,6 +2,7 @@
 // POST /api/v1/validate/bulk
 
 import { NextRequest, NextResponse } from "next/server";
+import { v4 as uuidv4 } from "uuid";
 import { auth } from "@/lib/auth";
 import { validateCsrfOrigin } from "@/lib/csrf";
 import { loggerApi } from "@/lib/logger";
@@ -10,6 +11,8 @@ import { checkRateLimitByPlan, Plan } from "@/lib/rateLimits";
 import { processBulkUpload } from "@/services/bulkProcessor";
 
 export async function POST(req: NextRequest) {
+  const startTime = Date.now();
+  const requestId = uuidv4();
   try {
     // CSRF protection
     const csrf = validateCsrfOrigin(req);
@@ -71,22 +74,41 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Traiter le fichier
-    const result = await processBulkUpload(file, session.user.id);
+    // Traiter le fichier avec correlation ID
+    const result = await processBulkUpload(file, session.user.id, undefined, { requestId });
+
+    const durationMs = Date.now() - startTime;
 
     if (!result.success || !result.jobId) {
+      loggerApi.warn({
+        requestId,
+        durationMs,
+        errors: result.errors,
+      }, "Bulk upload validation failed");
       return NextResponse.json({ success: false, errors: result.errors }, { status: 400 });
     }
 
+    loggerApi.info({
+      requestId,
+      jobId: result.jobId,
+      totalEmails: result.totalEmails,
+      durationMs,
+    }, "Bulk upload completed");
+
     return NextResponse.json({
       success: true,
+      requestId,
       data: {
         jobId: result.jobId,
         totalEmails: result.totalEmails,
       },
-    });
+    }, { headers: { "x-request-id": requestId } });
   } catch (error) {
-    loggerApi.error({ err: error }, "Bulk upload error");
-    return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 });
+    loggerApi.error({ err: error, requestId }, "Bulk upload error");
+    return NextResponse.json({
+      success: false,
+      error: "Internal server error",
+      requestId,
+    }, { status: 500, headers: { "x-request-id": requestId } });
   }
 }
