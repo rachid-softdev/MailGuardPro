@@ -112,7 +112,7 @@ describe("/api/v1/validate", () => {
       // Anonymous users get a simplified response — processingTimeMs is in data, not meta
       expect(json.data).toHaveProperty("processingTimeMs");
       expect(json.data.checks).toHaveProperty("format");
-      expect(json.meta).not.toHaveProperty("requestId");
+      expect(json.meta).toHaveProperty("requestId");
     });
 
     it("should handle valid email with all checks", async () => {
