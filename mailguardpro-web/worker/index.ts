@@ -1,7 +1,7 @@
 // BullMQ Worker - Traitement des jobs de validation en masse
 
 import { Job, Worker } from "bullmq";
-import { maskEmail } from "../lib/emailHash";
+import { hashEmail, maskEmail } from "../lib/emailHash";
 import { loggerWorker } from "../lib/logger";
 import { prisma } from "../lib/prisma";
 import { queueRedis } from "../lib/redis";
@@ -67,9 +67,10 @@ const worker = new Worker<BulkJobData>(
     };
     const buffer: Array<{
       email: string;
+      emailHash: string;
       score: number;
       status: string;
-      checksJson: Record<string, unknown>;
+      checksJson: any;
       processingTimeMs: number;
       userId: string;
       bulkJobId: string;
@@ -86,9 +87,10 @@ const worker = new Worker<BulkJobData>(
         // Mettre en mémoire tampon le résultat
         buffer.push({
           email: maskEmail(validation.email),
+          emailHash: hashEmail(validation.email),
           score: validation.score,
           status: validation.status,
-          checksJson: validation.checks as unknown as Record<string, unknown>,
+          checksJson: validation.checks as any,
           processingTimeMs: validation.processingTimeMs,
           userId,
           bulkJobId: jobId,
@@ -107,6 +109,7 @@ const worker = new Worker<BulkJobData>(
         // Mettre en mémoire tampon l'erreur
         buffer.push({
           email: maskEmail(emailData.email),
+          emailHash: hashEmail(emailData.email),
           score: 0,
           status: "unknown",
           checksJson: { error: (error as Error).message },

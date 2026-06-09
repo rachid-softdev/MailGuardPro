@@ -184,7 +184,7 @@
 
   /* Focus visible */
   :focus-visible {
-    @apply outline-2 outline-[var(--border-focus)] outline-offset-3 rounded-[var(--radius-sm)];
+    @apply outline-2 outline-[var(--border-focus)] outline-offset-2 rounded-[var(--radius-sm)];
   }
 
   :focus:not(:focus-visible) {

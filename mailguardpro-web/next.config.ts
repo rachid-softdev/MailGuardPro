@@ -1,3 +1,4 @@
+import path from "path";
 import type { NextConfig } from "next";
 import { logger } from "./lib/logger";
 
@@ -80,6 +81,13 @@ let nextConfig: NextConfig = {
   },
   webpack: (config, { isServer }) => {
     if (isServer) {
+      // Resolve .prisma/client to generated Prisma client
+      config.resolve = config.resolve || {};
+      config.resolve.alias = {
+        ...config.resolve.alias,
+        ".prisma/client": path.resolve(__dirname, "node_modules/.prisma/client"),
+      };
+
       // Server-side bundles should not try to bundle Node.js built-ins
       config.externals = [
         ...(Array.isArray(config.externals) ? config.externals : []),
@@ -88,6 +96,12 @@ let nextConfig: NextConfig = {
           callback: (err?: Error | null, result?: string) => void,
         ) => {
           if (request && nodeBuiltins.includes(request)) {
+            return callback(null, `commonjs ${request}`);
+          }
+          if (request && request.startsWith("@prisma/client")) {
+            return callback(null, `commonjs ${request}`);
+          }
+          if (request === "pg-native") {
             return callback(null, `commonjs ${request}`);
           }
           callback();

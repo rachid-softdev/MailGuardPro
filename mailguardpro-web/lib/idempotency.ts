@@ -59,8 +59,8 @@ export async function setIdempotencyResult(
   await prisma.idempotencyKey
     .upsert({
       where: { key },
-      update: { response, statusCode, expiresAt },
-      create: { key, response, statusCode, expiresAt },
+      update: { response: response as any, statusCode, expiresAt },
+      create: { key, response: response as any, statusCode, expiresAt },
     })
     .catch((error: unknown) => {
       logger.warn({ error, key }, "Idempotency DB upsert failed");

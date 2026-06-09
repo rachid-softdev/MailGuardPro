@@ -1,7 +1,7 @@
 // API Route: Subscribe to a plan
 // POST /api/v1/billing/subscribe
 
-import crypto from "node:crypto";
+import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { auth } from "@/lib/auth";

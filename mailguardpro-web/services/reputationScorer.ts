@@ -2,7 +2,7 @@
 
 import dns from "dns/promises";
 import type { WhoisResult } from "whois";
-import whois from "whois";
+import { lookup } from "whois";
 import { logger } from "@/lib/logger";
 import { redis } from "@/lib/redis";
 import { safeJsonParse } from "@/lib/safeJson";
@@ -161,7 +161,7 @@ async function fetchWHOIS(
     }
 
     const rawData = await new Promise<string | WhoisResult[]>((resolve, reject) => {
-      whois.lookup(domain, { timeout: WHOIS_TIMEOUT_MS }, (err, data) => {
+      lookup(domain, { timeout: WHOIS_TIMEOUT_MS }, (err, data) => {
         if (err) reject(err);
         else resolve(data);
       });

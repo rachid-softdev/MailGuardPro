@@ -382,12 +382,14 @@ export async function getBulkJobStats(jobId: string, userId: string) {
   }
 
   // Transform results into object
-  const statusMap = statusCounts.reduce(
+  const statusMap = statusCounts.reduce<
+    Record<string, number>
+  >(
     (acc: Record<string, number>, item: { status: string; _count: { status: number } }) => {
       acc[item.status] = item._count.status;
       return acc;
     },
-    {} as Record<string, number>,
+    {},
   );
 
   return {

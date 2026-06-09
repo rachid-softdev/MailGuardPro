@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { signOutAction } from "./actions";
 
 interface SidebarProps {
   credits: number;
@@ -76,13 +77,7 @@ export function Sidebar({ credits, onClose }: SidebarProps) {
             <p className="text-[var(--text-muted)]">Credits</p>
             <p className="font-mono font-semibold">{credits}</p>
           </div>
-          <form
-            action={async () => {
-              "use server";
-              const { signOut } = await import("@/lib/auth");
-              await signOut({ redirectTo: "/" });
-            }}
-          >
+          <form action={signOutAction}>
             <button className="btn btn-ghost btn-sm">Sign out</button>
           </form>
         </div>

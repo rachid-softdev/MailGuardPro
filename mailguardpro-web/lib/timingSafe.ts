@@ -1,4 +1,4 @@
-import crypto from "node:crypto";
+import crypto from "crypto";
 
 export function timingSafeEqual(a: string, b: string): boolean {
   const bufA = Buffer.from(a);

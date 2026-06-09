@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { validateCsrfOrigin } from "@/lib/csrf";
 import { loggerApi } from "@/lib/logger";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { stripe } from "@/lib/stripe";
 import { AuditAction, AuditResource, logAudit } from "@/services/auditLogger";
@@ -69,13 +70,13 @@ export async function DELETE(req: NextRequest) {
         data: {
           userId: null,
           apiKeyId: null,
-          emailHash: null,
+          emailHash: "",
         },
       }),
       prisma.bulkJob.updateMany({
         where: { userId },
         data: {
-          emailsJson: null,
+          emailsJson: Prisma.DbNull,
         },
       }),
       prisma.apiKey.deleteMany({ where: { userId } }),

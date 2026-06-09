@@ -1,7 +1,7 @@
 // Structured Logger Service using Pino
 // Provides structured logging for the application
 
-import crypto from "node:crypto";
+import crypto from "crypto";
 import pino from "pino";
 
 const logLevel =
