@@ -33,7 +33,7 @@ jobs:
         run: pnpm run lint
 
       - name: Check formatting
-        run: npx @biomejs/biome format --check .
+        run: pnpm run format:check
 
   typecheck:
     name: Type Check
