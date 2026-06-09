@@ -64,11 +64,8 @@ import { checkMemoryRateLimit, clearSweeper } from "@/lib/rateLimitMemory";
 import { checkRateLimitByPlan } from "@/lib/rateLimits";
 
 describe("Rate limit logging [M-04]", () => {
-  let warnSpy: ReturnType<typeof vi.spyOn>;
-
   beforeEach(() => {
     vi.clearAllMocks();
-    warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
   });
 
   afterEach(() => {
@@ -141,11 +138,10 @@ describe("Rate limit logging [M-04]", () => {
       await checkMemoryRateLimit(key, limit, windowSeconds);
     }
 
-    expect(warnSpy).toHaveBeenCalledTimes(1);
-    const warnArg = warnSpy.mock.calls[0];
-    expect(warnArg[0]).toBe("[RateLimit] REJECTED (memory fallback)");
-
-    const logged = JSON.parse(warnArg[1] as string);
+    expect(mockLoggerWarn).toHaveBeenCalledTimes(1);
+    const warnMsg = mockLoggerWarn.mock.calls[0][1];
+    const logged = mockLoggerWarn.mock.calls[0][0];
+    expect(warnMsg).toBe("[RateLimit] REJECTED (memory fallback)");
     expect(logged.key).toBe(key);
     expect(logged.originalLimit).toBe(limit);
     expect(logged.effectiveLimit).toBe(2); // floor(5 * 0.5)
@@ -162,8 +158,8 @@ describe("Rate limit logging [M-04]", () => {
       await checkMemoryRateLimit(key, 100, 30);
     }
 
-    expect(warnSpy).toHaveBeenCalledTimes(1);
-    const logged = JSON.parse(warnSpy.mock.calls[0][1] as string);
+    expect(mockLoggerWarn).toHaveBeenCalledTimes(1);
+    const logged = mockLoggerWarn.mock.calls[0][0];
     expect(logged.key).toBe(key);
     expect(logged.originalLimit).toBe(100);
     expect(logged.effectiveLimit).toBe(50);
@@ -175,7 +171,7 @@ describe("Rate limit logging [M-04]", () => {
     const key = "within-bounds";
     await checkMemoryRateLimit(key, 10, 60); // First request within limit
 
-    expect(warnSpy).not.toHaveBeenCalled();
+    expect(mockLoggerWarn).not.toHaveBeenCalled();
   });
 
   it("should log warning on each excess request (memory)", async () => {
@@ -187,6 +183,6 @@ describe("Rate limit logging [M-04]", () => {
     }
 
     // 8 excess requests → 8 warnings
-    expect(warnSpy).toHaveBeenCalledTimes(8);
+    expect(mockLoggerWarn).toHaveBeenCalledTimes(8);
   });
 });

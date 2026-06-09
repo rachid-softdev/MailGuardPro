@@ -58,7 +58,7 @@ describe("webhookDispatcher - persistDelivery", () => {
     encryptedSecret: "test-secret",
     events: ["bulk_job_completed"],
     isActive: true,
-    pinnedIps: '["93.184.216.34"]',
+    pinnedIps: ["93.184.216.34"],
   };
 
   beforeEach(() => {
@@ -210,14 +210,13 @@ describe("webhookDispatcher - persistDelivery", () => {
     });
 
     // Must be in production for the DNS rebinding check to block
-    const origNodeEnv = process.env.NODE_ENV;
-    process.env.NODE_ENV = "production";
+    vi.stubEnv("NODE_ENV", "production");
 
     await WebhookDispatcher.dispatch(TEST_WEBHOOK, "bulk_job_completed", { test: "data" });
 
     expect(mockPrisma.webhookDelivery.create).not.toHaveBeenCalled();
 
-    process.env.NODE_ENV = origNodeEnv;
+    vi.unstubAllEnvs();
   });
 
   // ──────────────── Error handling in persistDelivery ────────────────

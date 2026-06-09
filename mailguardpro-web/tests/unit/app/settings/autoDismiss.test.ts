@@ -68,7 +68,10 @@ describe("Settings auto-dismiss (UX-6)", () => {
       const setMessage = vi.fn();
 
       // Error message — should NOT trigger auto-dismiss
-      const message = { type: "error" as const, text: "Failed to update profile" };
+      const message: { type: string; text: string } = {
+        type: "error",
+        text: "Failed to update profile",
+      };
       if (message?.type === "success") {
         setTimeout(() => setMessage(null), 4000);
       }
@@ -79,9 +82,9 @@ describe("Settings auto-dismiss (UX-6)", () => {
 
     it("should NOT auto-dismiss null messages", () => {
       const setMessage = vi.fn();
-      const message = null;
+      const message = null as { type: string; text: string } | null;
 
-      if (message?.type === "success") {
+      if (message !== null && message.type === "success") {
         setTimeout(() => setMessage(null), 4000);
       }
 
@@ -94,7 +97,6 @@ describe("Settings auto-dismiss (UX-6)", () => {
       const setMessage = vi.fn();
 
       // Simulate cleanup: effect returns a cleanup function
-      const message1 = { type: "success" as const, text: "Profile updated!" };
       const timer1 = setTimeout(() => setMessage(null), 4000);
 
       // Simulate cleanup of previous effect (message changes)
@@ -102,12 +104,11 @@ describe("Settings auto-dismiss (UX-6)", () => {
       expect(clearTimeoutSpy).toHaveBeenCalledWith(timer1);
 
       // New message
-      const timer2 = setTimeout(() => setMessage(null), 4000);
-      expect(timer2).not.toBe(timer1);
+      const timer2b = setTimeout(() => setMessage(null), 4000);
+      expect(timer2b).not.toBe(timer1);
     });
 
     it("should not leak timers when component unmounts", () => {
-      const clearTimeoutSpy = vi.spyOn(globalThis, "clearTimeout");
       const setMessage = vi.fn();
 
       // Simulate effect setup
@@ -129,7 +130,6 @@ describe("Settings auto-dismiss (UX-6)", () => {
     it("should dismiss at exactly 4000ms (not earlier, not later)", () => {
       const setMessage = vi.fn();
 
-      const message = { type: "success" as const, text: "Profile updated!" };
       setTimeout(() => setMessage(null), 4000);
 
       // Test at 3999ms
@@ -145,15 +145,15 @@ describe("Settings auto-dismiss (UX-6)", () => {
     it("should handle rapid successive messages", () => {
       const setMessage = vi.fn();
 
-      // First message
-      const timer1 = setTimeout(() => setMessage(null), 4000);
+      // First message timer
+      const timer1c = setTimeout(() => setMessage(null), 4000);
 
       // 1 second later (before first timer completes), message changes (user saves again)
       vi.advanceTimersByTime(1000);
-      clearTimeout(timer1);
+      clearTimeout(timer1c);
 
       // Second message starts new timer from now (0)
-      const timer2 = setTimeout(() => setMessage(null), 4000);
+      void setTimeout(() => setMessage(null), 4000);
 
       // Advance 4 more seconds from current time (total 5s elapsed, 4s from second timer)
       vi.advanceTimersByTime(4000);
@@ -190,7 +190,10 @@ describe("Settings auto-dismiss (UX-6)", () => {
 
     it("should show error message and NOT auto-dismiss", () => {
       const setMessage = vi.fn();
-      const result = { type: "error" as const, text: "Failed to update profile" };
+      const result: { type: string; text: string } = {
+        type: "error",
+        text: "Failed to update profile",
+      };
 
       // Simulate failed save
       setMessage(result);

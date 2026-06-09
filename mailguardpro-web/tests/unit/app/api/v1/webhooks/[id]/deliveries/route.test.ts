@@ -1,3 +1,4 @@
+import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // ── Hoisted mocks ──
@@ -48,8 +49,8 @@ vi.mock("@/lib/logger", () => ({
 }));
 
 // ── Utility to create mock NextRequest with URL ──
-function createRequest(urlStr: string, method = "GET"): Request {
-  return new Request(urlStr, { method });
+function createRequest(urlStr: string, method = "GET"): NextRequest {
+  return new NextRequest(urlStr, { method });
 }
 
 import { GET } from "@/app/api/v1/webhooks/[id]/deliveries/route";

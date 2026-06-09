@@ -108,7 +108,7 @@ export async function getDashboardData(userId: string): Promise<DashboardData> {
   });
 
   // Calculer le valid rate
-  const validCount = byStatus.find((s) => s.status === "valid")?._count || 0;
+  const validCount = byStatus.find((s: { status: string }) => s.status === "valid")?._count || 0;
   const validRate = thisMonthCount > 0 ? Math.round((validCount / thisMonthCount) * 100) : 0;
 
   const stats: DashboardStats = {
@@ -184,9 +184,9 @@ export async function getUsageStats(userId: string) {
 
   return {
     thisMonth: {
-      validations: thisMonth.reduce((acc, s) => acc + s._count, 0),
+      validations: thisMonth.reduce((acc: number, s: { _count: number }) => acc + s._count, 0),
       byStatus: thisMonth.reduce(
-        (acc, s) => {
+        (acc: Record<string, number>, s: { status: string; _count: number }) => {
           acc[s.status as keyof typeof acc] = s._count;
           return acc;
         },
@@ -195,9 +195,9 @@ export async function getUsageStats(userId: string) {
       avgScore: Math.round(avgScoreThisMonth._avg.score || 0),
     },
     lastMonth: {
-      validations: lastMonth.reduce((acc, s) => acc + s._count, 0),
+      validations: lastMonth.reduce((acc: number, s: { _count: number }) => acc + s._count, 0),
       byStatus: lastMonth.reduce(
-        (acc, s) => {
+        (acc: Record<string, number>, s: { status: string; _count: number }) => {
           acc[s.status as keyof typeof acc] = s._count;
           return acc;
         },

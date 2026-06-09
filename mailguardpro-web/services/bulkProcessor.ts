@@ -370,7 +370,7 @@ export async function getBulkJobStats(jobId: string, userId: string) {
 
   // Transform results into object
   const statusMap = statusCounts.reduce(
-    (acc, item) => {
+    (acc: Record<string, number>, item: { status: string; _count: { status: number } }) => {
       acc[item.status] = item._count.status;
       return acc;
     },

@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
 
       // Delete this batch
       const { count } = await prisma.auditLog.deleteMany({
-        where: { id: { in: batch.map((r) => r.id) } },
+        where: { id: { in: batch.map((r: { id: string }) => r.id) } },
       });
 
       deletedTotal += count;

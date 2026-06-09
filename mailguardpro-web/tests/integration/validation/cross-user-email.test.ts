@@ -72,6 +72,7 @@ vi.mock("@/services/emailValidator", () => ({
 // =============================================================================
 
 interface ValidationRecord {
+  id?: string;
   email: string;
   emailHash: string;
   score: number;

@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // Mock resend — must be constructable with new Resend()
 class MockResend {
+  public emails: { send: ReturnType<typeof vi.fn> };
   constructor() {
     this.emails = { send: vi.fn() };
   }

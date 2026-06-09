@@ -4,7 +4,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { validateCsrfOrigin } from "@/lib/csrf";
-import { logError, loggerApi } from "@/lib/logger";
+import { loggerApi } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
 import { stripe } from "@/lib/stripe";
 import { AuditAction, AuditResource, logAudit } from "@/services/auditLogger";

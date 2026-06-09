@@ -42,7 +42,7 @@ describe("SCORING_WEIGHTS", () => {
     });
 
     it("should have pass and fail properties for each category", () => {
-      for (const [key, value] of Object.entries(SCORING_WEIGHTS)) {
+      for (const [, value] of Object.entries(SCORING_WEIGHTS)) {
         expect(value).toHaveProperty("pass");
         expect(value).toHaveProperty("fail");
         expect(typeof value.pass).toBe("number");

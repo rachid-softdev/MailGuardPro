@@ -1,6 +1,6 @@
 // Audit Logger Service - Log toutes les actions sensibles
 
-import type { Prisma } from "@prisma/client";
+import type { Prisma } from ".prisma/client";
 import { hashIp } from "@/lib/ipHash";
 import { logger } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";

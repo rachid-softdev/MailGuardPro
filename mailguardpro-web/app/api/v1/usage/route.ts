@@ -56,8 +56,14 @@ export async function GET(_req: NextRequest) {
       },
     });
 
-    const totalBulkEmails = bulkJobs.reduce((sum, job) => sum + job.totalEmails, 0);
-    const totalProcessed = bulkJobs.reduce((sum, job) => sum + job.processed, 0);
+    const totalBulkEmails = bulkJobs.reduce(
+      (sum: number, job: { totalEmails: number }) => sum + job.totalEmails,
+      0,
+    );
+    const totalProcessed = bulkJobs.reduce(
+      (sum: number, job: { processed: number }) => sum + job.processed,
+      0,
+    );
 
     // Limites selon le plan
     const planLimits: Record<string, { credits: number; bulkMax: number }> = {

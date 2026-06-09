@@ -13,8 +13,8 @@
  */
 
 import "dotenv/config";
+import { PrismaClient } from ".prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
-import { PrismaClient } from "@prisma/client";
 import { createCipheriv, randomBytes } from "crypto";
 import pg from "pg";
 
@@ -76,7 +76,7 @@ async function migrateTokens() {
 
       await prisma.$transaction(
         batch
-          .map((account) => {
+          .map((account: any) => {
             const updates: Record<string, string> = {};
 
             for (const field of TOKEN_FIELDS) {
@@ -97,8 +97,8 @@ async function migrateTokens() {
           .filter(Boolean) as any,
       );
 
-      const batchMigrated = batch.filter((a) =>
-        TOKEN_FIELDS.some((f) => isLegacyToken((a as any)[f])),
+      const batchMigrated = batch.filter((a: any) =>
+        TOKEN_FIELDS.some((f: string) => isLegacyToken((a as any)[f])),
       ).length;
       migratedCount += batchMigrated;
 

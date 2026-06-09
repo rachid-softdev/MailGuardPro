@@ -11,7 +11,7 @@
 import { headers } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
-import { logError, loggerStripe } from "@/lib/logger";
+import { loggerStripe } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
 import { checkRateLimit, redis } from "@/lib/redis";
 import { getPlanFromPriceId, stripe } from "@/lib/stripe";

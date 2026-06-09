@@ -81,12 +81,14 @@ describe("emailHash", () => {
     });
 
     it("should not warn at module import — warn only when function is called", async () => {
-      const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
       vi.unstubAllEnvs();
       vi.stubEnv("EMAIL_HASH_SALT", "");
       vi.resetModules();
       // Import should NOT trigger warning anymore (M-2 fix)
       const { hashEmail } = await import("@/lib/emailHash");
+      // Import logger AFTER loading emailHash to get the same logger instance
+      const { logger } = await import("@/lib/logger");
+      const warnSpy = vi.spyOn(logger, "warn").mockImplementation(() => {});
       expect(warnSpy).not.toHaveBeenCalled();
 
       // Warning should fire only when hashEmail is actually called

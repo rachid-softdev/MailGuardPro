@@ -132,7 +132,6 @@ describe("OBS-2: Pino migration audit", () => {
   it("should track console.* usage for future migration", () => {
     // This serves as a tracking mechanism — when pino migration is complete,
     // this count should be 0 (or close to 0)
-    const mockPattern = /console\.(mock|Mock)/; // Not actual console calls
     const consoleCalls: string[] = [];
 
     for (const file of allTestFiles) {

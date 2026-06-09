@@ -55,7 +55,7 @@ vi.mock("@/lib/redis", async () => {
 // ---------------------------------------------------------------------------
 // Subject under test
 // ---------------------------------------------------------------------------
-import { checkRateLimit } from "@/lib/redis";
+import { checkRateLimit, redisCircuitBreaker } from "@/lib/redis";
 
 describe("checkRateLimit Redis fallback", () => {
   beforeEach(() => {
@@ -66,6 +66,10 @@ describe("checkRateLimit Redis fallback", () => {
   });
 
   afterEach(() => {
+    // Reset circuit breaker state so it doesn't remain OPEN across tests
+    if (redisCircuitBreaker && typeof (redisCircuitBreaker as any).reset === "function") {
+      (redisCircuitBreaker as any).reset();
+    }
     vi.restoreAllMocks();
   });
 

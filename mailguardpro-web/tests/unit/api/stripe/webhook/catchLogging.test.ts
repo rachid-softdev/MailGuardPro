@@ -3,9 +3,9 @@ import { NextRequest } from "next/server";
  * Unit tests for L-04 — Stripe webhook idempotency error logging.
  *
  * Verifies that when checkIdempotency() fails in various ways, the correct
- * log messages are emitted:
- *   - Redis unavailable → console.warn "[Stripe] Redis unavailable"
- *   - PostgreSQL fallback fails → console.error "[Stripe] PostgreSQL idempotency check failed"
+ * log messages are emitted via loggerStripe:
+ *   - Redis unavailable → loggerStripe.warn "Redis unavailable"
+ *   - PostgreSQL fallback fails → loggerStripe.error "PostgreSQL idempotency check failed"
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -100,6 +100,33 @@ vi.mock("@/services/auditLogger", () => ({
 }));
 
 // ---------------------------------------------------------------------------
+// Logger mock — the route uses loggerStripe.warn/error (pino-style), not console
+// ---------------------------------------------------------------------------
+const mockLoggerStripeWarn = vi.hoisted(() => vi.fn());
+const mockLoggerStripeError = vi.hoisted(() => vi.fn());
+const mockLogError = vi.hoisted(() => vi.fn());
+
+vi.mock("@/lib/logger", () => ({
+  logger: {
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    child: vi.fn(() => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn() })),
+  },
+  loggerApi: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+  loggerStripe: {
+    info: vi.fn(),
+    warn: mockLoggerStripeWarn,
+    error: mockLoggerStripeError,
+    child: vi.fn(() => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn() })),
+  },
+  logError: mockLogError,
+  logRequest: vi.fn(),
+  logMetrics: vi.fn(),
+  createRequestLogger: vi.fn(),
+}));
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 function fakeEvent(type: string) {
@@ -119,9 +146,6 @@ function createReq(): NextRequest {
 }
 
 describe("Stripe catch logging [L-04]", () => {
-  let warnSpy: ReturnType<typeof vi.spyOn>;
-  let errorSpy: ReturnType<typeof vi.spyOn>;
-
   /** Re-apply mock implementations that vi.restoreAllMocks destroys */
   function reapplyDefaultMocks() {
     mockRedisSet.mockImplementation(() => {
@@ -148,10 +172,6 @@ describe("Stripe catch logging [L-04]", () => {
 
     // Re-apply implementations that vi.restoreAllMocks in afterEach destroys
     reapplyDefaultMocks();
-
-    warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-    errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-    vi.spyOn(console, "log").mockImplementation(() => {});
   });
 
   afterEach(() => {
@@ -178,12 +198,12 @@ describe("Stripe catch logging [L-04]", () => {
 
     expect(res.status).toBe(200); // PG fallback handled it
 
-    const redisUnavailableLogs = warnSpy.mock.calls.filter(
-      (call) => typeof call[0] === "string" && call[0].includes("Redis unavailable"),
+    const redisUnavailableLogs = mockLoggerStripeWarn.mock.calls.filter(
+      (call: any[]) => typeof call[0] === "string" && call[0].includes("Redis unavailable"),
     );
     expect(redisUnavailableLogs.length).toBeGreaterThanOrEqual(1);
     expect(redisUnavailableLogs[0][0]).toBe(
-      "[Stripe] Redis unavailable — using PostgreSQL idempotency fallback",
+      "Redis unavailable — using PostgreSQL idempotency fallback",
     );
   });
 
@@ -198,12 +218,13 @@ describe("Stripe catch logging [L-04]", () => {
     expect(res.status).toBe(503);
 
     // Should log BOTH the Redis unavailable warning AND the PG error
-    const redisUnavailableLogs = warnSpy.mock.calls.filter(
-      (call) => typeof call[0] === "string" && call[0].includes("Redis unavailable"),
+    const redisUnavailableLogs = mockLoggerStripeWarn.mock.calls.filter(
+      (call: any[]) => typeof call[0] === "string" && call[0].includes("Redis unavailable"),
     );
-    const pgErrorLogs = errorSpy.mock.calls.filter(
-      (call) =>
-        typeof call[0] === "string" && call[0].includes("PostgreSQL idempotency check failed"),
+    // loggerStripe.error uses pino signature: error(dataObject, messageString)
+    const pgErrorLogs = mockLoggerStripeError.mock.calls.filter(
+      (call: any[]) =>
+        typeof call[1] === "string" && call[1].includes("PostgreSQL idempotency check failed"),
     );
 
     expect(redisUnavailableLogs.length).toBeGreaterThanOrEqual(1);

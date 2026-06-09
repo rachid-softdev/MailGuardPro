@@ -26,26 +26,24 @@ interface HealthResponse {
   environment: string;
 }
 
-export async function GET(req?: NextRequest) {
+export async function GET(req: NextRequest) {
   const startTime = Date.now();
 
   // Rate limiting (60 req/min per IP — generous to accommodate Docker/ALB/K8s health checks)
-  if (req) {
-    try {
-      const ip = getClientIp(req);
-      const rateCheck = await checkRateLimit(`health:ip:${ip}`, 60, 60);
-      if (!rateCheck.success) {
-        return NextResponse.json(
-          { status: "degraded", message: "Rate limit exceeded" },
-          {
-            status: 429,
-            headers: { "Cache-Control": "no-store, no-cache, must-revalidate" },
-          },
-        );
-      }
-    } catch {
-      // Redis down — allow health check to proceed
+  try {
+    const ip = getClientIp(req);
+    const rateCheck = await checkRateLimit(`health:ip:${ip}`, 60, 60);
+    if (!rateCheck.success) {
+      return NextResponse.json(
+        { status: "degraded", message: "Rate limit exceeded" },
+        {
+          status: 429,
+          headers: { "Cache-Control": "no-store, no-cache, must-revalidate" },
+        },
+      );
     }
+  } catch {
+    // Redis down — allow health check to proceed
   }
 
   const services: HealthResponse["services"] = {

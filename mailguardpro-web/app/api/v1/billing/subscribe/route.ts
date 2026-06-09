@@ -6,7 +6,7 @@ import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { auth } from "@/lib/auth";
 import { validateCsrfOrigin } from "@/lib/csrf";
-import { logError, loggerApi } from "@/lib/logger";
+import { loggerApi } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
 import { parseJsonBody } from "@/lib/request";
 import { getPlanFromPriceId, stripe } from "@/lib/stripe";

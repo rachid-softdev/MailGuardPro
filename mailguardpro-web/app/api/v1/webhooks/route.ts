@@ -8,7 +8,7 @@ import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { encryptToken } from "@/lib/crypto";
 import { validateCsrfOrigin } from "@/lib/csrf";
-import { logError, loggerApi } from "@/lib/logger";
+import { loggerApi } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
 import { checkRateLimitByPlan, type Plan } from "@/lib/rateLimits";
 import { parseJsonBody } from "@/lib/request";

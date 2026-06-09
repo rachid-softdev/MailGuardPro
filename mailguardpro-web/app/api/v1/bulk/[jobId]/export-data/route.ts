@@ -39,17 +39,22 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ job
     });
 
     // Calculate stats
-    const valid = results.filter((r) => r.status === "valid").length;
-    const invalid = results.filter((r) => r.status === "invalid").length;
-    const risky = results.filter((r) => r.status === "risky").length;
-    const unknown = results.filter((r) => r.status === "unknown").length;
+    const valid = results.filter((r: { status: string }) => r.status === "valid").length;
+    const invalid = results.filter((r: { status: string }) => r.status === "invalid").length;
+    const risky = results.filter((r: { status: string }) => r.status === "risky").length;
+    const unknown = results.filter((r: { status: string }) => r.status === "unknown").length;
 
     const avgScore =
       results.length > 0
-        ? Math.round(results.reduce((sum, r) => sum + r.score, 0) / results.length)
+        ? Math.round(
+            results.reduce((sum: number, r: { score: number }) => sum + r.score, 0) /
+              results.length,
+          )
         : 0;
 
-    const disposable = results.filter((r) => !(r.checksJson as any)?.disposable?.passed).length;
+    const disposable = results.filter(
+      (r: { checksJson: any }) => !(r.checksJson as any)?.disposable?.passed,
+    ).length;
 
     return NextResponse.json({
       success: true,
@@ -74,9 +79,9 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ job
           disposable > 0 ? `${disposable} emails jetables détectés - à supprimer` : null,
         ].filter(Boolean),
         highRiskEmails: results
-          .filter((r) => r.score < 40)
+          .filter((r: { score: number }) => r.score < 40)
           .slice(0, 30)
-          .map((r) => ({
+          .map((r: { email: string; score: number; checksJson: any }) => ({
             email: r.email,
             score: r.score,
             issue: !(r.checksJson as any)?.smtp?.passed
@@ -87,7 +92,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ job
                   ? "Invalid format"
                   : "Low score",
           })),
-        results: results.map((r) => ({
+        results: results.map((r: { email: string; score: number; status: string }) => ({
           email: r.email,
           score: r.score,
           status: r.status,

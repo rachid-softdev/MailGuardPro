@@ -233,7 +233,7 @@ worker.on("failed", (job, err) => {
         where: { id: job.data.jobId },
         data: { status: "FAILED" },
       })
-      .catch((e) =>
+      .catch((e: unknown) =>
         loggerWorker.error(
           { err: e, jobId: job.data.jobId },
           "Failed to update job status to FAILED",

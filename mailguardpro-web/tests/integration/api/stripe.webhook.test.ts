@@ -79,6 +79,7 @@ vi.mock("@/services/auditLogger", () => ({
 // Subject under test
 // ---------------------------------------------------------------------------
 import { POST } from "@/app/api/stripe/webhook/route";
+import { loggerStripe } from "@/lib/logger";
 
 describe("POST /api/stripe/webhook", () => {
   let stripe: any;
@@ -447,7 +448,7 @@ describe("POST /api/stripe/webhook", () => {
       items: { data: [{ price: { id: "price_unknown" } }] },
     });
 
-    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const stripeErrorSpy = vi.spyOn(loggerStripe, "error").mockImplementation(() => {});
 
     const req = new NextRequest("http://localhost:3000/api/stripe/webhook", {
       method: "POST",
@@ -456,10 +457,11 @@ describe("POST /api/stripe/webhook", () => {
     const response = await POST(req);
 
     expect(response.status).toBe(200);
-    expect(consoleSpy).toHaveBeenCalled();
-    expect(consoleSpy.mock.calls[0][0]).toContain("unknown priceId");
+    expect(stripeErrorSpy).toHaveBeenCalled();
+    // Pino signature: loggerStripe.error(dataObj, messageString)
+    expect(stripeErrorSpy.mock.calls[0][1]).toContain("unknown priceId");
 
-    consoleSpy.mockRestore();
+    stripeErrorSpy.mockRestore();
   });
 
   it("should not crash when Redis is down during idempotency check", async () => {

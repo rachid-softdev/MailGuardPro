@@ -35,28 +35,36 @@ export async function exportResults(options: ExportOptions): Promise<Buffer> {
   });
 
   // Formater les résultats pour l'export
-  const formattedResults = results.map((r) => {
-    const checks = r.checksJson as unknown as ValidationChecks | null;
-    return {
-      email: r.email,
-      score: r.score,
-      status: r.status,
-      formatValid: checks?.format?.passed,
-      mxValid: checks?.mx?.passed,
-      smtpValid: checks?.smtp?.passed,
-      disposable: checks?.disposable?.passed,
-      catchall: checks?.catchAll?.passed,
-      generic: checks?.generic?.passed,
-      freeProvider: checks?.freeProvider?.passed,
-      dnsbl: checks?.dnsbl?.passed,
-      spfValid: checks?.spf?.passed,
-      dmarcValid: checks?.dmarc?.passed,
-      typo: checks?.typo?.passed,
-      suggestion: (checks?.typo as any)?.suggestion,
-      domainReputation: (checks as any)?.domain?.reputation,
-      processingTimeMs: r.processingTimeMs,
-    };
-  });
+  const formattedResults = results.map(
+    (r: {
+      email: string;
+      score: number;
+      status: string;
+      checksJson: unknown;
+      processingTimeMs: number;
+    }) => {
+      const checks = r.checksJson as unknown as ValidationChecks | null;
+      return {
+        email: r.email,
+        score: r.score,
+        status: r.status,
+        formatValid: checks?.format?.passed,
+        mxValid: checks?.mx?.passed,
+        smtpValid: checks?.smtp?.passed,
+        disposable: checks?.disposable?.passed,
+        catchall: checks?.catchAll?.passed,
+        generic: checks?.generic?.passed,
+        freeProvider: checks?.freeProvider?.passed,
+        dnsbl: checks?.dnsbl?.passed,
+        spfValid: checks?.spf?.passed,
+        dmarcValid: checks?.dmarc?.passed,
+        typo: checks?.typo?.passed,
+        suggestion: (checks?.typo as any)?.suggestion,
+        domainReputation: (checks as any)?.domain?.reputation,
+        processingTimeMs: r.processingTimeMs,
+      };
+    },
+  );
 
   switch (format) {
     case "csv":
@@ -100,13 +108,16 @@ function exportCSV(results: any[]): Buffer {
 
 function exportJSON(results: any[], meta: { jobId: string }): Buffer {
   const summary = {
-    valid: results.filter((r) => r.status === "valid").length,
-    invalid: results.filter((r) => r.status === "invalid").length,
-    risky: results.filter((r) => r.status === "risky").length,
-    unknown: results.filter((r) => r.status === "unknown").length,
+    valid: results.filter((r: { status: string }) => r.status === "valid").length,
+    invalid: results.filter((r: { status: string }) => r.status === "invalid").length,
+    risky: results.filter((r: { status: string }) => r.status === "risky").length,
+    unknown: results.filter((r: { status: string }) => r.status === "unknown").length,
     avgScore:
       results.length > 0
-        ? Math.round(results.reduce((sum, r) => sum + r.score, 0) / results.length)
+        ? Math.round(
+            results.reduce((sum: number, r: { score: number }) => sum + r.score, 0) /
+              results.length,
+          )
         : 0,
   };
 
@@ -171,7 +182,7 @@ async function exportXLSX(results: any[], _meta: { jobId: string }): Promise<Buf
   ];
 
   // Ajouter les données avec couleur conditionnelle sur le score
-  results.forEach((r, _index) => {
+  results.forEach((r: any, _index: number) => {
     const row = resultsSheet.addRow(r);
     const scoreCell = row.getCell("score");
 
@@ -220,8 +231,8 @@ async function exportXLSX(results: any[], _meta: { jobId: string }): Promise<Buf
     { header: "Issue", key: "issue", width: 40 },
   ];
 
-  const highRisk = results.filter((r) => r.score < 40);
-  highRisk.forEach((r) => {
+  const highRisk = results.filter((r: { score: number }) => r.score < 40);
+  highRisk.forEach((r: any) => {
     let issue = [];
     if (!r.smtpValid) issue.push("SMTP failed");
     if (!r.disposable) issue.push("Disposable");

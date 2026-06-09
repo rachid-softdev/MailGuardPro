@@ -2,6 +2,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // Mock stripe — must be constructable with new Stripe()
 class MockStripe {
+  public customers: { create: ReturnType<typeof vi.fn> };
+  public subscriptions: { create: ReturnType<typeof vi.fn> };
+  public checkout: { sessions: { create: ReturnType<typeof vi.fn> } };
   constructor() {
     this.customers = { create: vi.fn() };
     this.subscriptions = { create: vi.fn() };

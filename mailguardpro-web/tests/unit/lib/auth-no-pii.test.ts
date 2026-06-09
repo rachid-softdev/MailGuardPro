@@ -78,7 +78,6 @@ vi.mock("@/lib/authSecretValidator", () => ({
 // Import
 // ---------------------------------------------------------------------------
 
-import { auth, handlers, signIn, signOut } from "@/lib/auth";
 import { AuditAction, AuditResource, logAudit } from "@/services/auditLogger";
 
 describe("SEC-2: No PII in auth logs", () => {
@@ -103,7 +102,6 @@ describe("SEC-2: No PII in auth logs", () => {
       // The SEC-2 fix replaces `email?.address` with `hashEmail(email.address)`
       // or a masked version for logging.
 
-      const emailAddress = "user@example.com";
       const hashedEmail = "a1b2c3d4"; // Simulated hash for PII-free logging
 
       // OLD (vulnerable) behavior:
@@ -131,7 +129,6 @@ describe("SEC-2: No PII in auth logs", () => {
       // OLD: console.warn(`[Auth] Magic link rate limited for ${email.address}`);
       // NEW: console.warn(`[Auth] Magic link rate limited for ${hashEmail(email.address)}`);
 
-      const emailAddress = "victim@example.com";
       const hashedEmail = "xyz789";
 
       console.warn(`[Auth] Magic link rate limited for ${hashedEmail}`);

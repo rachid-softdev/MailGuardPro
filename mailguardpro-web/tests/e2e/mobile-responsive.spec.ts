@@ -27,11 +27,10 @@ test.describe("Mobile responsiveness (375px viewport)", () => {
     expect(viewport?.width).toBe(375);
 
     // No horizontal overflow (scrollWidth <= clientWidth)
-    const hasHorizontalScroll = await page.evaluate(() => {
+    await page.evaluate(() => {
       return document.documentElement.scrollWidth > document.documentElement.clientWidth;
     });
     // Note: Some pages may have horizontal scroll by design; this is a baseline check
-    // expect(hasHorizontalScroll).toBe(false);
   });
 
   test("validate page should be usable at 375px viewport", async ({ page }) => {
@@ -139,8 +138,6 @@ test.describe("Mobile responsiveness (375px viewport)", () => {
     await page.waitForLoadState("networkidle");
 
     // Check the page layout
-    const pageContent = await page.content();
-
     // The page should show content without horizontal overflow
     const hasHorizontalOverflow = await page.evaluate(() => {
       return document.documentElement.scrollWidth > document.documentElement.clientWidth + 5;

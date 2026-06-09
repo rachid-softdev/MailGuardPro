@@ -49,7 +49,7 @@ describe("webhookDispatcher", () => {
     encryptedSecret: "test-secret",
     events: ["bulk_job_completed"],
     isActive: true,
-    pinnedIps: '["93.184.216.34"]',
+    pinnedIps: ["93.184.216.34"],
   };
 
   beforeEach(() => {

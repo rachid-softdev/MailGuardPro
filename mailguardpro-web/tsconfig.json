@@ -20,7 +20,8 @@
       }
     ],
     "paths": {
-      "@/*": ["./*"]
+      "@/*": ["./*"],
+      ".prisma/client": ["./node_modules/.prisma/client"]
     },
     "ignoreDeprecations": "6.0",
     "noImplicitReturns": true,
