@@ -63,6 +63,7 @@
   "devDependencies": {
     "@biomejs/biome": "^2.4.16",
     "@next/bundle-analyzer": "^15.5.18",
+    "@playwright/cli": "^0.1.14",
     "@playwright/test": "^1.49.1",
     "@tailwindcss/typography": "^0.5.16",
     "@types/fast-levenshtein": "^0.0.2",
