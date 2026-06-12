@@ -47,10 +47,29 @@ if (process.env.NODE_ENV === "production" && redisUrl.startsWith("redis://")) {
   );
 }
 
-export const redis = globalForRedis.redis ?? createRedisClient(redisUrl);
-export const queueRedis =
-  globalForRedis.queueRedis ?? createRedisClient(redisUrl, { maxRetriesPerRequest: null });
-export const rateLimitRedis = globalForRedis.rateLimitRedis ?? createRedisClient(redisUrl);
+function silenceRedisErrors(client: Redis): void {
+  client.on("error", () => {
+    // Suppress unhandled error events when Redis is unavailable.
+    // The circuit breaker and lazy connect pattern handle retries gracefully.
+  });
+}
+
+export const redis = (() => {
+  const client = globalForRedis.redis ?? createRedisClient(redisUrl);
+  silenceRedisErrors(client);
+  return client;
+})();
+export const queueRedis = (() => {
+  const client =
+    globalForRedis.queueRedis ?? createRedisClient(redisUrl, { maxRetriesPerRequest: null });
+  silenceRedisErrors(client);
+  return client;
+})();
+export const rateLimitRedis = (() => {
+  const client = globalForRedis.rateLimitRedis ?? createRedisClient(redisUrl);
+  silenceRedisErrors(client);
+  return client;
+})();
 
 export const redisCircuitBreaker = new CircuitBreaker({
   name: "redis-rate-limit",
