@@ -67,7 +67,7 @@
     "@playwright/cli": "^0.1.14",
     "@playwright/test": "^1.49.1",
     "@tailwindcss/typography": "^0.5.16",
-    "@types/fast-levenshtein": "^0.0.2",
+    "@types/fast-levenshtein": "^0.0.4",
     "@types/node": "^22.10.5",
     "@types/pg": "^8.11.0",
     "@types/react": "^19.2.17",
