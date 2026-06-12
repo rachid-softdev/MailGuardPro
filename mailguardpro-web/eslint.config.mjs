@@ -8,13 +8,7 @@ import reactHooksPlugin from "eslint-plugin-react-hooks";
 
 export default defineConfig([
   // Global ignores — skip generated / build output directories
-  globalIgnores([
-    ".next/**",
-    "out/**",
-    "build/**",
-    "next-env.d.ts",
-    "src/generated/**",
-  ]),
+  globalIgnores([".next/**", "out/**", "build/**", "next-env.d.ts", "src/generated/**"]),
 
   // TypeScript recommended config (parser + rules)
   ...tseslint.configs.recommended,

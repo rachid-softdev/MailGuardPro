@@ -7,7 +7,10 @@ import type { CheckResult } from "./types";
 const DNSBL_TIMEOUT_MS = 3000;
 
 // Résolution DNS avec timeout
-async function resolveWithTimeout<T>(fn: () => Promise<T>, timeoutMs = DNSBL_TIMEOUT_MS): Promise<T> {
+async function resolveWithTimeout<T>(
+  fn: () => Promise<T>,
+  timeoutMs = DNSBL_TIMEOUT_MS,
+): Promise<T> {
   const timeout = new Promise<never>((_, reject) =>
     setTimeout(() => reject(new Error("DNSBL resolution timeout")), timeoutMs),
   );

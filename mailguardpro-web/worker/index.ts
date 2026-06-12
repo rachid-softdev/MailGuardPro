@@ -222,12 +222,24 @@ worker.on("failed", (job, err) => {
 
   if (isFinalAttempt) {
     loggerWorker.error(
-      { err: { message: err.message }, jobId: job.id, requestId, attemptsMade: job.attemptsMade, maxAttempts },
+      {
+        err: { message: err.message },
+        jobId: job.id,
+        requestId,
+        attemptsMade: job.attemptsMade,
+        maxAttempts,
+      },
       "Job FAILED after all attempts (sent to DLQ)",
     );
   } else {
     loggerWorker.error(
-      { err: { message: err.message }, jobId: job.id, requestId, attemptsMade: job.attemptsMade, maxAttempts },
+      {
+        err: { message: err.message },
+        jobId: job.id,
+        requestId,
+        attemptsMade: job.attemptsMade,
+        maxAttempts,
+      },
       "Job failed",
     );
   }

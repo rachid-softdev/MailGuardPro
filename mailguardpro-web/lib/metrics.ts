@@ -21,17 +21,20 @@ interface RequestMetric {
 export function emitRequestMetric(metric: RequestMetric): void {
   const { labels, durationMs, error, requestId } = metric;
 
-  logger.info({
-    metric: "api_request",
-    requestId,
-    method: labels.method,
-    path: labels.path,
-    statusCode: labels.statusCode,
-    durationMs,
-    error: !!error,
-    plan: labels.plan || "anonymous",
-    authenticated: labels.authenticated ?? false,
-  }, "RED metric");
+  logger.info(
+    {
+      metric: "api_request",
+      requestId,
+      method: labels.method,
+      path: labels.path,
+      statusCode: labels.statusCode,
+      durationMs,
+      error: !!error,
+      plan: labels.plan || "anonymous",
+      authenticated: labels.authenticated ?? false,
+    },
+    "RED metric",
+  );
 }
 
 export function emitErrorMetric(
@@ -40,17 +43,21 @@ export function emitErrorMetric(
   error: unknown,
   requestId?: string,
 ): void {
-  logger.error({
-    metric: "api_error",
-    requestId,
-    method: labels.method,
-    path: labels.path,
-    statusCode: labels.statusCode,
-    durationMs,
-    err: error instanceof Error
-      ? { message: error.message, name: error.name }
-      : { message: String(error) },
-  }, "RED error metric");
+  logger.error(
+    {
+      metric: "api_error",
+      requestId,
+      method: labels.method,
+      path: labels.path,
+      statusCode: labels.statusCode,
+      durationMs,
+      err:
+        error instanceof Error
+          ? { message: error.message, name: error.name }
+          : { message: String(error) },
+    },
+    "RED error metric",
+  );
 }
 
 export function trackApiRequest<T>(

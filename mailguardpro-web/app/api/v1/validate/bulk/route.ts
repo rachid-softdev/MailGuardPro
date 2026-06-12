@@ -80,35 +80,47 @@ export async function POST(req: NextRequest) {
     const durationMs = Date.now() - startTime;
 
     if (!result.success || !result.jobId) {
-      loggerApi.warn({
-        requestId,
-        durationMs,
-        errors: result.errors,
-      }, "Bulk upload validation failed");
+      loggerApi.warn(
+        {
+          requestId,
+          durationMs,
+          errors: result.errors,
+        },
+        "Bulk upload validation failed",
+      );
       return NextResponse.json({ success: false, errors: result.errors }, { status: 400 });
     }
 
-    loggerApi.info({
-      requestId,
-      jobId: result.jobId,
-      totalEmails: result.totalEmails,
-      durationMs,
-    }, "Bulk upload completed");
-
-    return NextResponse.json({
-      success: true,
-      requestId,
-      data: {
+    loggerApi.info(
+      {
+        requestId,
         jobId: result.jobId,
         totalEmails: result.totalEmails,
+        durationMs,
       },
-    }, { headers: { "x-request-id": requestId } });
+      "Bulk upload completed",
+    );
+
+    return NextResponse.json(
+      {
+        success: true,
+        requestId,
+        data: {
+          jobId: result.jobId,
+          totalEmails: result.totalEmails,
+        },
+      },
+      { headers: { "x-request-id": requestId } },
+    );
   } catch (error) {
     loggerApi.error({ err: error, requestId }, "Bulk upload error");
-    return NextResponse.json({
-      success: false,
-      error: "Internal server error",
-      requestId,
-    }, { status: 500, headers: { "x-request-id": requestId } });
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Internal server error",
+        requestId,
+      },
+      { status: 500, headers: { "x-request-id": requestId } },
+    );
   }
 }
