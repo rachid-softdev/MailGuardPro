@@ -104,7 +104,7 @@ export async function checkTypo(email: string): Promise<CheckResult> {
       weight: SCORING_WEIGHTS.typo.fail,
       message: "Erreur de frappe détectée",
       detail: `Vouliez-vous dire ${suggestedEmail} ?`,
-      // @ts-expect-error
+      // @ts-expect-error - suggestion field is optional in type but always set here
       suggestion: suggestedEmail,
     };
   }

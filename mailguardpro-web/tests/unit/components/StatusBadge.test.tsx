@@ -14,9 +14,9 @@ describe("StatusBadge", () => {
   describe("statusConfig", () => {
     it("should have valid config", async () => {
       // Import through the component file to test internal config
-      const module = await import("@/components/ui/StatusBadge");
+      const comp = await import("@/components/ui/StatusBadge");
       // The config is internal, but we can verify the component accepts all statuses
-      expect(module.StatusBadge).toBeDefined();
+      expect(comp.StatusBadge).toBeDefined();
     });
   });
 });

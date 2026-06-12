@@ -233,7 +233,7 @@ async function exportXLSX(results: any[], _meta: { jobId: string }): Promise<Buf
 
   const highRisk = results.filter((r: { score: number }) => r.score < 40);
   highRisk.forEach((r: any) => {
-    let issue = [];
+    const issue = [];
     if (!r.smtpValid) issue.push("SMTP failed");
     if (!r.disposable) issue.push("Disposable");
     if (!r.formatValid) issue.push("Invalid format");
