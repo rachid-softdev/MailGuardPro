@@ -3,7 +3,6 @@
 
 import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
-import Stripe from "stripe";
 import { auth } from "@/lib/auth";
 import { validateCsrfOrigin } from "@/lib/csrf";
 import { loggerApi } from "@/lib/logger";
@@ -148,7 +147,7 @@ export async function POST(req: NextRequest) {
     const latestInvoice = subscription.latest_invoice;
     const paymentIntent =
       typeof latestInvoice === "object" && latestInvoice !== null
-        ? (latestInvoice as Stripe.Invoice).payment_intent
+        ? (latestInvoice as any).payment_intent
         : undefined;
     const clientSecret =
       typeof paymentIntent === "object" && paymentIntent !== null

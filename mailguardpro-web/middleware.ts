@@ -24,14 +24,15 @@ function buildCsp(nonce: string): string {
   const imgOrigins =
     process.env.CSP_IMG_ORIGINS ||
     "https://lh3.googleusercontent.com https://avatars.githubusercontent.com";
+  const liveModeOrigins = process.env.NODE_ENV === "development" ? "http://localhost:8400" : "";
 
   return [
     `default-src 'self'`,
-    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' ${stripeOrigins}`,
+    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' ${stripeOrigins} ${liveModeOrigins}`,
     `style-src 'self' 'unsafe-inline'`,
     `img-src 'self' data: blob: https: ${imgOrigins}`,
     `font-src 'self' data:`,
-    `connect-src 'self' https: ${sentryOrigins}`,
+    `connect-src 'self' https: ${sentryOrigins} ${liveModeOrigins}`,
     `frame-src 'self' ${frameOrigins}`,
     `frame-ancestors 'none'`,
     `form-action 'self'`,
