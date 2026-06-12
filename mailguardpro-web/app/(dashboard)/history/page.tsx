@@ -1,6 +1,7 @@
 "use client";
 
 import { formatDistanceToNow } from "date-fns";
+import { Inbox } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { StatusBadge } from "@/components/ui/StatusBadge";
@@ -123,8 +124,16 @@ export default function HistoryPage() {
       {/* Results */}
       <div className="card">
         {loading ? (
-          <div className="text-center py-8">
-            <div className="w-8 h-8 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin mx-auto" />
+          <div className="divide-y divide-[var(--border)]">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="flex items-center gap-6 py-4 px-4">
+                <div className="h-4 w-48 bg-[var(--bg-subtle)] animate-skeleton rounded" />
+                <div className="h-4 w-12 bg-[var(--bg-subtle)] animate-skeleton rounded" />
+                <div className="h-5 w-20 bg-[var(--bg-subtle)] animate-skeleton rounded-full" />
+                <div className="h-4 w-28 bg-[var(--bg-subtle)] animate-skeleton rounded" />
+                <div className="h-4 w-16 bg-[var(--bg-subtle)] animate-skeleton rounded ml-auto" />
+              </div>
+            ))}
           </div>
         ) : validations.length > 0 ? (
           <>
@@ -153,7 +162,7 @@ export default function HistoryPage() {
                   {validations.map((validation) => (
                     <tr
                       key={validation.id}
-                      className="border-b border-[var(--border)] last:border-0"
+                      className="border-b border-[var(--border)] last:border-0 hover:bg-[var(--bg-elevated)] transition-colors"
                     >
                       <td className="py-3 px-4 font-mono text-sm">{validation.email}</td>
                       <td className="py-3 px-4">
@@ -162,7 +171,7 @@ export default function HistoryPage() {
                             validation.score >= 75
                               ? "text-[var(--status-valid)]"
                               : validation.score >= 40
-                                ? "text-[var(--status-warning)]"
+                                ? "text-[var(--status-risky)]"
                                 : "text-[var(--status-invalid)]"
                           }`}
                         >
@@ -207,7 +216,7 @@ export default function HistoryPage() {
                   <button
                     onClick={() => handlePageChange(pagination.page - 1)}
                     disabled={pagination.page <= 1}
-                    className="btn btn-ghost btn-sm"
+                    className="btn btn-ghost btn-sm disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     Previous
                   </button>
@@ -217,7 +226,7 @@ export default function HistoryPage() {
                   <button
                     onClick={() => handlePageChange(pagination.page + 1)}
                     disabled={pagination.page >= pagination.totalPages}
-                    className="btn btn-ghost btn-sm"
+                    className="btn btn-ghost btn-sm disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     Next
                   </button>
@@ -226,10 +235,18 @@ export default function HistoryPage() {
             )}
           </>
         ) : (
-          <div className="text-center py-12 text-[var(--text-muted)]">
-            <p>No validations found</p>
+          <div className="flex flex-col items-center justify-center py-16 text-[var(--text-muted)]">
+            <div className="w-16 h-16 rounded-full bg-[var(--bg-elevated)] flex items-center justify-center mb-4">
+              <Inbox className="w-8 h-8 text-[var(--text-muted)]" />
+            </div>
+            <p className="text-base font-medium mb-1">No validations found</p>
+            <p className="text-sm text-[var(--text-muted)] mb-6">
+              {searchQuery || statusFilter
+                ? "Try adjusting your filters or search query"
+                : "Validated emails will appear here"}
+            </p>
             {(searchQuery || statusFilter) && (
-              <button onClick={() => router.replace("/history")} className="btn btn-ghost mt-4">
+              <button onClick={() => router.replace("/history")} className="btn btn-ghost">
                 Clear filters
               </button>
             )}

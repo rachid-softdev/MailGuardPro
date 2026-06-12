@@ -1,5 +1,5 @@
-import path from "path";
 import type { NextConfig } from "next";
+import path from "path";
 import { logger } from "./lib/logger";
 
 const nodeBuiltins = [
@@ -73,7 +73,7 @@ const nodeBuiltins = [
 
 // Bundle Analyzer - Run with ANALYZE=true npm run build
 // npm install --save-dev @next/bundle-analyzer
-let nextConfig: NextConfig = {
+const nextConfig: NextConfig = {
   experimental: {
     serverActions: {
       bodySizeLimit: "10mb",
@@ -204,7 +204,6 @@ let nextConfig: NextConfig = {
 // Bundle Analyzer wrapper - only activates when ANALYZE=true
 let finalConfig = nextConfig;
 try {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
   const withBundleAnalyzer = require("@next/bundle-analyzer");
   finalConfig = withBundleAnalyzer({
     enabled: process.env.ANALYZE === "true",

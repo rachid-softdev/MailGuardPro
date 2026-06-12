@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { Modal } from "@/components/ui/Modal";
 import { logger } from "@/lib/logger";
 
 interface User {
@@ -22,6 +23,8 @@ export default function SettingsPage() {
     type: "success" | "error";
     text: string;
   } | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
 
   // Form state
   const [name, setName] = useState("");
@@ -99,29 +102,21 @@ export default function SettingsPage() {
     }
   };
 
-  const deleteAccount = async () => {
-    if (
-      !confirm(
-        "Are you sure you want to delete your account? This action cannot be undone and all your data will be permanently deleted.",
-      )
-    ) {
-      return;
-    }
+  const deleteAccount = () => {
+    setErrorMessage(null);
+    setDeleteConfirmOpen(true);
+  };
 
-    if (
-      !confirm(
-        "This is your final warning. All your data will be lost forever. Are you absolutely sure?",
-      )
-    ) {
-      return;
-    }
+  const handleDeleteConfirm = async () => {
+    setDeleteConfirmOpen(false);
+    setErrorMessage(null);
 
     try {
       const res = await fetch("/api/v1/user/account", { method: "DELETE" });
       if (res.ok) {
         router.push("/");
       } else {
-        alert("Failed to delete account");
+        setErrorMessage("Failed to delete account");
       }
     } catch (error) {
       logger.error({ err: error }, "Failed to delete account");
@@ -130,8 +125,25 @@ export default function SettingsPage() {
 
   if (loading) {
     return (
-      <div className="p-8 flex items-center justify-center min-h-[50vh]">
-        <div className="w-8 h-8 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
+      <div className="p-8 max-w-2xl">
+        <div className="mb-8">
+          <div className="h-8 w-48 animate-skeleton rounded mb-2" />
+          <div className="h-4 w-72 animate-skeleton rounded" />
+        </div>
+        <div className="flex gap-1 mb-8 border-b border-[var(--border)]">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="h-8 w-20 animate-skeleton rounded" />
+          ))}
+        </div>
+        <div className="card">
+          <div className="space-y-4">
+            <div className="h-4 w-16 animate-skeleton rounded mb-2" />
+            <div className="h-10 w-full animate-skeleton rounded" />
+            <div className="h-4 w-16 animate-skeleton rounded mb-2" />
+            <div className="h-10 w-full animate-skeleton rounded" />
+            <div className="h-10 w-32 animate-skeleton rounded" />
+          </div>
+        </div>
       </div>
     );
   }
@@ -149,7 +161,7 @@ export default function SettingsPage() {
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`px-4 py-2 text-sm font-medium capitalize ${
+            className={`px-4 py-2 text-sm font-medium capitalize transition-colors duration-150 ${
               activeTab === tab
                 ? "text-[var(--accent)] border-b-2 border-[var(--accent)] -mb-px"
                 : "text-[var(--text-muted)] hover:text-[var(--text-primary)]"
@@ -167,7 +179,7 @@ export default function SettingsPage() {
 
           {message && (
             <div
-              className={`p-4 rounded-lg mb-6 ${message.type === "success" ? "bg-green-50 text-green-800" : "bg-red-50 text-red-800"}`}
+              className={`p-4 rounded-lg mb-6 ${message.type === "success" ? "bg-[var(--status-valid-bg)] text-[var(--status-valid)]" : "bg-[var(--status-invalid-bg)] text-[var(--status-invalid)]"}`}
             >
               {message.text}
             </div>
@@ -258,6 +270,12 @@ export default function SettingsPage() {
             Danger Zone
           </h2>
 
+          {errorMessage && (
+            <div className="p-4 rounded-lg mb-6 bg-[var(--status-invalid-bg)] text-[var(--status-invalid)]">
+              {errorMessage}
+            </div>
+          )}
+
           <div className="space-y-4">
             <div className="p-4 bg-[var(--status-invalid)]/10 rounded-lg">
               <p className="font-medium">Delete Account</p>
@@ -270,6 +288,26 @@ export default function SettingsPage() {
               </button>
             </div>
           </div>
+
+          <Modal
+            isOpen={deleteConfirmOpen}
+            onClose={() => setDeleteConfirmOpen(false)}
+            title="Delete Account"
+            size="sm"
+          >
+            <p className="text-[var(--text-secondary)] mb-6">
+              This action is permanent and cannot be undone. All your data, including scans,
+              reports, and account details, will be permanently deleted.
+            </p>
+            <div className="flex justify-end gap-3">
+              <button onClick={() => setDeleteConfirmOpen(false)} className="btn btn-ghost">
+                Cancel
+              </button>
+              <button onClick={handleDeleteConfirm} className="btn btn-danger">
+                Delete Forever
+              </button>
+            </div>
+          </Modal>
         </div>
       )}
     </div>

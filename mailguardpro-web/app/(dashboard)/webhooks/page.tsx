@@ -1,5 +1,6 @@
 "use client";
 
+import { Bell } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Modal } from "@/components/ui/Modal";
 import { logger } from "@/lib/logger";
@@ -36,6 +37,9 @@ export default function WebhooksPage() {
   const [formEvents, setFormEvents] = useState<string[]>([]);
   const [creating, setCreating] = useState(false);
 
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Webhook | null>(null);
+
   useEffect(() => {
     fetchWebhooks();
   }, []);
@@ -47,6 +51,7 @@ export default function WebhooksPage() {
       if (res.ok) {
         const data = await res.json();
         setWebhooks(data.data || []);
+        setErrorMessage(null);
       }
     } catch (error) {
       logger.error({ err: error }, "Failed to fetch webhooks");
@@ -57,7 +62,7 @@ export default function WebhooksPage() {
 
   const createWebhook = async () => {
     if (!formUrl.trim() || !formName.trim() || formEvents.length === 0) {
-      alert("Please fill in all fields");
+      setErrorMessage("Please fill in all fields");
       return;
     }
 
@@ -65,13 +70,13 @@ export default function WebhooksPage() {
     try {
       new URL(formUrl);
     } catch {
-      alert("Please enter a valid URL");
+      setErrorMessage("Please enter a valid URL");
       return;
     }
 
     // Check HTTPS in production
     if (process.env.NODE_ENV === "production" && !formUrl.startsWith("https://")) {
-      alert("Webhooks must use HTTPS in production");
+      setErrorMessage("Webhooks must use HTTPS in production");
       return;
     }
 
@@ -90,38 +95,41 @@ export default function WebhooksPage() {
       const data = await res.json();
 
       if (data.success) {
+        setErrorMessage(null);
         fetchWebhooks();
         setShowCreateModal(false);
         resetForm();
       } else {
-        alert(data.error || "Failed to create webhook");
+        setErrorMessage(data.error || "Failed to create webhook");
       }
     } catch (error) {
       logger.error({ err: error }, "Failed to create webhook");
-      alert("Failed to create webhook");
+      setErrorMessage("Failed to create webhook");
     } finally {
       setCreating(false);
     }
   };
 
-  const deleteWebhook = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this webhook?")) {
-      return;
-    }
+  const deleteWebhook = (webhook: Webhook) => {
+    setDeleteTarget(webhook);
+  };
 
+  const executeDelete = async (id: string) => {
     try {
       const res = await fetch(`/api/v1/webhooks/${id}`, {
         method: "DELETE",
       });
 
       if (res.ok) {
+        setDeleteTarget(null);
+        setErrorMessage(null);
         fetchWebhooks();
       } else {
-        alert("Failed to delete webhook");
+        setErrorMessage("Failed to delete webhook");
       }
     } catch (error) {
       logger.error({ err: error }, "Failed to delete webhook");
-      alert("Failed to delete webhook");
+      setErrorMessage("Failed to delete webhook");
     }
   };
 
@@ -134,6 +142,7 @@ export default function WebhooksPage() {
       });
 
       if (res.ok) {
+        setErrorMessage(null);
         fetchWebhooks();
       }
     } catch (error) {
@@ -204,20 +213,46 @@ export default function WebhooksPage() {
         </div>
       </div>
 
+      {/* Error Message */}
+      {errorMessage && (
+        <div className="card mb-4 border border-red-300 bg-red-50">
+          <p className="text-sm text-red-700">{errorMessage}</p>
+        </div>
+      )}
+
       {/* Webhooks List */}
       <div className="card">
         <h2 className="text-lg font-display font-semibold mb-4">Your Webhooks</h2>
 
         {loading ? (
-          <div className="text-center py-8">
-            <div className="w-8 h-8 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin mx-auto" />
+          <div className="space-y-4">
+            {[1, 2].map((i) => (
+              <div
+                key={i}
+                className="flex items-center justify-between p-4 border border-[var(--border)] rounded-lg animate-skeleton"
+              >
+                <div className="flex-1 min-w-0">
+                  <div className="h-5 w-32 bg-[var(--bg-subtle)] rounded mb-2" />
+                  <div className="h-4 w-64 bg-[var(--bg-subtle)] rounded mb-2" />
+                  <div className="flex gap-2">
+                    <div className="h-5 w-16 bg-[var(--bg-subtle)] rounded" />
+                    <div className="h-5 w-20 bg-[var(--bg-subtle)] rounded" />
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 ml-4">
+                  <div className="h-8 w-14 bg-[var(--bg-subtle)] rounded" />
+                  <div className="h-8 w-14 bg-[var(--bg-subtle)] rounded" />
+                  <div className="h-8 w-14 bg-[var(--bg-subtle)] rounded" />
+                </div>
+              </div>
+            ))}
           </div>
         ) : webhooks.length > 0 ? (
           <div className="space-y-4">
             {webhooks.map((webhook) => (
               <div
                 key={webhook.id}
-                className="flex items-center justify-between p-4 border border-[var(--border)] rounded-lg"
+                className="flex items-center justify-between p-4 border border-[var(--border)] rounded-lg hover:bg-[var(--bg-elevated)] transition-colors"
               >
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-3 mb-1">
@@ -256,7 +291,7 @@ export default function WebhooksPage() {
                     {webhook.isActive ? "Disable" : "Enable"}
                   </button>
                   <button
-                    onClick={() => deleteWebhook(webhook.id)}
+                    onClick={() => deleteWebhook(webhook)}
                     className="btn btn-ghost btn-sm text-[var(--status-invalid)]"
                   >
                     Delete
@@ -268,14 +303,7 @@ export default function WebhooksPage() {
         ) : (
           <div className="text-center py-8 text-[var(--text-muted)]">
             <div className="w-12 h-12 bg-[var(--bg-subtle)] rounded-full flex items-center justify-center mx-auto mb-4">
-              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
-                />
-              </svg>
+              <Bell className="w-6 h-6" />
             </div>
             <p>No webhooks configured</p>
             <p className="text-sm mt-1">Add a webhook to receive notifications</p>
@@ -403,6 +431,29 @@ export default function WebhooksPage() {
             </button>
           </>
         )}
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        title="Delete Webhook"
+        id="modal-delete-webhook"
+      >
+        <p className="text-sm text-[var(--text-secondary)] mb-6">
+          Are you sure you want to delete <strong>{deleteTarget?.name}</strong>?
+        </p>
+        <div className="flex gap-3">
+          <button className="btn btn-ghost flex-1" onClick={() => setDeleteTarget(null)}>
+            Cancel
+          </button>
+          <button
+            className="btn btn-ghost flex-1 text-[var(--status-invalid)]"
+            onClick={() => deleteTarget && executeDelete(deleteTarget.id)}
+          >
+            Delete
+          </button>
+        </div>
       </Modal>
     </div>
   );

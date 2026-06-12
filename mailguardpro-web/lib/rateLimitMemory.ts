@@ -1,7 +1,7 @@
 // In-memory sliding-window rate limiter — fallback when Redis is unavailable
 // Applies a 50% stricter limit to absorb burst traffic during failover.
 
-import { logger } from "./logger";
+import { loggerEdge } from "./logger-edge";
 
 interface RateLimitEntry {
   count: number;
@@ -47,7 +47,7 @@ function evictIfNeeded(): void {
   const entriesToDelete = Math.floor(MAX_STORE_SIZE * EVICT_PERCENT);
   const keysToDelete = [...store.keys()].slice(0, entriesToDelete);
   for (const k of keysToDelete) store.delete(k);
-  logger.warn({ entriesToDelete }, "[RateLimit] Store exceeded limit, evicted entries");
+  loggerEdge.warn({ entriesToDelete }, "[RateLimit] Store exceeded limit, evicted entries");
 }
 
 export async function checkMemoryRateLimit(
@@ -89,7 +89,7 @@ export async function checkMemoryRateLimit(
   const success = entry.count <= limit;
 
   if (!success) {
-    logger.warn(
+    loggerEdge.warn(
       {
         key,
         originalLimit,

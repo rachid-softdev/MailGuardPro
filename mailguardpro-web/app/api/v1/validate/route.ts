@@ -48,7 +48,7 @@ async function getAuthenticatedUser(req: NextRequest) {
   if (apiKey) {
     // Compute both hashes simultaneously to prevent timing oracle (VF-14)
     const [keyHash, legacyHash] = await Promise.all([hashApiKey(apiKey), hashApiKeyLegacy(apiKey)]);
-    let keyRecord = await prisma.apiKey.findFirst({
+    const keyRecord = await prisma.apiKey.findFirst({
       where: { OR: [{ keyHash }, { keyHash: legacyHash }] },
       include: { user: true },
     });
@@ -116,38 +116,44 @@ export async function GET(req: NextRequest) {
       const formatCheck = checkFormat(email!);
       if (!formatCheck.passed) {
         await enforceTimingSafeResponse(startTime);
-        return NextResponse.json({
-          success: true,
-          data: {
-            email,
-            score: 0,
-            status: "invalid",
-            checks: { format: formatCheck },
-            processingTimeMs: Date.now() - startTime,
-            algoVersion: SCORING_VERSION,
+        return NextResponse.json(
+          {
+            success: true,
+            data: {
+              email,
+              score: 0,
+              status: "invalid",
+              checks: { format: formatCheck },
+              processingTimeMs: Date.now() - startTime,
+              algoVersion: SCORING_VERSION,
+            },
+            meta: { requestId, creditsUsed: 0, creditsRemaining: null },
           },
-          meta: { requestId, creditsUsed: 0, creditsRemaining: null },
-        }, { headers: { "x-request-id": requestId } });
+          { headers: { "x-request-id": requestId } },
+        );
       }
       const disposableCheck = await checkDisposable(email!);
       await enforceTimingSafeResponse(startTime);
-      return NextResponse.json({
-        success: true,
-        data: {
-          email,
-          score: disposableCheck.passed ? 50 : 0,
-          status: disposableCheck.passed ? "unknown" : "invalid",
-          checks: { format: formatCheck, disposable: disposableCheck },
-          processingTimeMs: Date.now() - startTime,
-          algoVersion: SCORING_VERSION,
+      return NextResponse.json(
+        {
+          success: true,
+          data: {
+            email,
+            score: disposableCheck.passed ? 50 : 0,
+            status: disposableCheck.passed ? "unknown" : "invalid",
+            checks: { format: formatCheck, disposable: disposableCheck },
+            processingTimeMs: Date.now() - startTime,
+            algoVersion: SCORING_VERSION,
+          },
+          meta: {
+            requestId,
+            creditsUsed: 0,
+            creditsRemaining: null,
+            note: "Full validation requires authentication",
+          },
         },
-        meta: {
-          requestId,
-          creditsUsed: 0,
-          creditsRemaining: null,
-          note: "Full validation requires authentication",
-        },
-      }, { headers: { "x-request-id": requestId } });
+        { headers: { "x-request-id": requestId } },
+      );
     }
 
     // Rate limiting for authenticated users
@@ -207,31 +213,34 @@ export async function GET(req: NextRequest) {
           (await prisma.user.findUnique({ where: { id: user.id }, select: { credits: true } }))
             ?.credits ?? null;
         const processingTimeMs = Date.now() - startTime;
-        return NextResponse.json({
-          success: true,
-          data: {
-            email,
-            score: 0,
-            status: "invalid",
-            checks: {
-              format: formatCheck,
-              mx: { passed: false, message: "Not checked", detail: "" },
-              smtp: { passed: false, message: "Not checked", detail: "" },
-              catchAll: { passed: false, message: "Not checked", detail: "" },
-              disposable: disposableCheck,
-              generic: { passed: false, message: "Not checked", detail: "" },
-              freeProvider: { passed: false, message: "Not checked", detail: "" },
-              dnsbl: { passed: true, message: "Not checked", detail: "" },
-              spf: { passed: false, message: "Not checked", detail: "" },
-              dmarc: { passed: false, message: "Not checked", detail: "" },
-              typo: { passed: true, message: "Not checked", detail: "" },
+        return NextResponse.json(
+          {
+            success: true,
+            data: {
+              email,
+              score: 0,
+              status: "invalid",
+              checks: {
+                format: formatCheck,
+                mx: { passed: false, message: "Not checked", detail: "" },
+                smtp: { passed: false, message: "Not checked", detail: "" },
+                catchAll: { passed: false, message: "Not checked", detail: "" },
+                disposable: disposableCheck,
+                generic: { passed: false, message: "Not checked", detail: "" },
+                freeProvider: { passed: false, message: "Not checked", detail: "" },
+                dnsbl: { passed: true, message: "Not checked", detail: "" },
+                spf: { passed: false, message: "Not checked", detail: "" },
+                dmarc: { passed: false, message: "Not checked", detail: "" },
+                typo: { passed: true, message: "Not checked", detail: "" },
+              },
+              domain: { name: email!.split("@")[1] || "", reputation: "neutral" },
+              processingTimeMs,
+              algoVersion: SCORING_VERSION,
             },
-            domain: { name: email!.split("@")[1] || "", reputation: "neutral" },
-            processingTimeMs,
-            algoVersion: SCORING_VERSION,
+            meta: { requestId, processingTimeMs, creditsUsed: 0, creditsRemaining: remaining },
           },
-          meta: { requestId, processingTimeMs, creditsUsed: 0, creditsRemaining: remaining },
-        }, { headers: { "x-request-id": requestId } });
+          { headers: { "x-request-id": requestId } },
+        );
       }
     }
 
@@ -327,16 +336,19 @@ export async function GET(req: NextRequest) {
     response.headers.set("x-request-id", requestId);
 
     // Log RED metrics for observability
-    loggerApi.info({
-      requestId,
-      method: "GET",
-      path: "/api/v1/validate",
-      status: 200,
-      durationMs: processingTimeMs,
-      authenticated: !!user,
-      plan: plan || "anonymous",
-      emailDomain: email!.split("@")[1],
-    }, "Request completed");
+    loggerApi.info(
+      {
+        requestId,
+        method: "GET",
+        path: "/api/v1/validate",
+        status: 200,
+        durationMs: processingTimeMs,
+        authenticated: !!user,
+        plan: plan || "anonymous",
+        emailDomain: email!.split("@")[1],
+      },
+      "Request completed",
+    );
 
     // HTTP cache - differs by user plan
     // Free/anonymous users: no cache (potentially dynamic data)
@@ -354,16 +366,22 @@ export async function GET(req: NextRequest) {
 
     return response;
   } catch (error) {
-    loggerApi.error({
-      err: error,
-      requestId,
-      durationMs: Date.now() - startTime,
-    }, "Validate error");
+    loggerApi.error(
+      {
+        err: error,
+        requestId,
+        durationMs: Date.now() - startTime,
+      },
+      "Validate error",
+    );
     await enforceTimingSafeResponse(startTime);
-    return NextResponse.json({
-      success: false,
-      error: "Internal server error",
-      requestId,
-    }, { status: 500, headers: { "x-request-id": requestId } });
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Internal server error",
+        requestId,
+      },
+      { status: 500, headers: { "x-request-id": requestId } },
+    );
   }
 }

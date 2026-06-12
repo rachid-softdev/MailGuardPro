@@ -22,6 +22,7 @@ export default function BulkPage() {
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [dragActive, setDragActive] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [pollingJobId, setPollingJobId] = useState<string | null>(null);
 
   // Polling hook — active when a job is being processed
@@ -106,8 +107,9 @@ export default function BulkPage() {
   };
 
   const uploadFile = async (file: File) => {
+    setErrorMessage(null);
     if (!file.name.endsWith(".csv")) {
-      alert("Please upload a CSV file");
+      setErrorMessage("Please upload a CSV file");
       return;
     }
 
@@ -138,11 +140,11 @@ export default function BulkPage() {
         // Poll for status updates
         setPollingJobId(data.data.jobId);
       } else {
-        alert(data.error || "Upload failed");
+        setErrorMessage(data.error || "Upload failed");
       }
     } catch (error) {
       logger.error({ err: error }, "Upload failed");
-      alert("Upload failed. Please try again.");
+      setErrorMessage("Upload failed. Please try again.");
     } finally {
       setUploading(false);
     }
@@ -167,9 +169,16 @@ export default function BulkPage() {
         </p>
       </div>
 
+      {/* Error Message */}
+      {errorMessage && (
+        <div className="mb-4 px-4 py-3 rounded-lg bg-[var(--status-invalid)]/10 border border-[var(--status-invalid)]/30 text-sm text-[var(--status-invalid)]">
+          {errorMessage}
+        </div>
+      )}
+
       {/* Upload Zone */}
       <div
-        className={`card mb-8 ${dragActive ? "border-[var(--accent)]" : ""}`}
+        className={`card mb-8 ${dragActive ? "border-[var(--accent)] bg-[var(--accent-light)]" : ""}`}
         onDragEnter={handleDrag}
         onDragLeave={handleDrag}
         onDragOver={handleDrag}
@@ -225,8 +234,55 @@ export default function BulkPage() {
         <h2 className="text-lg font-display font-semibold mb-4">Recent Jobs</h2>
 
         {loading ? (
-          <div className="text-center py-8">
-            <div className="w-8 h-8 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin mx-auto" />
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-[var(--border)]">
+                  <th className="text-left py-3 px-4 text-sm font-medium text-[var(--text-muted)]">
+                    File
+                  </th>
+                  <th className="text-left py-3 px-4 text-sm font-medium text-[var(--text-muted)]">
+                    Status
+                  </th>
+                  <th className="text-left py-3 px-4 text-sm font-medium text-[var(--text-muted)]">
+                    Progress
+                  </th>
+                  <th className="text-left py-3 px-4 text-sm font-medium text-[var(--text-muted)]">
+                    Created
+                  </th>
+                  <th className="text-right py-3 px-4 text-sm font-medium text-[var(--text-muted)]">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {[1, 2, 3].map((i) => (
+                  <tr key={i} className="border-b border-[var(--border)] last:border-0">
+                    <td className="py-3 px-4">
+                      <div className="space-y-2">
+                        <div className="h-4 w-40 bg-[var(--bg-subtle)] rounded animate-skeleton" />
+                        <div className="h-3 w-24 bg-[var(--bg-subtle)] rounded animate-skeleton" />
+                      </div>
+                    </td>
+                    <td className="py-3 px-4">
+                      <div className="h-6 w-20 bg-[var(--bg-subtle)] rounded-full animate-skeleton" />
+                    </td>
+                    <td className="py-3 px-4">
+                      <div className="flex items-center gap-2">
+                        <div className="h-2 w-24 bg-[var(--bg-subtle)] rounded-full animate-skeleton" />
+                        <div className="h-4 w-8 bg-[var(--bg-subtle)] rounded animate-skeleton" />
+                      </div>
+                    </td>
+                    <td className="py-3 px-4">
+                      <div className="h-4 w-20 bg-[var(--bg-subtle)] rounded animate-skeleton" />
+                    </td>
+                    <td className="py-3 px-4 text-right">
+                      <div className="h-8 w-24 bg-[var(--bg-subtle)] rounded animate-skeleton ml-auto" />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         ) : jobs.length > 0 ? (
           <div className="overflow-x-auto">
@@ -252,7 +308,10 @@ export default function BulkPage() {
               </thead>
               <tbody>
                 {jobs.map((job) => (
-                  <tr key={job.id} className="border-b border-[var(--border)] last:border-0">
+                  <tr
+                    key={job.id}
+                    className="border-b border-[var(--border)] last:border-0 hover:bg-[var(--bg-elevated)] transition-colors"
+                  >
                     <td className="py-3 px-4">
                       <div>
                         <p className="font-medium">{job.filename}</p>
@@ -326,6 +385,19 @@ export default function BulkPage() {
           </div>
         ) : (
           <div className="text-center py-8 text-[var(--text-muted)]">
+            <svg
+              className="w-12 h-12 mx-auto mb-3 text-[var(--text-muted)]"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.5}
+                d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+              />
+            </svg>
             No bulk jobs yet. Upload a CSV file above to get started!
           </div>
         )}

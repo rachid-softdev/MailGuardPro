@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, X } from "lucide-react";
+import { Check, Search, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { ScoreCircle } from "@/components/validator/ScoreCircle";
@@ -111,17 +111,64 @@ export default function ValidatePage() {
               placeholder="Enter an email address..."
               disabled={loading}
               style={{ fontSize: "var(--text-base)" }}
-              className="input flex-1 h-14 md:h-16"
+              className="input flex-1 h-14 md:h-16 focus:shadow-[inset_0_1px_3px_rgba(0,0,0,0.06)]"
             />
             <button type="submit" disabled={loading || !email} className="btn btn-accent btn-lg">
               {loading ? "Analyzing..." : "Analyze"}
             </button>
+            {result && (
+              <button
+                type="button"
+                onClick={() => {
+                  setEmail("");
+                  setResult(null);
+                  setError("");
+                  if (abortControllerRef.current) {
+                    abortControllerRef.current.abort();
+                  }
+                }}
+                className="btn btn-ghost btn-lg"
+              >
+                Clear
+              </button>
+            )}
           </div>
         </form>
 
         {error && (
           <div className="card border-[var(--status-invalid)] bg-[var(--status-invalid-bg)] p-4 mb-8">
             <p className="text-[var(--status-invalid)]">{error}</p>
+          </div>
+        )}
+
+        {/* Loading skeleton */}
+        {loading && !result && (
+          <div className="card">
+            <div className="flex flex-col lg:flex-row gap-8">
+              {/* Left: Score skeleton */}
+              <div className="flex flex-col items-center justify-center lg:w-1/3">
+                <div className="w-48 h-48 rounded-full animate-skeleton" />
+                <div className="mt-4 w-20 h-6 rounded animate-skeleton" />
+              </div>
+              {/* Right: Checks skeleton (3 rows) */}
+              <div className="flex-1">
+                <div className="h-6 w-40 rounded animate-skeleton mb-4" />
+                <div className="space-y-3">
+                  {[...Array(3)].map((_, i) => (
+                    <div
+                      key={i}
+                      className="flex items-start gap-3 py-3 border-b border-[var(--border)]"
+                    >
+                      <div className="w-10 h-10 rounded-full shrink-0 animate-skeleton" />
+                      <div className="flex-1 space-y-2 py-1">
+                        <div className="h-4 w-3/4 rounded animate-skeleton" />
+                        <div className="h-3 w-1/2 rounded animate-skeleton" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
           </div>
         )}
 
@@ -152,7 +199,7 @@ export default function ValidatePage() {
                   {Object.entries(result.checks).map(([key, check]) => (
                     <div
                       key={key}
-                      className="flex items-start gap-3 py-2 border-b border-[var(--border)] last:border-0"
+                      className="flex items-start gap-3 py-2 px-3 -mx-3 rounded-[var(--radius-md)] border-b border-[var(--border)] last:border-0 hover:bg-[var(--bg-elevated)] transition-colors"
                     >
                       <span
                         className={
@@ -179,10 +226,13 @@ export default function ValidatePage() {
 
         {/* Empty state */}
         {!result && !loading && !error && (
-          <div className="card text-center py-12">
-            <p className="text-[var(--text-muted)]">
-              Enter an email address above to get a quality score (0-100)
-            </p>
+          <div className="card text-center py-16">
+            <div className="flex flex-col items-center gap-4">
+              <Search size={48} className="text-[var(--text-muted)] opacity-40" />
+              <p className="text-[var(--text-muted)]">
+                Enter an email address above to get a quality score (0-100)
+              </p>
+            </div>
           </div>
         )}
       </div>

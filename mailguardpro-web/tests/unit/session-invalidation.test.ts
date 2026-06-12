@@ -108,7 +108,10 @@ async function sessionCallback(session: SessionLike, user: UserLike): Promise<Se
       session.user.credits = dbUser.credits;
       session.user.role = dbUser.role;
       session.user.tokenVersion = dbUser.tokenVersion;
-      session.user.roles = dbUser.userRoles.map((ur: { role: string }) => ur.role);
+      session.user.roles = dbUser.userRoles.map((ur: { role: string }) => ur.role) as (
+        | "USER"
+        | "ADMIN"
+      )[];
     }
   }
   return session;
