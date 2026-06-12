@@ -3,10 +3,7 @@
 
 import dns from "dns/promises";
 import { SCORING_WEIGHTS } from "@/config/scoringWeights";
-import {
-  getCachedDomainChecks,
-  setCachedDomainChecks,
-} from "@/services/validationCache";
+import { getCachedDomainChecks, setCachedDomainChecks } from "@/services/validationCache";
 import type { CheckResult } from "./types";
 
 // Résolution DNS avec timeout

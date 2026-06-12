@@ -214,7 +214,9 @@ export async function POST(req: NextRequest) {
 
     case "invoice.payment_succeeded": {
       const invoice = event.data.object as Stripe.Invoice;
-      const subscriptionId = invoice.subscription as string;
+      // subscription exists on API response but Stripe v22 types
+      // removed it from Invoice interface — cast through any
+      const subscriptionId = (invoice as any).subscription as string;
       const customerId = invoice.customer as string;
 
       if (customerId && subscriptionId) {

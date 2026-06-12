@@ -108,7 +108,8 @@ export async function getDashboardData(userId: string): Promise<DashboardData> {
   });
 
   // Calculer le valid rate
-  const validCount = byStatus.find((s: { status: string; _count: number }) => s.status === "valid")?._count || 0;
+  const validCount =
+    byStatus.find((s: { status: string; _count: number }) => s.status === "valid")?._count || 0;
   const validRate = thisMonthCount > 0 ? Math.round((validCount / thisMonthCount) * 100) : 0;
 
   const stats: DashboardStats = {

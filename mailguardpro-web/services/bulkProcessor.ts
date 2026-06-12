@@ -182,12 +182,15 @@ export async function processBulkUpload(
     const requestId = options?.requestId || uuidv4();
     await bulkQueue.add("process", { jobId, totalEmails: emails.length, userId, requestId });
 
-    logger.info({
-      jobId,
-      totalEmails: emails.length,
-      userId,
-      requestId,
-    }, "Bulk job submitted to queue");
+    logger.info(
+      {
+        jobId,
+        totalEmails: emails.length,
+        userId,
+        requestId,
+      },
+      "Bulk job submitted to queue",
+    );
 
     return { success: true, jobId, totalEmails: emails.length };
   } catch (error) {
@@ -347,7 +350,7 @@ export async function getBulkJobStats(jobId: string, userId: string) {
 
   // Query 3: Score distribution via raw PostgreSQL query
   // Uses CASE to group by range
-  let scoreDistribution: Record<string, number> = {
+  const scoreDistribution: Record<string, number> = {
     "0-20": 0,
     "21-40": 0,
     "41-60": 0,
@@ -382,9 +385,7 @@ export async function getBulkJobStats(jobId: string, userId: string) {
   }
 
   // Transform results into object
-  const statusMap = statusCounts.reduce<
-    Record<string, number>
-  >(
+  const statusMap = statusCounts.reduce<Record<string, number>>(
     (acc: Record<string, number>, item: { status: string; _count: { status: number } }) => {
       acc[item.status] = item._count.status;
       return acc;

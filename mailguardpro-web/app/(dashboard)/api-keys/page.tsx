@@ -1,7 +1,9 @@
 "use client";
 
+import { Check, Copy, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Modal } from "@/components/ui/Modal";
+import { StatusBadge } from "@/components/ui/StatusBadge";
 import { logger } from "@/lib/logger";
 
 interface ApiKey {
@@ -20,6 +22,10 @@ export default function ApiKeysPage() {
   const [newKeyName, setNewKeyName] = useState("");
   const [creating, setCreating] = useState(false);
   const [newKey, setNewKey] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<ApiKey | null>(null);
+  const [copiedPrefixKey, setCopiedPrefixKey] = useState<string | null>(null);
+  const [newKeyCopied, setNewKeyCopied] = useState(false);
 
   useEffect(() => {
     fetchKeys();
@@ -32,9 +38,11 @@ export default function ApiKeysPage() {
       if (res.ok) {
         const data = await res.json();
         setKeys(data.data || []);
+        setErrorMessage(null);
       }
     } catch (error) {
       logger.error({ err: error }, "Failed to fetch keys");
+      setErrorMessage("Failed to fetch keys");
     } finally {
       setLoading(false);
     }
@@ -55,42 +63,59 @@ export default function ApiKeysPage() {
 
       if (data.success) {
         setNewKey(data.data.key);
+        setErrorMessage(null);
         fetchKeys();
       } else {
-        alert(data.error || "Failed to create key");
+        setErrorMessage(data.error || "Failed to create key");
       }
     } catch (error) {
       logger.error({ err: error }, "Failed to create key");
-      alert("Failed to create key");
+      setErrorMessage("Failed to create key");
     } finally {
       setCreating(false);
     }
   };
 
   const deleteKey = async (keyId: string) => {
-    if (!confirm("Are you sure you want to delete this API key? This action cannot be undone.")) {
-      return;
-    }
-
     try {
       const res = await fetch(`/api/v1/api-keys/${keyId}`, {
         method: "DELETE",
       });
 
       if (res.ok) {
+        setErrorMessage(null);
         fetchKeys();
       } else {
-        alert("Failed to delete key");
+        setErrorMessage("Failed to delete key");
       }
     } catch (error) {
       logger.error({ err: error }, "Failed to delete key");
-      alert("Failed to delete key");
+      setErrorMessage("Failed to delete key");
     }
   };
 
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return "Never";
     return new Date(dateStr).toLocaleDateString();
+  };
+
+  const handleCopyPrefix = (keyId: string, prefix: string) => {
+    navigator.clipboard.writeText(prefix);
+    setCopiedPrefixKey(keyId);
+    setTimeout(() => setCopiedPrefixKey(null), 2000);
+  };
+
+  const handleCopyNewKey = () => {
+    if (!newKey) return;
+    navigator.clipboard.writeText(newKey);
+    setNewKeyCopied(true);
+    setTimeout(() => setNewKeyCopied(false), 2000);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteTarget) return;
+    await deleteKey(deleteTarget.id);
+    setDeleteTarget(null);
   };
 
   return (
@@ -143,9 +168,37 @@ export default function ApiKeysPage() {
       <div className="card">
         <h2 className="text-lg font-display font-semibold mb-4">Your API Keys</h2>
 
+        {errorMessage && (
+          <div className="mb-4 bg-[var(--status-invalid-bg)] border border-[var(--status-invalid)] rounded-lg p-3 flex items-start gap-3">
+            <svg
+              className="w-5 h-5 text-[var(--status-invalid)] mt-0.5 shrink-0"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
+            <p className="text-sm text-[var(--status-invalid)]">{errorMessage}</p>
+          </div>
+        )}
+
         {loading ? (
-          <div className="text-center py-8">
-            <div className="w-8 h-8 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin mx-auto" />
+          <div className="space-y-0 divide-y divide-[var(--border)]">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="flex items-center gap-6 py-4 px-4">
+                <div className="h-4 w-28 bg-[var(--bg-subtle)] animate-skeleton rounded" />
+                <div className="h-4 w-20 bg-[var(--bg-subtle)] animate-skeleton rounded" />
+                <div className="h-5 w-14 bg-[var(--bg-subtle)] animate-skeleton rounded-full" />
+                <div className="h-4 w-16 bg-[var(--bg-subtle)] animate-skeleton rounded" />
+                <div className="h-4 w-16 bg-[var(--bg-subtle)] animate-skeleton rounded" />
+                <div className="h-4 w-14 bg-[var(--bg-subtle)] animate-skeleton rounded ml-auto" />
+              </div>
+            ))}
           </div>
         ) : keys.length > 0 ? (
           <div className="overflow-x-auto">
@@ -174,13 +227,29 @@ export default function ApiKeysPage() {
               </thead>
               <tbody>
                 {keys.map((key) => (
-                  <tr key={key.id} className="border-b border-[var(--border)] last:border-0">
+                  <tr
+                    key={key.id}
+                    className="border-b border-[var(--border)] last:border-0 hover:bg-[var(--bg-elevated)] transition-colors"
+                  >
                     <td className="py-3 px-4 font-medium">{key.name}</td>
-                    <td className="py-3 px-4 font-mono text-sm">{key.keyPrefix}...</td>
                     <td className="py-3 px-4">
-                      <span className={`badge ${key.isActive ? "badge-success" : "badge-default"}`}>
-                        {key.isActive ? "Active" : "Inactive"}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-sm">{key.keyPrefix}...</span>
+                        <button
+                          onClick={() => handleCopyPrefix(key.id, key.keyPrefix)}
+                          className="text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
+                          title="Copy key prefix"
+                        >
+                          {copiedPrefixKey === key.id ? (
+                            <Check className="w-4 h-4 text-[var(--status-valid)]" />
+                          ) : (
+                            <Copy className="w-4 h-4" />
+                          )}
+                        </button>
+                      </div>
+                    </td>
+                    <td className="py-3 px-4">
+                      <StatusBadge status={key.isActive ? "valid" : "unknown"} showDot={true} />
                     </td>
                     <td className="py-3 px-4 text-sm text-[var(--text-muted)]">
                       {formatDate(key.lastUsedAt)}
@@ -190,7 +259,7 @@ export default function ApiKeysPage() {
                     </td>
                     <td className="py-3 px-4 text-right">
                       <button
-                        onClick={() => deleteKey(key.id)}
+                        onClick={() => setDeleteTarget(key)}
                         className="btn btn-ghost btn-sm text-[var(--status-invalid)]"
                       >
                         Delete
@@ -231,9 +300,28 @@ export default function ApiKeysPage() {
       >
         {newKey ? (
           <div>
-            <div className="bg-[var(--accent-light)] border border-[var(--accent)] rounded-lg p-4 mb-4">
-              <p className="font-medium mb-2">Your new API key:</p>
-              <code className="block font-mono text-sm break-all">{newKey}</code>
+            <div className="bg-[var(--status-valid-bg)] border border-[var(--status-valid)] rounded-lg p-4 mb-4">
+              <div className="flex items-center gap-2 mb-3">
+                <Check className="w-5 h-5 text-[var(--status-valid)]" />
+                <p className="font-medium text-[var(--status-valid)]">
+                  API Key Created Successfully
+                </p>
+              </div>
+              <p className="text-sm text-[var(--text-muted)] mb-2">Your new API key:</p>
+              <div className="flex items-center gap-2 bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg p-3 font-mono text-sm">
+                <code className="flex-1 break-all select-all">{newKey}</code>
+                <button
+                  onClick={handleCopyNewKey}
+                  className="text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors shrink-0"
+                  title="Copy API key"
+                >
+                  {newKeyCopied ? (
+                    <Check className="w-4 h-4 text-[var(--status-valid)]" />
+                  ) : (
+                    <Copy className="w-4 h-4" />
+                  )}
+                </button>
+              </div>
             </div>
             <p className="text-sm text-[var(--text-muted)] mb-4">
               Make sure to copy this key now. You won&apos;t be able to see it again!
@@ -282,6 +370,33 @@ export default function ApiKeysPage() {
             </div>
           </>
         )}
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={deleteTarget !== null}
+        onClose={() => setDeleteTarget(null)}
+        title="Delete API Key"
+        size="sm"
+      >
+        <p className="text-sm text-[var(--text-muted)] mb-6">
+          Are you sure you want to delete{" "}
+          <span className="font-medium text-[var(--text-primary)]">{deleteTarget?.name}</span>? This
+          action cannot be undone.
+        </p>
+        <div className="flex gap-3">
+          <button className="btn btn-ghost flex-1" onClick={() => setDeleteTarget(null)}>
+            Cancel
+          </button>
+          <button
+            className="btn flex-1 text-white"
+            style={{ backgroundColor: "var(--status-invalid)" }}
+            onClick={handleDeleteConfirm}
+          >
+            <Trash2 className="w-4 h-4 mr-1.5" />
+            Delete
+          </button>
+        </div>
       </Modal>
     </div>
   );

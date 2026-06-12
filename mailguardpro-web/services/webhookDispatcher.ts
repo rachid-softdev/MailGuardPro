@@ -211,7 +211,11 @@ export class WebhookDispatcher {
               secret: webhook.encryptedSecret,
               events: webhook.events,
               isActive: webhook.isActive,
-              pinnedIps: webhook.pinnedIps ? String(webhook.pinnedIps).split(",").map((s: string) => s.trim()) : undefined,
+              pinnedIps: webhook.pinnedIps
+                ? String(webhook.pinnedIps)
+                    .split(",")
+                    .map((s: string) => s.trim())
+                : undefined,
             },
             event,
             data,

@@ -7,18 +7,37 @@ import { useState } from "react";
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState("");
+  const [error, setError] = useState<string | null>(null);
 
   const handleMagicLink = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email) return;
 
     setLoading("magic");
-    await signIn("resend", { email, callbackUrl: "/dashboard" });
+    setError(null);
+    try {
+      const result = await signIn("resend", { email, callbackUrl: "/dashboard", redirect: false });
+      if (result?.error) {
+        setError(
+          result.error === "OAuthSignin"
+            ? "Could not send magic link. Please try again."
+            : result.error,
+        );
+      } else {
+        setError(null);
+      }
+    } catch {
+      setError("An unexpected error occurred. Please try again.");
+    } finally {
+      setLoading("");
+    }
   };
 
-  const handleGoogle = () => {
+  const handleGoogle = async () => {
     setLoading("google");
-    signIn("google", { callbackUrl: "/dashboard" });
+    setError(null);
+    // OAuth providers must redirect; errors surface on callback page
+    await signIn("google", { callbackUrl: "/dashboard" });
   };
 
   return (
@@ -35,6 +54,13 @@ export default function LoginPage() {
         {/* Card */}
         <div className="card">
           <h1 className="text-2xl font-display font-bold text-center mb-6">Sign in</h1>
+
+          {/* Error Message */}
+          {error && (
+            <div className="mb-4 px-4 py-3 rounded-lg bg-[var(--status-invalid)]/10 border border-[var(--status-invalid)]/30 text-sm text-[var(--status-invalid)]">
+              {error}
+            </div>
+          )}
 
           {/* Google */}
           <button onClick={handleGoogle} disabled={!!loading} className="btn btn-ghost w-full mb-6">

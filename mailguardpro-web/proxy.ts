@@ -1,10 +1,12 @@
-// NextAuth Middleware - Protection des routes + CSP with nonce
+// Next.js 16 Proxy — edge runtime auth, CSP, CORS, rate limiting
+// Replaces the deprecated middleware.ts convention.
+// Only imports edge-safe modules — no Prisma, Redis, pino/crypto.
 
+import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { getAuthToken } from "@/lib/auth-edge";
 import { getCorsHeaders, handleCors } from "@/lib/cors";
-import { getIdempotencyResult } from "@/lib/idempotency";
-import { logger } from "@/lib/logger";
+import { loggerEdge } from "@/lib/logger-edge";
 import { checkMemoryRateLimit } from "@/lib/rateLimitMemory";
 
 function generateNonce(): string {
@@ -24,14 +26,15 @@ function buildCsp(nonce: string): string {
   const imgOrigins =
     process.env.CSP_IMG_ORIGINS ||
     "https://lh3.googleusercontent.com https://avatars.githubusercontent.com";
+  const liveModeOrigins = process.env.NODE_ENV === "development" ? "http://localhost:8400" : "";
 
   return [
     `default-src 'self'`,
-    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' ${stripeOrigins}`,
+    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' ${stripeOrigins} ${liveModeOrigins}`,
     `style-src 'self' 'unsafe-inline'`,
     `img-src 'self' data: blob: https: ${imgOrigins}`,
     `font-src 'self' data:`,
-    `connect-src 'self' https: ${sentryOrigins}`,
+    `connect-src 'self' https: ${sentryOrigins} ${liveModeOrigins}`,
     `frame-src 'self' ${frameOrigins}`,
     `frame-ancestors 'none'`,
     `form-action 'self'`,
@@ -41,15 +44,18 @@ function buildCsp(nonce: string): string {
   ].join("; ");
 }
 
-export default auth(async (req) => {
+export default async function proxy(req: NextRequest) {
   const requestHeaders = new Headers(req.headers);
 
   // Handle CORS preflight
   const corsResponse = handleCors(req);
   if (corsResponse) return corsResponse;
 
-  // Rate limiting for auth routes (20 req/min per IP — uses in-memory limiter
-  // to avoid Redis dependency at the edge)
+  // Verify JWT via lightweight edge-safe helper (no Prisma/Redis)
+  const token = await getAuthToken(req);
+  const isLoggedIn = !!token;
+
+  // Rate limiting for auth routes (20 req/min per IP)
   if (req.nextUrl.pathname.startsWith("/api/auth")) {
     const ip =
       requestHeaders.get("x-real-ip") ||
@@ -57,7 +63,7 @@ export default auth(async (req) => {
       "unknown";
     const rateCheck = await checkMemoryRateLimit(`auth:${ip}`, 20, 60);
     if (!rateCheck.success) {
-      logger.warn({ ip }, "Rate limited auth IP");
+      loggerEdge.warn({ ip }, "Rate limited auth IP");
       return NextResponse.json(
         { error: "Too many requests", retryAfter: rateCheck.resetAt },
         { status: 429 },
@@ -67,17 +73,11 @@ export default auth(async (req) => {
 
   const nonce = generateNonce();
 
-  const isLoggedIn = !!req.auth;
-
-  // Idempotency-Key check for mutating requests (after auth check to prevent unauthenticated replay)
+  // Idempotency-Key: signal downstream rather than checking in edge (avoids Prisma/Redis)
   if (["POST", "PUT", "PATCH"].includes(req.method)) {
     const idempotencyKey = req.headers.get("Idempotency-Key");
     if (idempotencyKey) {
-      const cached = await getIdempotencyResult(idempotencyKey);
-      if (cached && isLoggedIn) {
-        return NextResponse.json(cached.response, { status: cached.statusCode });
-      }
-      // Signal downstream handlers to cache the response
+      // Pass the key downstream — API routes handle dedup with full Prisma/Redis
       requestHeaders.set("x-idempotency-key", idempotencyKey);
     }
   }
@@ -125,7 +125,7 @@ export default auth(async (req) => {
   response.headers.set("Content-Security-Policy", buildCsp(nonce));
   response.headers.set("X-Content-Type-Options", "nosniff");
   return response;
-});
+}
 
 export const config = {
   matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.svg).*)"],

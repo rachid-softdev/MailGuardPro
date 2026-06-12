@@ -191,7 +191,7 @@ test.describe("A11Y: Modal dialog accessibility", () => {
         // The overlay is often a sibling or parent of the modal dialog
       ];
 
-      let overlay = page.locator(overlaySelectors.join(", ")).first();
+      const overlay = page.locator(overlaySelectors.join(", ")).first();
 
       // If no overlay found, try clicking outside the modal
       if ((await overlay.count()) === 0) {

@@ -372,5 +372,26 @@
     @apply rounded-full text-xs font-mono uppercase tracking-widest;
   }
 
+  .badge-success {
+    background: var(--status-valid-bg);
+    color: var(--status-valid);
+  }
+  .badge-warning {
+    background: var(--status-risky-bg);
+    color: var(--status-risky);
+  }
+  .badge-error {
+    background: var(--status-invalid-bg);
+    color: var(--status-invalid);
+  }
+  .badge-default {
+    background: var(--bg-subtle);
+    color: var(--text-secondary);
+  }
+  .badge-accent {
+    background: var(--accent-light);
+    color: var(--accent);
+  }
+
   /* Score Circle styles are in the component */
 }

@@ -38,38 +38,48 @@ interface Props {
 
 export function PdfGenerator({ jobId }: Props) {
   const [generating, setGenerating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const generatePdf = async () => {
     setGenerating(true);
+    setError(null);
     try {
       // Fetch data
       const response = await fetch(`/api/v1/bulk/${jobId}/export-data`);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const { data }: { data: ExportData } = await response.json();
 
       // Generate PDF using browser print (simple approach)
       // For full PDF, jspdf needs to be installed: npm install jspdf
-      generatePdfWithBrowser(data);
+      const blocked = generatePdfWithBrowser(data);
+      if (blocked) {
+        setError("Popup blocked. Please allow popups to export PDF.");
+      }
     } catch (error) {
       logger.error({ err: error }, "PDF generation failed");
-      alert("Failed to generate PDF");
+      setError("Failed to generate PDF. Please try again.");
     } finally {
       setGenerating(false);
     }
   };
 
   return (
-    <button onClick={generatePdf} disabled={generating} className="btn btn-primary">
-      {generating ? "Generating..." : "Export PDF"}
-    </button>
+    <div className="inline-flex flex-col items-end gap-1">
+      <button onClick={generatePdf} disabled={generating} className="btn btn-primary">
+        {generating ? "Generating..." : "Export PDF"}
+      </button>
+      {error && <p className="text-xs text-[var(--status-invalid)]">{error}</p>}
+    </div>
   );
 }
 
 // Simple PDF generation using browser print to PDF
-function generatePdfWithBrowser(data: ExportData) {
+// Returns true if popup was blocked, false otherwise
+function generatePdfWithBrowser(data: ExportData): boolean {
   const printWindow = window.open("", "_blank");
   if (!printWindow) {
-    alert("Please allow popups to export PDF");
-    return;
+    logger.warn("Popup blocked: cannot export PDF");
+    return true;
   }
 
   const html = `
@@ -78,25 +88,44 @@ function generatePdfWithBrowser(data: ExportData) {
 <head>
   <title>Email Validation Report - ${sanitizeForHtml(data.meta.filename)}</title>
   <style>
-    body { font-family: Arial, sans-serif; padding: 40px; max-width: 800px; margin: 0 auto; }
-    h1 { color: #1a1a1a; margin-bottom: 10px; }
-    .subtitle { color: #666; font-size: 14px; margin-bottom: 30px; }
+    :root {
+      --text-primary: #1a1a1a;
+      --text-muted: #666;
+      --bg-subtle: #f5f5f5;
+      --border: #eee;
+      --accent: #00A36C;
+      --status-valid: #00A36C;
+      --status-invalid: #dc3545;
+      --status-risky: #e6a700;
+      --bg-warning: #fff3cd;
+      --border-warning: #e6a700;
+      --bg-accent-soft: #f0f9f4;
+    }
+    body {
+      font-family: Arial, sans-serif;
+      padding: 40px;
+      max-width: 800px;
+      margin: 0 auto;
+      color: var(--text-primary);
+    }
+    h1 { margin-bottom: 10px; }
+    .subtitle { color: var(--text-muted); font-size: 14px; margin-bottom: 30px; }
     .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 30px; }
-    .stat-box { background: #f5f5f5; padding: 20px; border-radius: 8px; text-align: center; }
+    .stat-box { background: var(--bg-subtle); padding: 20px; border-radius: 8px; text-align: center; }
     .stat-value { font-size: 24px; font-weight: bold; }
-    .stat-label { font-size: 12px; color: #666; margin-top: 5px; }
-    .deliverability { text-align: center; padding: 30px; background: #f0f9f4; border-radius: 12px; margin-bottom: 30px; }
-    .deliverability-value { font-size: 48px; font-weight: bold; color: #00A36C; }
+    .stat-label { font-size: 12px; color: var(--text-muted); margin-top: 5px; }
+    .deliverability { text-align: center; padding: 30px; background: var(--bg-accent-soft); border-radius: 12px; margin-bottom: 30px; }
+    .deliverability-value { font-size: 48px; font-weight: bold; color: var(--accent); }
     .recommendations { margin-bottom: 30px; }
     .recommendations h3 { margin-bottom: 10px; }
     .recommendations ul { list-style: none; padding: 0; }
-    .recommendations li { padding: 8px 12px; background: #fff3cd; border-left: 3px solid #ffc107; margin-bottom: 8px; }
+    .recommendations li { padding: 8px 12px; background: var(--bg-warning); border-left: 3px solid var(--border-warning); margin-bottom: 8px; }
     table { width: 100%; border-collapse: collapse; font-size: 12px; }
-    th { background: #f5f5f5; padding: 10px; text-align: left; }
-    td { padding: 8px 10px; border-bottom: 1px solid #eee; }
-    .valid { color: #00A36C; }
-    .invalid { color: #dc3545; }
-    .risky { color: #ffc107; }
+    th { background: var(--bg-subtle); padding: 10px; text-align: left; }
+    td { padding: 8px 10px; border-bottom: 1px solid var(--border); }
+    .valid { color: var(--status-valid); }
+    .invalid { color: var(--status-invalid); }
+    .risky { color: var(--status-risky); }
     @media print {
       body { padding: 20px; }
       .no-print { display: none; }
@@ -117,11 +146,11 @@ function generatePdfWithBrowser(data: ExportData) {
       <div class="stat-label">Total</div>
     </div>
     <div class="stat-box">
-      <div class="stat-value" style="color: #00A36C">${data.stats.valid}</div>
+      <div class="stat-value" style="color: var(--status-valid)">${data.stats.valid}</div>
       <div class="stat-label">Valid</div>
     </div>
     <div class="stat-box">
-      <div class="stat-value" style="color: #dc3545">${data.stats.invalid}</div>
+      <div class="stat-value" style="color: var(--status-invalid)">${data.stats.invalid}</div>
       <div class="stat-label">Invalid</div>
     </div>
     <div class="stat-box">
@@ -132,7 +161,7 @@ function generatePdfWithBrowser(data: ExportData) {
 
   <div class="deliverability">
     <div class="deliverability-value">${data.stats.deliverabilityRate}%</div>
-    <div style="color: #666">Estimated Deliverability Rate</div>
+    <div style="color: var(--text-muted)">Estimated Deliverability Rate</div>
   </div>
 
   ${
@@ -179,7 +208,7 @@ function generatePdfWithBrowser(data: ExportData) {
   }
 
   <div class="no-print" style="margin-top: 30px; text-align: center;">
-    <button onclick="window.print()" style="padding: 12px 24px; background: #00A36C; color: white; border: none; border-radius: 6px; cursor: pointer;">
+    <button onclick="window.print()" style="padding: 12px 24px; background: var(--accent); color: white; border: none; border-radius: 6px; cursor: pointer;">
       Print / Save as PDF
     </button>
   </div>
@@ -204,6 +233,7 @@ function generatePdfWithBrowser(data: ExportData) {
   }
   printWindow.document.write(cleanHtml);
   printWindow.document.close();
+  return false;
 }
 
 // Also export as simple hook for more control
