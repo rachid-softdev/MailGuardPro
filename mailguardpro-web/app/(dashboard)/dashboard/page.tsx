@@ -50,7 +50,7 @@ export default async function DashboardPage() {
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <div
-          className="card border-l-4 border-l-[var(--accent)]"
+          className="card border-t-2 border-t-[var(--accent)]"
           title="Total validations performed this month. Resets on the 1st of each month."
         >
           <div className="flex items-start justify-between mb-1">
