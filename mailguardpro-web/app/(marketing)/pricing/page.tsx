@@ -211,15 +211,14 @@ export default function PricingPage() {
 
           {/* Plan cards */}
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl mx-auto">
-            {plans.map((plan, index) => (
+            {plans.map((plan) => (
               <div
                 key={plan.name}
-                className={`card relative flex flex-col animate-fade-up ${
+                className={`card relative flex flex-col ${
                   plan.popular
                     ? "border-2 border-[var(--accent)] shadow-[var(--shadow-lg)] ring-1 ring-[var(--accent)]"
                     : ""
                 }`}
-                style={{ animationDelay: `${(index + 1) * 100}ms` }}
               >
                 {plan.popular && (
                   <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-[var(--accent)] text-white text-xs font-semibold rounded-full whitespace-nowrap">
@@ -270,7 +269,7 @@ export default function PricingPage() {
       </section>
 
       {/* FAQ */}
-      <section className="pb-20 animate-fade-up" style={{ animationDelay: "500ms" }}>
+      <section className="pb-20">
         <div className="max-w-[var(--container-lg)] mx-auto px-6">
           <h2 className="text-2xl font-display font-bold text-center mb-10">
             Frequently asked questions

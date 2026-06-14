@@ -40,7 +40,9 @@ export default function ApiKeysPage() {
       }
     } catch (error) {
       logger.error({ err: error }, "Failed to fetch keys");
-      setErrorMessage("Failed to fetch keys");
+      setErrorMessage(
+        "Unable to load API keys — the server returned an error. Please refresh the page.",
+      );
     } finally {
       setLoading(false);
     }
@@ -76,11 +78,15 @@ export default function ApiKeysPage() {
         setErrorMessage(null);
         fetchKeys();
       } else {
-        setErrorMessage(data.error || "Failed to create key");
+        setErrorMessage(
+          data.error || "Could not create the key. The name may already exist or be invalid.",
+        );
       }
     } catch (error) {
       logger.error({ err: error }, "Failed to create key");
-      setErrorMessage("Failed to create key");
+      setErrorMessage(
+        "Could not create the key due to a network issue. Please check your connection and try again.",
+      );
     } finally {
       setCreating(false);
     }

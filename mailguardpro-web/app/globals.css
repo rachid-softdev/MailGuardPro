@@ -179,6 +179,15 @@
 
   body {
     @apply bg-[var(--bg-base)] text-[var(--text-primary)] antialiased;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
     font-family: var(--font-display);
   }
 

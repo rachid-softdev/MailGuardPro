@@ -9,6 +9,7 @@ import { UndoProvider } from "@/components/undo/UndoProvider";
 import { UndoToastContainer } from "@/components/undo/UndoToastContainer";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { UndoHistoryProvider, useUndoHistory } from "@/hooks/useUndoHistory";
+import { BottomNav } from "./BottomNav";
 import { Sidebar } from "./Sidebar";
 
 interface DashboardShellProps {
@@ -104,7 +105,7 @@ export function DashboardShell({ credits, children }: DashboardShellProps) {
         />
 
         {/* Main content */}
-        <main id="main-content" className="flex-1 ml-0 md:ml-[var(--sidebar-width)]">
+        <main id="main-content" className="flex-1 ml-0 md:ml-[var(--sidebar-width)] pb-14 md:pb-0">
           {/* Mobile header with hamburger */}
           <div className="md:hidden flex items-center p-4 border-b border-[var(--border)] bg-[var(--bg-surface)]">
             <button
@@ -121,6 +122,9 @@ export function DashboardShell({ credits, children }: DashboardShellProps) {
             <UndoToastContainer />
           </UndoProvider>
         </main>
+
+        {/* Mobile bottom navigation */}
+        <BottomNav />
       </div>
     </UndoHistoryProvider>
   );

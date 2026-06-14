@@ -60,11 +60,13 @@ export default function WebhooksPage() {
         setWebhooks(data.data || []);
         setErrorMessage(null);
       } else {
-        setErrorMessage("Failed to load webhooks");
+        setErrorMessage(
+          "Unable to load webhooks — the server returned an error. Please refresh the page.",
+        );
       }
     } catch (error) {
       logger.error({ err: error }, "Failed to fetch webhooks");
-      setErrorMessage("Could not connect to server. Please try again.");
+      setErrorMessage("Could not connect to the server. Please check your internet connection.");
     } finally {
       setLoading(false);
     }
@@ -122,11 +124,15 @@ export default function WebhooksPage() {
         setShowCreateModal(false);
         resetForm();
       } else {
-        setErrorMessage(data.error || "Failed to create webhook");
+        setErrorMessage(
+          data.error || "Could not create the webhook. The URL may already be registered.",
+        );
       }
     } catch (error) {
       logger.error({ err: error }, "Failed to create webhook");
-      setErrorMessage("Failed to create webhook");
+      setErrorMessage(
+        "Could not create the webhook due to a network issue. Please check your connection.",
+      );
     } finally {
       setCreating(false);
     }

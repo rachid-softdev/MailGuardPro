@@ -140,11 +140,16 @@ export default function BulkPage() {
         // Poll for status updates
         setPollingJobId(data.data.jobId);
       } else {
-        setErrorMessage(data.error || "Upload failed");
+        setErrorMessage(
+          data.error ||
+            "Upload failed — the server rejected the file. Ensure it contains valid emails (one per column, max 100,000 rows).",
+        );
       }
     } catch (error) {
       logger.error({ err: error }, "Upload failed");
-      setErrorMessage("Upload failed. Please try again.");
+      setErrorMessage(
+        "Upload failed due to a network error. Please check your connection and try again.",
+      );
     } finally {
       setUploading(false);
     }

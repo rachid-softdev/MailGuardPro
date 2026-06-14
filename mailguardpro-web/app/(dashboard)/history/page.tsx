@@ -1,9 +1,9 @@
 "use client";
 
 import { formatDistanceToNow } from "date-fns";
-import { Inbox, Loader2 } from "lucide-react";
+import { Inbox, Loader2, Search } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { useSelection } from "@/hooks/useSelection";
 import { useUndoHistory } from "@/hooks/useUndoHistory";
@@ -72,12 +72,34 @@ export default function HistoryPage() {
     fetchValidations();
   }, [fetchValidations]);
 
-  const handleSearch = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    const search = formData.get("search") as string;
-    router.replace(`/history?search=${encodeURIComponent(search)}`);
+  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [searchInput, setSearchInput] = useState(searchQuery);
+
+  const handleSearchInput = (value: string) => {
+    setSearchInput(value);
+    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+    searchTimeoutRef.current = setTimeout(() => {
+      const params = new URLSearchParams(searchParams);
+      if (value) {
+        params.set("search", value);
+      } else {
+        params.delete("search");
+      }
+      params.delete("page"); // reset page on new search
+      router.replace(`/history?${params.toString()}`);
+    }, 400);
   };
+
+  // Sync input if URL changes externally
+  useEffect(() => {
+    setSearchInput(searchQuery);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    return () => {
+      if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+    };
+  }, []);
 
   const handleStatusFilter = (status: string) => {
     const previousFilter = statusFilter;
@@ -147,20 +169,20 @@ export default function HistoryPage() {
       {/* Filters */}
       <div className="card mb-6">
         <div className="flex flex-col md:flex-row gap-4">
-          <form onSubmit={handleSearch} className="flex-1">
-            <div className="flex gap-2">
-              <input
-                type="text"
-                name="search"
-                defaultValue={searchQuery}
-                placeholder="Search by email..."
-                className="input flex-1"
-              />
-              <button type="submit" className="btn btn-primary">
-                Search
-              </button>
-            </div>
-          </form>
+          <div className="flex-1 relative">
+            <Search
+              size={16}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] pointer-events-none"
+              aria-hidden="true"
+            />
+            <input
+              type="text"
+              value={searchInput}
+              onChange={(e) => handleSearchInput(e.target.value)}
+              placeholder="Search by email…"
+              className="input flex-1 pl-9"
+            />
+          </div>
 
           <div className="flex gap-2">
             <select

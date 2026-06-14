@@ -12,22 +12,16 @@ export default function LandingPage() {
         <div className="max-w-[var(--container-lg)] mx-auto px-6">
           <div className="text-center max-w-2xl mx-auto">
             <h1
-              className="animate-fade-up text-4xl md:text-5xl lg:text-6xl font-display font-extrabold tracking-tight mb-6"
-              style={{ letterSpacing: "-0.03em", animationDelay: "0ms" }}
+              className="text-4xl md:text-5xl lg:text-6xl font-display font-extrabold tracking-tight mb-6"
+              style={{ letterSpacing: "-0.03em" }}
             >
               Your email list is <span className="text-[var(--accent)]">lying to you</span>
             </h1>
-            <p
-              className="animate-fade-up text-lg text-[var(--text-secondary)] mb-8 leading-relaxed"
-              style={{ animationDelay: "100ms" }}
-            >
+            <p className="text-lg text-[var(--text-secondary)] mb-8 leading-relaxed">
               Get more than just &quot;valid/invalid&quot;. Our quality score (0-100) tells you
               exactly how deliverable each email is, with actionable recommendations.
             </p>
-            <div
-              className="animate-fade-up flex flex-col sm:flex-row items-center justify-center gap-4"
-              style={{ animationDelay: "200ms" }}
-            >
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <Link href="/validate" className="btn btn-accent btn-lg">
                 Try it now
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -58,10 +52,7 @@ export default function LandingPage() {
           <h2 className="text-3xl font-display font-bold text-center mb-12">Why MailGuard Pro?</h2>
           <div className="grid md:grid-cols-3 gap-8">
             {/* Feature 1 — Quality Score */}
-            <div
-              className="card animate-fade-up relative overflow-hidden"
-              style={{ animationDelay: "0ms" }}
-            >
+            <div className="card relative overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-br from-[var(--accent)]/[0.03] to-transparent pointer-events-none" />
               <div className="relative z-10">
                 <div className="flex items-center gap-4 mb-4">
@@ -107,7 +98,7 @@ export default function LandingPage() {
             </div>
 
             {/* Feature 2 — Bulk Processing */}
-            <div className="card animate-fade-up flex flex-col" style={{ animationDelay: "100ms" }}>
+            <div className="card flex flex-col">
               <div className="flex-1">
                 <div className="w-12 h-12 bg-[var(--accent-light)] rounded-lg mb-4 flex items-center justify-center">
                   <svg
@@ -175,7 +166,7 @@ export default function LandingPage() {
             </div>
 
             {/* Feature 3 — Export */}
-            <div className="card animate-fade-up" style={{ animationDelay: "200ms" }}>
+            <div className="card">
               <div className="w-12 h-12 bg-[var(--accent-light)] rounded-lg mb-4 flex items-center justify-center">
                 <svg
                   className="w-6 h-6 text-[var(--accent)]"

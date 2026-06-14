@@ -53,10 +53,14 @@ function ScoreCircleBase({ score, size = "md", animated = true }: ScoreCirclePro
             ? "Good — safe to send. Most addresses will deliver."
             : "Excellent — high-quality address. Very low bounce risk.";
 
+  const scoreLabel = `Email quality score: ${score} out of 100. ${scoreHelp}`;
+
   return (
     <Tooltip content={scoreHelp} side="top">
       <div
         className="relative"
+        role="img"
+        aria-label={scoreLabel}
         style={{
           width: diameter,
           height: diameter,
@@ -64,7 +68,7 @@ function ScoreCircleBase({ score, size = "md", animated = true }: ScoreCirclePro
           animation: animated ? "none" : undefined,
         }}
       >
-        <svg width={diameter} height={diameter} className="transform -rotate-90">
+        <svg width={diameter} height={diameter} className="transform -rotate-90" aria-hidden="true">
           {/* Track (background circle) */}
           <circle
             cx={diameter / 2}
@@ -104,6 +108,7 @@ function ScoreCircleBase({ score, size = "md", animated = true }: ScoreCirclePro
         >
           <span
             className="text-center"
+            aria-hidden="true"
             style={{
               fontSize,
               fontWeight: 500,
