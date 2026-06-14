@@ -1,10 +1,12 @@
 "use client";
 
 import { formatDistanceToNow } from "date-fns";
-import { Inbox } from "lucide-react";
+import { Inbox, Loader2 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { StatusBadge } from "@/components/ui/StatusBadge";
+import { useSelection } from "@/hooks/useSelection";
+import { useUndoHistory } from "@/hooks/useUndoHistory";
 import { logger } from "@/lib/logger";
 
 interface Validation {
@@ -19,14 +21,21 @@ export default function HistoryPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
+  const { pushUndo } = useUndoHistory();
+
   const [validations, setValidations] = useState<Validation[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [batchError, setBatchError] = useState<string | null>(null);
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 20,
     total: 0,
     totalPages: 0,
   });
+
+  const selection = useSelection<string>();
+  const [batchValidating, setBatchValidating] = useState(false);
 
   // Filters from URL
   const page = parseInt(searchParams.get("page") || "1");
@@ -35,6 +44,7 @@ export default function HistoryPage() {
 
   const fetchValidations = useCallback(async () => {
     setLoading(true);
+    setFetchError(null);
     try {
       const params = new URLSearchParams();
       params.set("page", page.toString());
@@ -47,9 +57,12 @@ export default function HistoryPage() {
         const data = await res.json();
         setValidations(data.data || []);
         setPagination(data.meta?.pagination || pagination);
+      } else {
+        setFetchError("Failed to load validations. Please try again.");
       }
     } catch (error) {
       logger.error({ err: error }, "Failed to fetch validations");
+      setFetchError("Could not connect to server. Please check your connection.");
     } finally {
       setLoading(false);
     }
@@ -67,11 +80,29 @@ export default function HistoryPage() {
   };
 
   const handleStatusFilter = (status: string) => {
+    const previousFilter = statusFilter;
     if (status) {
       router.replace(`/history?status=${status}`);
     } else {
       router.replace("/history");
     }
+    pushUndo({
+      label: `Filter by ${status || "all"}`,
+      undo: () => {
+        if (previousFilter) {
+          router.replace(`/history?status=${previousFilter}`);
+        } else {
+          router.replace("/history");
+        }
+      },
+      redo: () => {
+        if (status) {
+          router.replace(`/history?status=${status}`);
+        } else {
+          router.replace("/history");
+        }
+      },
+    });
   };
 
   const handlePageChange = (newPage: number) => {
@@ -79,6 +110,32 @@ export default function HistoryPage() {
     params.set("page", newPage.toString());
     router.replace(`/history?${params.toString()}`);
   };
+
+  const handleBatchRevalidate = useCallback(async () => {
+    const emails = validations.filter((v) => selection.selected.has(v.id)).map((v) => v.email);
+    if (emails.length === 0) return;
+
+    setBatchValidating(true);
+    try {
+      await fetch("/api/v1/validate/bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ emails }),
+      });
+      selection.clear();
+    } catch {
+      logger.error({}, "Batch revalidation failed");
+      setBatchError("Batch revalidation failed. Please try again.");
+      setTimeout(() => setBatchError(null), 5000);
+    } finally {
+      setBatchValidating(false);
+    }
+  }, [validations, selection]);
+
+  // Clear selection when filters change (new page, new search, new status filter)
+  useEffect(() => {
+    selection.clear();
+  }, [page, statusFilter, searchQuery]);
 
   return (
     <div className="p-8">
@@ -121,6 +178,22 @@ export default function HistoryPage() {
         </div>
       </div>
 
+      {/* Error state */}
+      {fetchError && (
+        <div className="mb-4 px-4 py-3 rounded-lg bg-[var(--status-invalid)]/10 border border-[var(--status-invalid)]/30 text-sm text-[var(--status-invalid)] flex items-center justify-between">
+          <span>{fetchError}</span>
+          <button
+            onClick={() => {
+              setFetchError(null);
+              fetchValidations();
+            }}
+            className="text-xs font-medium underline hover:no-underline"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
       {/* Results */}
       <div className="card">
         {loading ? (
@@ -137,10 +210,58 @@ export default function HistoryPage() {
           </div>
         ) : validations.length > 0 ? (
           <>
+            {/* Batch action bar */}
+            {selection.count > 0 && (
+              <div className="flex items-center justify-between px-4 py-3 bg-[var(--accent-light)] border-b border-[var(--border)] rounded-t-lg">
+                <p className="text-sm font-medium text-[var(--accent)]">
+                  {selection.count} selected
+                </p>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={selection.clear}
+                    className="text-sm text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
+                  >
+                    Deselect all
+                  </button>
+                  <button
+                    onClick={handleBatchRevalidate}
+                    disabled={batchValidating}
+                    className="btn btn-accent btn-sm"
+                  >
+                    {batchValidating ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        Validating...
+                      </>
+                    ) : (
+                      `Revalidate (${selection.count})`
+                    )}
+                  </button>
+                </div>
+              </div>
+            )}
+            {batchError && (
+              <div className="px-4 py-2 text-sm text-[var(--status-invalid)] bg-[var(--status-invalid)]/5 border-b border-[var(--border)]">
+                {batchError}
+              </div>
+            )}
+
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-[var(--border)]">
+                    <th className="w-10 py-3 px-4 text-left">
+                      <input
+                        type="checkbox"
+                        checked={
+                          selection.allSelected(validations.map((v) => v.id)) &&
+                          validations.length > 0
+                        }
+                        onChange={() => selection.toggleAll(validations.map((v) => v.id))}
+                        className="rounded border-[var(--border-strong)]"
+                        aria-label="Select all validations"
+                      />
+                    </th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-[var(--text-muted)]">
                       Email
                     </th>
@@ -162,8 +283,21 @@ export default function HistoryPage() {
                   {validations.map((validation) => (
                     <tr
                       key={validation.id}
-                      className="border-b border-[var(--border)] last:border-0 hover:bg-[var(--bg-elevated)] transition-colors"
+                      className={`border-b border-[var(--border)] last:border-0 transition-colors ${
+                        selection.isSelected(validation.id)
+                          ? "bg-[var(--accent-light)]"
+                          : "hover:bg-[var(--bg-elevated)]"
+                      }`}
                     >
+                      <td className="w-10 py-3 px-4">
+                        <input
+                          type="checkbox"
+                          checked={selection.isSelected(validation.id)}
+                          onChange={() => selection.toggle(validation.id)}
+                          className="rounded border-[var(--border-strong)]"
+                          aria-label={`Select ${validation.email}`}
+                        />
+                      </td>
                       <td className="py-3 px-4 font-mono text-sm">{validation.email}</td>
                       <td className="py-3 px-4">
                         <span

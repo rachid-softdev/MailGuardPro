@@ -1,14 +1,11 @@
-// API Route: Account management
-// DELETE /api/v1/user — Delete/anonymize account (GDPR compliance)
+// API Route: Account deletion with undo support
+// DELETE /api/v1/user — Schedule account deletion (5-second undo window)
 
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { validateCsrfOrigin } from "@/lib/csrf";
 import { loggerApi } from "@/lib/logger";
-import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { stripe } from "@/lib/stripe";
-import { AuditAction, AuditResource, logAudit } from "@/services/auditLogger";
 
 export async function DELETE(req: NextRequest) {
   try {
@@ -29,91 +26,37 @@ export async function DELETE(req: NextRequest) {
 
     const userId = session.user.id;
     const now = new Date();
+    const undoExpiresAt = new Date(now.getTime() + 5000);
 
-    // 1. Get user's Stripe subscription ID (before anonymization)
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { stripeSubscriptionId: true, stripeCustomerId: true },
+    // Check if a deletion schedule already exists
+    const existing = await prisma.deletionSchedule.findUnique({
+      where: { userId },
     });
-    const stripeSubscriptionId = user?.stripeSubscriptionId;
-
-    // 2. Anonymize & clean up all user data atomiquement (transaction Prisma)
-    //    This runs FIRST because it's the primary operation (GDPR data deletion).
-    //    Stripe cancellation follows after — it's a best-effort external call.
-    await prisma.$transaction([
-      prisma.user.update({
-        where: { id: userId },
-        data: {
-          email: `deleted-${userId}@mailguard.pro`,
-          name: "Deleted User",
-          image: null,
-          emailVerified: null,
-          isActive: false,
-          credits: 0,
-          plan: "FREE",
-          stripeCustomerId: null,
-          stripeSubscriptionId: null,
-          tokenVersion: { increment: 1 },
-        },
-      }),
-      prisma.session.deleteMany({ where: { userId } }),
-      prisma.account.updateMany({
-        where: { userId },
-        data: {
-          access_token: null,
-          id_token: null,
-          refresh_token: null,
-        },
-      }),
-      prisma.validation.updateMany({
-        where: { userId },
-        data: {
-          userId: null,
-          apiKeyId: null,
-          emailHash: "",
-        },
-      }),
-      prisma.bulkJob.updateMany({
-        where: { userId },
-        data: {
-          emailsJson: Prisma.DbNull,
-        },
-      }),
-      prisma.apiKey.deleteMany({ where: { userId } }),
-      prisma.webhook.deleteMany({ where: { userId } }),
-    ]);
-
-    // 3. Cancel Stripe subscription (best-effort après la suppression DB)
-    //    Si Stripe échoue, l'utilisateur est déjà supprimé en DB.
-    //    Un CRON de réconciliation Stripe↔DB devrait nettoyer ces cas.
-    if (stripeSubscriptionId) {
-      try {
-        await stripe.subscriptions.cancel(stripeSubscriptionId);
-      } catch {
-        loggerApi.warn(
-          { stripeSubscriptionId, userId },
-          "DB deleted but Stripe cancellation failed. User may still have an active Stripe subscription. A reconciler job should clean this up.",
-        );
-      }
+    if (existing) {
+      return NextResponse.json(
+        { success: false, error: "Account deletion already scheduled" },
+        { status: 409 },
+      );
     }
 
-    // 4. Audit log (non-bloquant)
-    try {
-      await logAudit({
+    // Schedule deletion (actual cleanup will happen after the undo window expires)
+    await prisma.deletionSchedule.create({
+      data: {
         userId,
-        action: AuditAction.USER_DELETED,
-        resource: AuditResource.USER,
-        metadata: { reason: "user_requested_deletion", timestamp: now.toISOString() },
-      });
-    } catch (err) {
-      loggerApi.error({ err }, "Audit log failed (non-fatal)");
-    }
+        expiresAt: undoExpiresAt,
+      },
+    });
 
-    return NextResponse.json({ success: true, message: "Account deleted successfully" });
+    return NextResponse.json({
+      success: true,
+      message: "Account deletion scheduled. You have 5 seconds to undo.",
+      undoable: true,
+      undoExpiresAt: undoExpiresAt.toISOString(),
+    });
   } catch (error) {
-    loggerApi.error({ err: error }, "Account deletion error");
+    loggerApi.error({ err: error }, "Account deletion scheduling error");
     return NextResponse.json(
-      { success: false, error: "Failed to delete account" },
+      { success: false, error: "Failed to schedule account deletion" },
       { status: 500 },
     );
   }

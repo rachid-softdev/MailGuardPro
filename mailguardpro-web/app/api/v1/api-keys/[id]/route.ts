@@ -38,11 +38,14 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
       return NextResponse.json({ success: false, error: "API key not found" }, { status: 404 });
     }
 
-    // Atomic transaction: revoke key + invalidate all sessions
+    const now = new Date();
+    const undoExpiresAt = new Date(now.getTime() + 5000);
+
+    // Soft delete: mark as deleted + revoke
     await prisma.$transaction([
       prisma.apiKey.update({
         where: { id },
-        data: { isActive: false },
+        data: { isActive: false, deletedAt: now },
       }),
       prisma.user.update({
         where: { id: session.user.id },
@@ -60,12 +63,19 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
       resource: AuditResource.API_KEY,
       resourceId: id,
       ipAddress: req.headers.get("x-forwarded-for") || undefined,
-      metadata: { keyName: apiKey.name, tokenVersionIncremented: true, sessionsDeleted: true },
+      metadata: {
+        keyName: apiKey.name,
+        tokenVersionIncremented: true,
+        sessionsDeleted: true,
+        deletedAt: now.toISOString(),
+      },
     });
 
     return NextResponse.json({
       success: true,
       message: "API key revoked. All sessions invalidated — please re-login on other devices.",
+      undoable: true,
+      undoExpiresAt: undoExpiresAt.toISOString(),
     });
   } catch (error) {
     loggerApi.error({ err: error }, "API key delete error");

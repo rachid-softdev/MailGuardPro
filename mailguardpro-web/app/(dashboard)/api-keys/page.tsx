@@ -4,6 +4,8 @@ import { Check, Copy, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Modal } from "@/components/ui/Modal";
 import { StatusBadge } from "@/components/ui/StatusBadge";
+import { Tooltip } from "@/components/ui/Tooltip";
+import { useUndoDelete } from "@/hooks/useUndoDelete";
 import { logger } from "@/lib/logger";
 
 interface ApiKey {
@@ -27,10 +29,6 @@ export default function ApiKeysPage() {
   const [copiedPrefixKey, setCopiedPrefixKey] = useState<string | null>(null);
   const [newKeyCopied, setNewKeyCopied] = useState(false);
 
-  useEffect(() => {
-    fetchKeys();
-  }, []);
-
   const fetchKeys = async () => {
     setLoading(true);
     try {
@@ -47,6 +45,18 @@ export default function ApiKeysPage() {
       setLoading(false);
     }
   };
+
+  const { deleteResource } = useUndoDelete({
+    deleteEndpoint: (id: string) => `/api/v1/api-keys/${id}`,
+    restoreEndpoint: (id: string) => `/api/v1/api-keys/${id}/restore`,
+    onRestored: fetchKeys,
+    onExpired: fetchKeys,
+    getMessage: (name) => `Deleted "${name}"`,
+  });
+
+  useEffect(() => {
+    fetchKeys();
+  }, []);
 
   const createKey = async () => {
     if (!newKeyName.trim()) return;
@@ -76,24 +86,6 @@ export default function ApiKeysPage() {
     }
   };
 
-  const deleteKey = async (keyId: string) => {
-    try {
-      const res = await fetch(`/api/v1/api-keys/${keyId}`, {
-        method: "DELETE",
-      });
-
-      if (res.ok) {
-        setErrorMessage(null);
-        fetchKeys();
-      } else {
-        setErrorMessage("Failed to delete key");
-      }
-    } catch (error) {
-      logger.error({ err: error }, "Failed to delete key");
-      setErrorMessage("Failed to delete key");
-    }
-  };
-
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return "Never";
     return new Date(dateStr).toLocaleDateString();
@@ -114,7 +106,7 @@ export default function ApiKeysPage() {
 
   const handleDeleteConfirm = async () => {
     if (!deleteTarget) return;
-    await deleteKey(deleteTarget.id);
+    await deleteResource(deleteTarget.id, { name: deleteTarget.name });
     setDeleteTarget(null);
   };
 
@@ -235,17 +227,19 @@ export default function ApiKeysPage() {
                     <td className="py-3 px-4">
                       <div className="flex items-center gap-2">
                         <span className="font-mono text-sm">{key.keyPrefix}...</span>
-                        <button
-                          onClick={() => handleCopyPrefix(key.id, key.keyPrefix)}
-                          className="text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
-                          title="Copy key prefix"
-                        >
-                          {copiedPrefixKey === key.id ? (
-                            <Check className="w-4 h-4 text-[var(--status-valid)]" />
-                          ) : (
-                            <Copy className="w-4 h-4" />
-                          )}
-                        </button>
+                        <Tooltip content="Copy key prefix" side="top">
+                          <button
+                            onClick={() => handleCopyPrefix(key.id, key.keyPrefix)}
+                            className="text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
+                            aria-label="Copy key prefix"
+                          >
+                            {copiedPrefixKey === key.id ? (
+                              <Check className="w-4 h-4 text-[var(--status-valid)]" />
+                            ) : (
+                              <Copy className="w-4 h-4" />
+                            )}
+                          </button>
+                        </Tooltip>
                       </div>
                     </td>
                     <td className="py-3 px-4">
@@ -381,18 +375,14 @@ export default function ApiKeysPage() {
       >
         <p className="text-sm text-[var(--text-muted)] mb-6">
           Are you sure you want to delete{" "}
-          <span className="font-medium text-[var(--text-primary)]">{deleteTarget?.name}</span>? This
-          action cannot be undone.
+          <span className="font-medium text-[var(--text-primary)]">{deleteTarget?.name}</span>? You
+          will have 5 seconds to undo this action.
         </p>
         <div className="flex gap-3">
           <button className="btn btn-ghost flex-1" onClick={() => setDeleteTarget(null)}>
             Cancel
           </button>
-          <button
-            className="btn flex-1 text-white"
-            style={{ backgroundColor: "var(--status-invalid)" }}
-            onClick={handleDeleteConfirm}
-          >
+          <button className="btn btn-danger flex-1" onClick={handleDeleteConfirm}>
             <Trash2 className="w-4 h-4 mr-1.5" />
             Delete
           </button>

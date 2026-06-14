@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Modal } from "@/components/ui/Modal";
+import { useUndoDelete } from "@/hooks/useUndoDelete";
 import { logger } from "@/lib/logger";
 
 interface User {
@@ -25,6 +26,18 @@ export default function SettingsPage() {
   } | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+
+  const { deleteResource } = useUndoDelete({
+    deleteEndpoint: "/api/v1/user",
+    restoreEndpoint: "/api/v1/user/account/restore",
+    onRestored: () => {
+      // Stay on settings page after undo
+    },
+    onExpired: () => {
+      router.push("/");
+    },
+    getMessage: () => "Account deletion scheduled",
+  });
 
   // Form state
   const [name, setName] = useState("");
@@ -58,6 +71,7 @@ export default function SettingsPage() {
       }
     } catch (error) {
       logger.error({ err: error }, "Failed to fetch user");
+      setMessage({ type: "error", text: "Failed to load profile data. Please refresh." });
     } finally {
       setLoading(false);
     }
@@ -84,7 +98,10 @@ export default function SettingsPage() {
         });
       }
     } catch (error) {
-      setMessage({ type: "error", text: "An error occurred" });
+      setMessage({
+        type: "error",
+        text: "Failed to save profile due to a network error. Please try again.",
+      });
     } finally {
       setSaving(false);
     }
@@ -99,6 +116,7 @@ export default function SettingsPage() {
       }
     } catch (error) {
       logger.error({ err: error }, "Failed to open billing portal");
+      setMessage({ type: "error", text: "Could not open billing portal. Please try again." });
     }
   };
 
@@ -107,20 +125,10 @@ export default function SettingsPage() {
     setDeleteConfirmOpen(true);
   };
 
-  const handleDeleteConfirm = async () => {
+  const handleDeleteConfirm = () => {
     setDeleteConfirmOpen(false);
     setErrorMessage(null);
-
-    try {
-      const res = await fetch("/api/v1/user/account", { method: "DELETE" });
-      if (res.ok) {
-        router.push("/");
-      } else {
-        setErrorMessage("Failed to delete account");
-      }
-    } catch (error) {
-      logger.error({ err: error }, "Failed to delete account");
-    }
+    void deleteResource("", { name: "Account" });
   };
 
   if (loading) {
@@ -280,8 +288,8 @@ export default function SettingsPage() {
             <div className="p-4 bg-[var(--status-invalid)]/10 rounded-lg">
               <p className="font-medium">Delete Account</p>
               <p className="text-sm text-[var(--text-secondary)] mt-1">
-                Permanently delete your account and all associated data. This action cannot be
-                undone.
+                Schedule deletion of your account and all associated data. You will have 5 seconds
+                to undo this action.
               </p>
               <button onClick={deleteAccount} className="btn btn-danger mt-4">
                 Delete My Account
@@ -296,8 +304,9 @@ export default function SettingsPage() {
             size="sm"
           >
             <p className="text-[var(--text-secondary)] mb-6">
-              This action is permanent and cannot be undone. All your data, including scans,
-              reports, and account details, will be permanently deleted.
+              This action will schedule your account for deletion. You will have 5 seconds to undo
+              this action. All your data, including scans, reports, and account details, will be
+              permanently deleted after the undo window expires.
             </p>
             <div className="flex justify-end gap-3">
               <button onClick={() => setDeleteConfirmOpen(false)} className="btn btn-ghost">

@@ -66,12 +66,18 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
       return NextResponse.json({ success: false, error: "Webhook not found" }, { status: 404 });
     }
 
-    await prisma.webhook.delete({
+    const now = new Date();
+    const undoExpiresAt = new Date(now.getTime() + 5000);
+
+    await prisma.webhook.update({
       where: { id },
+      data: { deletedAt: now },
     });
 
     return NextResponse.json({
       success: true,
+      undoable: true,
+      undoExpiresAt: undoExpiresAt.toISOString(),
     });
   } catch (error) {
     loggerApi.error({ err: error }, "Webhook delete error");

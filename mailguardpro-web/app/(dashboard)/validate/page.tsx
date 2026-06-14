@@ -65,7 +65,7 @@ export default function ValidatePage() {
       if (err instanceof DOMException && err.name === "AbortError") {
         return;
       }
-      setError("An error occurred during validation");
+      setError("Could not reach the validation server. Check your connection.");
     } finally {
       setLoading(false);
     }
@@ -103,16 +103,37 @@ export default function ValidatePage() {
         {/* Input */}
         <form onSubmit={handleSubmit} className="mb-8">
           <div className="flex gap-4">
-            <input
-              type="email"
-              autoComplete="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="Enter an email address..."
-              disabled={loading}
-              style={{ fontSize: "var(--text-base)" }}
-              className="input flex-1 h-14 md:h-16 focus:shadow-[inset_0_1px_3px_rgba(0,0,0,0.06)]"
-            />
+            <div className="flex-1">
+              <input
+                type="email"
+                autoComplete="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Enter an email address..."
+                disabled={loading}
+                style={{ fontSize: "var(--text-base)" }}
+                className="input w-full h-14 md:h-16 focus:shadow-[inset_0_1px_3px_rgba(0,0,0,0.06)]"
+              />
+              <div className="mt-1.5 flex items-start gap-1.5 text-xs text-[var(--text-muted)]">
+                <svg
+                  className="w-3.5 h-3.5 mt-0.5 shrink-0"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+                <span>
+                  Score <strong>0–100</strong>: lower = higher bounce risk. Hover the score circle
+                  for range details. Type and results update in real time.
+                </span>
+              </div>
+            </div>
             <button type="submit" disabled={loading || !email} className="btn btn-accent btn-lg">
               {loading ? "Analyzing..." : "Analyze"}
             </button>
@@ -226,11 +247,52 @@ export default function ValidatePage() {
 
         {/* Empty state */}
         {!result && !loading && !error && (
-          <div className="card text-center py-16">
+          <div className="card text-center py-12">
             <div className="flex flex-col items-center gap-4">
               <Search size={48} className="text-[var(--text-muted)] opacity-40" />
               <p className="text-[var(--text-muted)]">
-                Enter an email address above to get a quality score (0-100)
+                Enter an email address above to get a quality score (0–100)
+              </p>
+              <div className="flex flex-wrap justify-center gap-3 text-xs text-[var(--text-muted)]">
+                <span className="inline-flex items-center gap-1">
+                  <span
+                    className="w-2 h-2 rounded-full"
+                    style={{ backgroundColor: "var(--score-excellent)" }}
+                  />
+                  76–100 Excellent
+                </span>
+                <span className="inline-flex items-center gap-1">
+                  <span
+                    className="w-2 h-2 rounded-full"
+                    style={{ backgroundColor: "var(--score-good)" }}
+                  />
+                  61–75 Good
+                </span>
+                <span className="inline-flex items-center gap-1">
+                  <span
+                    className="w-2 h-2 rounded-full"
+                    style={{ backgroundColor: "var(--score-medium)" }}
+                  />
+                  41–60 Medium
+                </span>
+                <span className="inline-flex items-center gap-1">
+                  <span
+                    className="w-2 h-2 rounded-full"
+                    style={{ backgroundColor: "var(--score-poor)" }}
+                  />
+                  26–40 Poor
+                </span>
+                <span className="inline-flex items-center gap-1">
+                  <span
+                    className="w-2 h-2 rounded-full"
+                    style={{ backgroundColor: "var(--score-critical)" }}
+                  />
+                  0–25 Critical
+                </span>
+              </div>
+              <p className="text-xs text-[var(--text-muted)] max-w-md">
+                Each email is checked against mail servers, domain reputation, format rules, and
+                disposable inbox databases to produce a single quality score.
               </p>
             </div>
           </div>

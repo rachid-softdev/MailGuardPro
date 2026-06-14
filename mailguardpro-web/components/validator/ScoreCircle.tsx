@@ -1,6 +1,7 @@
 "use client";
 
 import { memo } from "react";
+import { Tooltip } from "@/components/ui/Tooltip";
 
 interface ScoreCircleProps {
   score: number;
@@ -41,63 +42,78 @@ function ScoreCircleBase({ score, size = "md", animated = true }: ScoreCirclePro
         }
       : undefined;
 
+  const scoreHelp =
+    score <= 25
+      ? "Critical — high bounce risk. Avoid sending to these addresses."
+      : score <= 40
+        ? "Poor — likely to bounce or cause delivery issues."
+        : score <= 60
+          ? "Medium — mixed signals. Validate further before sending."
+          : score <= 75
+            ? "Good — safe to send. Most addresses will deliver."
+            : "Excellent — high-quality address. Very low bounce risk.";
+
   return (
-    <div
-      className="relative"
-      style={{
-        width: diameter,
-        height: diameter,
-        // CSS pour prefers-reduced-motion
-        animation: animated ? "none" : undefined,
-      }}
-    >
-      <svg width={diameter} height={diameter} className="transform -rotate-90">
-        {/* Track (background circle) */}
-        <circle
-          cx={diameter / 2}
-          cy={diameter / 2}
-          r={radius}
-          stroke="var(--bg-subtle)"
-          strokeWidth={strokeWidth}
-          fill="none"
-        />
-        {/* Fill (progress circle) */}
-        <circle
-          cx={diameter / 2}
-          cy={diameter / 2}
-          r={radius}
-          stroke={color}
-          strokeWidth={strokeWidth}
-          fill="none"
-          strokeLinecap="round"
-          strokeDasharray={circumference}
-          // Animation CSS au lieu de JS - plus performant!
-          style={{
-            strokeDashoffset: animated ? circumference : targetOffset,
-            transition: animated ? "stroke-dashoffset 600ms cubic-bezier(0.4, 0, 0.2, 1)" : "none",
-            ...glowStyle,
-          }}
-        />
-      </svg>
+    <Tooltip content={scoreHelp} side="top">
       <div
-        className="absolute inset-0 flex items-center justify-center"
+        className="relative"
         style={{
-          fontFamily: "var(--font-mono)",
-          // Animation du texte aussi
-          animation: animated ? "fadeIn 300ms ease-out" : "none",
+          width: diameter,
+          height: diameter,
+          // CSS pour prefers-reduced-motion
+          animation: animated ? "none" : undefined,
         }}
       >
-        <span
-          className="text-center"
+        <svg width={diameter} height={diameter} className="transform -rotate-90">
+          {/* Track (background circle) */}
+          <circle
+            cx={diameter / 2}
+            cy={diameter / 2}
+            r={radius}
+            stroke="var(--bg-subtle)"
+            strokeWidth={strokeWidth}
+            fill="none"
+          />
+          {/* Fill (progress circle) */}
+          <circle
+            cx={diameter / 2}
+            cy={diameter / 2}
+            r={radius}
+            stroke={color}
+            strokeWidth={strokeWidth}
+            fill="none"
+            strokeLinecap="round"
+            strokeDasharray={circumference}
+            // Animation CSS au lieu de JS - plus performant!
+            style={{
+              strokeDashoffset: animated ? circumference : targetOffset,
+              transition: animated
+                ? "stroke-dashoffset 600ms cubic-bezier(0.4, 0, 0.2, 1)"
+                : "none",
+              ...glowStyle,
+            }}
+          />
+        </svg>
+        <div
+          className="absolute inset-0 flex items-center justify-center"
           style={{
-            fontSize,
-            fontWeight: 500,
+            fontFamily: "var(--font-mono)",
+            // Animation du texte aussi
+            animation: animated ? "fadeIn 300ms ease-out" : "none",
           }}
         >
-          {score}
-        </span>
+          <span
+            className="text-center"
+            style={{
+              fontSize,
+              fontWeight: 500,
+            }}
+          >
+            {score}
+          </span>
+        </div>
       </div>
-    </div>
+    </Tooltip>
   );
 }
 

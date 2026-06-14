@@ -7,6 +7,7 @@ import { useState } from "react";
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState("");
+  const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleMagicLink = async (e: React.FormEvent) => {
@@ -24,6 +25,7 @@ export default function LoginPage() {
             : result.error,
         );
       } else {
+        setSent(true);
         setError(null);
       }
     } catch {
@@ -41,7 +43,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[var(--bg-base)] flex items-center justify-center p-6">
+    <div className="flex items-center justify-center min-h-[calc(100vh-73px)] p-6">
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
@@ -93,20 +95,59 @@ export default function LoginPage() {
           </div>
 
           {/* Magic Link */}
-          <form onSubmit={handleMagicLink}>
-            <label className="block text-sm font-medium mb-2">Email address</label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com"
-              className="input mb-4"
-              required
-            />
-            <button type="submit" disabled={!!loading || !email} className="btn btn-primary w-full">
-              {loading === "magic" ? "Sending..." : "Send magic link"}
-            </button>
-          </form>
+          {sent ? (
+            <div className="text-center py-4">
+              <div className="w-12 h-12 bg-[var(--accent-light)] rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg
+                  className="w-6 h-6 text-[var(--accent)]"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                  />
+                </svg>
+              </div>
+              <h3 className="font-display font-semibold mb-2">Check your inbox</h3>
+              <p className="text-sm text-[var(--text-secondary)] mb-1">
+                A magic link has been sent to
+              </p>
+              <p className="text-sm font-mono text-[var(--text-primary)]">{email}</p>
+              <p className="text-xs text-[var(--text-muted)] mt-4">
+                Didn&apos;t receive it? Check your spam folder or{" "}
+                <button
+                  onClick={() => setSent(false)}
+                  className="text-[var(--accent)] hover:underline font-medium"
+                >
+                  try a different email
+                </button>
+              </p>
+            </div>
+          ) : (
+            <form onSubmit={handleMagicLink}>
+              <label className="block text-sm font-medium mb-2">Email address</label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@example.com"
+                className="input mb-4"
+                required
+                disabled={sent}
+              />
+              <button
+                type="submit"
+                disabled={!!loading || !email}
+                className="btn btn-primary w-full"
+              >
+                {loading === "magic" ? "Sending..." : "Send magic link"}
+              </button>
+            </form>
+          )}
 
           <p className="mt-6 text-xs text-center text-[var(--text-muted)]">
             By continuing, you agree to our Terms of Service
