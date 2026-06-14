@@ -5,6 +5,7 @@ import { Inbox, Loader2, Search } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { StatusBadge } from "@/components/ui/StatusBadge";
+import { useOnlineStatusSync } from "@/hooks/useOnlineStatusSync";
 import { useSelection } from "@/hooks/useSelection";
 import { useUndoHistory } from "@/hooks/useUndoHistory";
 import { logger } from "@/lib/logger";
@@ -71,6 +72,8 @@ export default function HistoryPage() {
   useEffect(() => {
     fetchValidations();
   }, [fetchValidations]);
+
+  useOnlineStatusSync(fetchValidations);
 
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [searchInput, setSearchInput] = useState(searchQuery);

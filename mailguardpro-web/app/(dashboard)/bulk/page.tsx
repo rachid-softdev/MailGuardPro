@@ -3,6 +3,7 @@
 import { formatDistanceToNow } from "date-fns";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useOnlineStatusSync } from "@/hooks/useOnlineStatusSync";
 import { usePolling } from "@/hooks/usePolling";
 import { logger } from "@/lib/logger";
 
@@ -58,11 +59,6 @@ export default function BulkPage() {
     },
   });
 
-  // Fetch jobs on mount
-  useEffect(() => {
-    fetchJobs();
-  }, []);
-
   const fetchJobs = async () => {
     setLoading(true);
     try {
@@ -77,6 +73,13 @@ export default function BulkPage() {
       setLoading(false);
     }
   };
+
+  // Fetch jobs on mount
+  useEffect(() => {
+    fetchJobs();
+  }, []);
+
+  useOnlineStatusSync(fetchJobs);
 
   const handleDrag = useCallback((e: React.DragEvent) => {
     e.preventDefault();
