@@ -81,7 +81,7 @@ export async function GET() {
           (u: {
             id: string;
             name: string | null;
-            email: string;
+            email: string | null;
             plan: string;
             isActive: boolean;
             createdAt: Date;
