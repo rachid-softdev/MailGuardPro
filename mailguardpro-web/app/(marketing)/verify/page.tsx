@@ -66,7 +66,7 @@ export default function VerifyPage() {
         setStatus("error");
       }
     } catch {
-      setMessage("An error occurred. Please try again.");
+      setMessage("Could not send verification email. Check your connection and try again.");
       setStatus("error");
     }
   };

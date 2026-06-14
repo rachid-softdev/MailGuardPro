@@ -1,4 +1,5 @@
 import { Metadata } from "next";
+import { MarketingHeader } from "@/components/marketing/MarketingHeader";
 
 export const metadata: Metadata = {
   title: "MailGuard Pro - Email Validation API | Quality Score 0-100",
@@ -34,5 +35,10 @@ export const metadata: Metadata = {
 };
 
 export default function MarketingLayout({ children }: { children: React.ReactNode }) {
-  return <>{children}</>;
+  return (
+    <div className="min-h-screen bg-[var(--bg-base)] flex flex-col">
+      <MarketingHeader />
+      <main className="flex-1">{children}</main>
+    </div>
+  );
 }
