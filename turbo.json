@@ -3,7 +3,19 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "outputs": [".next/**", "!.next/cache/**", "dist/**"]
+      "outputs": [".next/**", "!.next/cache/**", "dist/**"],
+      "env": [
+        "DATABASE_URL",
+        "REDIS_URL",
+        "AUTH_SECRET",
+        "STRIPE_SECRET_KEY",
+        "STRIPE_PUBLISHABLE_KEY",
+        "STRIPE_WEBHOOK_SECRET",
+        "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY",
+        "RESEND_API_KEY",
+        "SENTRY_AUTH_TOKEN",
+        "NODE_ENV"
+      ]
     },
     "dev": {
       "cache": false,
@@ -18,7 +30,8 @@
     "test": {
       "dependsOn": ["^build"],
       "outputs": ["coverage/**"],
-      "inputs": ["src/**", "tests/**", "vitest.config.ts"]
+      "inputs": ["src/**", "tests/**", "vitest.config.ts"],
+      "env": ["DATABASE_URL", "REDIS_URL", "AUTH_SECRET", "NODE_ENV"]
     },
     "test:e2e": {
       "outputs": ["playwright-report/**", "test-results/**"]

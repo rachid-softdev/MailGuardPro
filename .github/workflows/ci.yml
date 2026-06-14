@@ -215,7 +215,7 @@ jobs:
           DATABASE_URL: postgresql://test:test@localhost:5432/mailguard_test
 
       - name: Build application
-        run: pnpm run build
+        run: pnpm --filter mailguardpro-web run build
         env:
           DATABASE_URL: postgresql://test:test@localhost:5432/mailguard_test
           REDIS_URL: redis://localhost:6379
