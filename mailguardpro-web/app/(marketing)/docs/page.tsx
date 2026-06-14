@@ -1,180 +1,322 @@
-import Link from "next/link";
+import type { Metadata } from "next";
 
-export default function DocsPage() {
+export const metadata: Metadata = {
+  title: "API Documentation — MailGuard Pro",
+  description:
+    "Integrate email validation into your applications with the MailGuard Pro REST API. Single validation, bulk processing, webhooks, and more.",
+};
+
+const curl = (code: string) => (
+  <pre className="p-4 rounded-[var(--radius-md)] bg-[#1a1a1a] text-[#e4e4e4] text-sm font-mono leading-relaxed overflow-x-auto">
+    <code>{code}</code>
+  </pre>
+);
+
+const sectionHeading = (text: string) => (
+  <h2 className="text-2xl font-display font-bold mb-4 mt-12 first:mt-0">{text}</h2>
+);
+
+const subheading = (text: string) => (
+  <h3 className="text-lg font-display font-semibold mb-2 mt-8">{text}</h3>
+);
+
+export default function ApiDocsPage() {
   return (
     <div className="py-16 md:py-24">
       <div className="max-w-[var(--container-md)] mx-auto px-6">
         {/* Header */}
         <div className="mb-12">
-          <h1 className="text-4xl font-display font-bold mb-3">Documentation</h1>
+          <h1 className="text-4xl font-display font-bold mb-3">API Documentation</h1>
           <p className="text-lg text-[var(--text-secondary)]">
-            Everything you need to know about MailGuard Pro
+            Integrate email validation into your applications
           </p>
         </div>
 
-        {/* Getting Started */}
-        <section className="mb-12">
-          <h2 className="text-2xl font-display font-semibold mb-4">Getting Started</h2>
-          <div className="grid md:grid-cols-2 gap-4">
-            <div className="card">
-              <h3 className="font-display font-semibold mb-2">Quick Start</h3>
-              <ol className="text-sm text-[var(--text-secondary)] space-y-2 list-decimal list-inside">
-                <li>Create a free account</li>
-                <li>Paste an email address in the validator</li>
-                <li>Review the quality score and recommendations</li>
-                <li>Upload a CSV for bulk validation</li>
-                <li>Export results in your preferred format</li>
-              </ol>
-            </div>
-            <div className="card">
-              <h3 className="font-display font-semibold mb-2">Need Help?</h3>
-              <p className="text-sm text-[var(--text-secondary)] mb-4">
-                Check our API reference for developer integration, or contact support for account
-                questions.
-              </p>
-              <Link href="/docs/api-reference" className="btn btn-accent btn-sm">
-                API Reference
-              </Link>
-            </div>
-          </div>
+        {/* Base URL */}
+        <section>
+          <p className="text-sm text-[var(--text-muted)] mb-1 font-mono">Base URL</p>
+          <p className="text-sm text-[var(--text-secondary)] font-mono">
+            https://api.mailguard.pro/v1
+          </p>
         </section>
 
-        {/* Features */}
-        <section className="mb-12">
-          <h2 className="text-2xl font-display font-semibold mb-4">Features</h2>
-          <div className="space-y-6">
-            <div className="card">
-              <div className="flex items-start gap-4">
-                <div className="w-10 h-10 bg-[var(--accent-light)] rounded-lg flex items-center justify-center shrink-0 mt-1">
-                  <svg
-                    className="w-5 h-5 text-[var(--accent)]"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={2}
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z"
-                    />
-                  </svg>
-                </div>
-                <div>
-                  <h3 className="font-display font-semibold mb-1">Quality Score</h3>
-                  <p className="text-sm text-[var(--text-secondary)]">
-                    Each email receives a score from 0-100 based on multiple signals: syntax
-                    validity, domain reputation, mailbox existence, and known patterns. Scores above
-                    80 indicate highly deliverable addresses.
-                  </p>
-                </div>
-              </div>
-            </div>
+        {/* Authentication */}
+        {sectionHeading("Authentication")}
+        <p className="text-[var(--text-secondary)] leading-relaxed mb-4">
+          All API requests require an API key passed in the{" "}
+          <code className="font-mono text-sm px-1 py-0.5 rounded bg-[var(--bg-subtle)]">
+            X-API-Key
+          </code>{" "}
+          header. Generate your API key from the dashboard under <strong>API Keys</strong>.
+        </p>
+        {subheading("Example Request")}
+        {curl(`curl -X POST https://api.mailguard.pro/v1/validate \\
+  -H "X-API-Key: mg_live_xxxxxxxxxxxx" \\
+  -H "Content-Type: application/json" \\
+  -d '{"email": "user@example.com"}'`)}
 
-            <div className="card">
-              <div className="flex items-start gap-4">
-                <div className="w-10 h-10 bg-[var(--accent-light)] rounded-lg flex items-center justify-center shrink-0 mt-1">
-                  <svg
-                    className="w-5 h-5 text-[var(--accent)]"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={2}
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M3 4v16h18V4H3zm16 4l-6 4.5L7 8"
-                    />
-                  </svg>
-                </div>
-                <div>
-                  <h3 className="font-display font-semibold mb-1">Bulk Validation</h3>
-                  <p className="text-sm text-[var(--text-secondary)]">
-                    Upload CSV files with up to 100,000 rows. Processing happens in the background
-                    with real-time progress updates. You&apos;ll receive a notification when your
-                    job completes.
-                  </p>
-                </div>
-              </div>
-            </div>
+        <div className="bg-[var(--status-risky-bg)] border border-[var(--status-risky)]/20 rounded-[var(--radius-md)] p-4 mt-6">
+          <p className="text-sm text-[var(--status-risky)] font-semibold mb-1">Security</p>
+          <p className="text-sm text-[var(--text-secondary)]">
+            Never expose your API key in client-side code, version control, or public repositories.
+            Regenerate compromised keys immediately from the dashboard.
+          </p>
+        </div>
 
-            <div className="card">
-              <div className="flex items-start gap-4">
-                <div className="w-10 h-10 bg-[var(--accent-light)] rounded-lg flex items-center justify-center shrink-0 mt-1">
-                  <svg
-                    className="w-5 h-5 text-[var(--accent)]"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={2}
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                    />
-                  </svg>
-                </div>
-                <div>
-                  <h3 className="font-display font-semibold mb-1">Export Options</h3>
-                  <p className="text-sm text-[var(--text-secondary)]">
-                    Export validation results in CSV, JSON, XLSX (with formatting), or PDF format.
-                    Choose the format that integrates with your workflow. Exports include all
-                    metadata and scores.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
+        {/* Single Validation */}
+        {sectionHeading("Single Validation")}
+        <p className="text-[var(--text-secondary)] leading-relaxed mb-4">
+          Validate a single email address and receive a quality score (0–100), syntax checks, domain
+          analysis, and deliverability signals.
+        </p>
 
-        {/* FAQ */}
-        <section className="mb-12">
-          <h2 className="text-2xl font-display font-semibold mb-4">Frequently Asked Questions</h2>
-          <div className="space-y-4">
-            {[
-              {
-                q: "What does the quality score mean?",
-                a: "The quality score ranges from 0-100. Scores 80+ are highly deliverable. 60-79 may reach inbox but with reduced confidence. Below 60 should be reviewed — these emails may bounce or harm your sender reputation.",
-              },
-              {
-                q: "Is my data secure?",
-                a: "Yes. All data is encrypted in transit (TLS 1.3) and at rest (AES-256). We never store email lists beyond the retention period you select. We are GDPR compliant.",
-              },
-              {
-                q: "How does bulk processing work?",
-                a: "Upload a CSV with one email per row. Processing runs in the background, and you can check progress in real-time. When complete, download results with scores and statuses for every email.",
-              },
-              {
-                q: "Can I integrate with my application?",
-                a: "Yes. Use our REST API to validate emails programmatically. Generate an API key from the dashboard and refer to the API Reference for endpoints and usage limits.",
-              },
-              {
-                q: "What happens when I run out of credits?",
-                a: "You&apos;ll receive a notification at 80% usage. Validations pause when credits are exhausted. You can purchase additional credits or upgrade your plan at any time.",
-              },
-            ].map((faq, i) => (
-              <details key={i} className="card group open:ring-1 open:ring-[var(--accent)]/20">
-                <summary className="list-none cursor-pointer font-display font-semibold py-3 px-4 flex items-center justify-between gap-4">
-                  {faq.q}
-                  <svg
-                    className="w-4 h-4 text-[var(--text-muted)] shrink-0 group-open:rotate-180 transition-transform"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth={2}
-                  >
-                    <polyline points="6 9 12 15 18 9" />
-                  </svg>
-                </summary>
-                <p className="text-sm text-[var(--text-secondary)] px-4 pb-4 leading-relaxed">
-                  {faq.a}
-                </p>
-              </details>
-            ))}
-          </div>
-        </section>
+        <div className="flex items-baseline gap-3 mb-4">
+          <span className="px-2 py-0.5 rounded text-xs font-mono font-bold uppercase tracking-wider bg-[var(--accent-light)] text-[var(--accent)]">
+            POST
+          </span>
+          <code className="text-sm font-mono">/api/v1/validate</code>
+        </div>
+
+        {subheading("Request Body")}
+        <div className="overflow-x-auto mb-6">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-[var(--border)]">
+                <th className="text-left py-2 pr-4 font-semibold">Field</th>
+                <th className="text-left py-2 pr-4 font-semibold">Type</th>
+                <th className="text-left py-2 pr-4 font-semibold">Required</th>
+                <th className="text-left py-2 font-semibold">Description</th>
+              </tr>
+            </thead>
+            <tbody className="text-[var(--text-secondary)]">
+              <tr className="border-b border-[var(--border)]">
+                <td className="py-2 pr-4 font-mono">email</td>
+                <td className="py-2 pr-4 font-mono">string</td>
+                <td className="py-2 pr-4">Yes</td>
+                <td className="py-2">The email address to validate</td>
+              </tr>
+              <tr className="border-b border-[var(--border)]">
+                <td className="py-2 pr-4 font-mono">webhook_url</td>
+                <td className="py-2 pr-4 font-mono">string</td>
+                <td className="py-2 pr-4">No</td>
+                <td className="py-2">URL to receive the result via webhook</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        {subheading("Example Request")}
+        {curl(`curl -X POST https://api.mailguard.pro/v1/validate \\
+  -H "X-API-Key: mg_live_xxxxxxxxxxxx" \\
+  -H "Content-Type: application/json" \\
+  -d '{"email": "user@example.com"}'`)}
+
+        {subheading("Example Response")}
+        {curl(`{
+  "email": "user@example.com",
+  "score": 95,
+  "status": "valid",
+  "checks": {
+    "syntax": true,
+    "domain": true,
+    "mx": true,
+    "disposable": false,
+    "typo": null
+  },
+  "suggestions": [],
+  "meta": {
+    "domain": "example.com",
+    "domain_age_days": 8432,
+    "is_catch_all": false
+  },
+  "request_id": "req_abc123def"
+}`)}
+
+        {/* Bulk Validation */}
+        {sectionHeading("Bulk Validation")}
+        <p className="text-[var(--text-secondary)] leading-relaxed mb-4">
+          Validate up to 100,000 emails in a single batch by uploading a CSV file. Processing runs
+          asynchronously — poll the job status endpoint or subscribe via webhook for completion
+          notifications.
+        </p>
+
+        <div className="flex items-baseline gap-3 mb-4">
+          <span className="px-2 py-0.5 rounded text-xs font-mono font-bold uppercase tracking-wider bg-[var(--status-valid-bg)] text-[var(--status-valid)]">
+            POST
+          </span>
+          <code className="text-sm font-mono">/api/v1/validate/bulk</code>
+        </div>
+
+        {subheading("CSV Format")}
+        <p className="text-[var(--text-secondary)] leading-relaxed mb-4">
+          The CSV file must contain a header row with an{" "}
+          <code className="font-mono text-sm px-1 py-0.5 rounded bg-[var(--bg-subtle)]">email</code>{" "}
+          column. Additional columns are ignored, allowing you to upload existing lists without
+          modification.
+        </p>
+
+        {subheading("Example CSV")}
+        {curl(`email
+alice@example.com
+bob@example.org
+charlie@example.net`)}
+        <div className="flex items-baseline gap-3 my-4">
+          <span className="px-2 py-0.5 rounded text-xs font-mono font-bold uppercase tracking-wider bg-[var(--bg-subtle)] text-[var(--text-muted)]">
+            GET
+          </span>
+          <code className="text-sm font-mono">/api/v1/validate/bulk/:job_id</code>
+        </div>
+        <p className="text-[var(--text-secondary)] leading-relaxed mb-4">
+          Check the status and download results of a bulk job using the returned{" "}
+          <code className="font-mono text-sm px-1 py-0.5 rounded bg-[var(--bg-subtle)]">
+            job_id
+          </code>
+          .
+        </p>
+
+        {subheading("Bulk Upload Request")}
+        {curl(`curl -X POST https://api.mailguard.pro/v1/validate/bulk \\
+  -H "X-API-Key: mg_live_xxxxxxxxxxxx" \\
+  -F "file=@contacts.csv"`)}
+        {subheading("Bulk Upload Response")}
+        {curl(`{
+  "job_id": "job_xyz789abc",
+  "status": "queued",
+  "total": 5000,
+  "created_at": "2026-06-14T10:30:00Z"
+}`)}
+
+        {/* Webhooks */}
+        {sectionHeading("Webhooks")}
+        <p className="text-[var(--text-secondary)] leading-relaxed mb-4">
+          Receive real-time notifications when validation jobs complete or when emails in your
+          watchlist are rechecked. Configure webhook endpoints from the dashboard.
+        </p>
+
+        {subheading("Events")}
+        <div className="overflow-x-auto mb-6">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-[var(--border)]">
+                <th className="text-left py-2 pr-4 font-semibold">Event</th>
+                <th className="text-left py-2 pr-4 font-semibold">Description</th>
+                <th className="text-left py-2 font-semibold">Trigger</th>
+              </tr>
+            </thead>
+            <tbody className="text-[var(--text-secondary)]">
+              <tr className="border-b border-[var(--border)]">
+                <td className="py-2 pr-4 font-mono">validation.completed</td>
+                <td className="py-2 pr-4">Single validation result ready</td>
+                <td className="py-2">After a single email validation</td>
+              </tr>
+              <tr className="border-b border-[var(--border)]">
+                <td className="py-2 pr-4 font-mono">bulk.completed</td>
+                <td className="py-2 pr-4">Bulk validation finished</td>
+                <td className="py-2">All rows in a batch have been processed</td>
+              </tr>
+              <tr className="border-b border-[var(--border)]">
+                <td className="py-2 pr-4 font-mono">bulk.failed</td>
+                <td className="py-2 pr-4">Bulk validation job failed</td>
+                <td className="py-2">When a batch encounters an unrecoverable error</td>
+              </tr>
+              <tr className="border-b border-[var(--border)]">
+                <td className="py-2 pr-4 font-mono">email.updated</td>
+                <td className="py-2 pr-4">Email status changed</td>
+                <td className="py-2">When a watched email&apos;s status changes</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        {subheading("Payload Format")}
+        {curl(`{
+  "event": "validation.completed",
+  "timestamp": "2026-06-14T10:30:00Z",
+  "payload": {
+    "email": "user@example.com",
+    "score": 95,
+    "status": "valid",
+    "request_id": "req_abc123def"
+  }
+}`)}
+
+        <div className="bg-[var(--bg-subtle)] border border-[var(--border)] rounded-[var(--radius-md)] p-4 mt-6">
+          <p className="text-sm font-semibold mb-1">Delivery</p>
+          <p className="text-sm text-[var(--text-secondary)]">
+            Webhooks are delivered with a signature header{" "}
+            <code className="font-mono text-xs px-1 py-0.5 rounded bg-[var(--bg-surface)]">
+              X-Webhook-Signature
+            </code>{" "}
+            using HMAC-SHA256. Verify the signature before processing. Failed deliveries are retried
+            up to 5 times with exponential backoff.
+          </p>
+        </div>
+
+        {/* Rate Limits */}
+        {sectionHeading("Rate Limits")}
+        <p className="text-[var(--text-secondary)] leading-relaxed mb-4">
+          Rate limits vary by plan. Limits apply per API key and reset daily at midnight UTC.
+        </p>
+
+        <div className="overflow-x-auto mb-6">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-[var(--border)]">
+                <th className="text-left py-2 pr-4 font-semibold">Plan</th>
+                <th className="text-left py-2 pr-4 font-semibold">Requests / day</th>
+                <th className="text-left py-2 pr-4 font-semibold">Burst limit</th>
+                <th className="text-left py-2 font-semibold">Bulk uploads</th>
+              </tr>
+            </thead>
+            <tbody className="text-[var(--text-secondary)]">
+              <tr className="border-b border-[var(--border)]">
+                <td className="py-2 pr-4 font-medium">Free</td>
+                <td className="py-2 pr-4 font-mono">100</td>
+                <td className="py-2 pr-4 font-mono">10/min</td>
+                <td className="py-2 font-mono">—</td>
+              </tr>
+              <tr className="border-b border-[var(--border)]">
+                <td className="py-2 pr-4 font-medium">Starter</td>
+                <td className="py-2 pr-4 font-mono">5,000</td>
+                <td className="py-2 pr-4 font-mono">100/min</td>
+                <td className="py-2 font-mono">10/month</td>
+              </tr>
+              <tr className="border-b border-[var(--border)]">
+                <td className="py-2 pr-4 font-medium">Pro</td>
+                <td className="py-2 pr-4 font-mono">50,000</td>
+                <td className="py-2 pr-4 font-mono">500/min</td>
+                <td className="py-2 font-mono">Unlimited</td>
+              </tr>
+              <tr className="border-b border-[var(--border)]">
+                <td className="py-2 pr-4 font-medium">Enterprise</td>
+                <td className="py-2 pr-4 font-mono">Custom</td>
+                <td className="py-2 pr-4 font-mono">Custom</td>
+                <td className="py-2 font-mono">Unlimited</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div className="bg-[var(--status-valid-bg)] border border-[var(--status-valid)]/20 rounded-[var(--radius-md)] p-4">
+          <p className="text-sm text-[var(--status-valid)] font-semibold mb-1">
+            Rate limit headers
+          </p>
+          <p className="text-sm text-[var(--text-secondary)]">
+            Every response includes{" "}
+            <code className="font-mono text-xs px-1 py-0.5 rounded bg-[var(--bg-surface)]">
+              X-RateLimit-Limit
+            </code>
+            ,{" "}
+            <code className="font-mono text-xs px-1 py-0.5 rounded bg-[var(--bg-surface)]">
+              X-RateLimit-Remaining
+            </code>
+            , and{" "}
+            <code className="font-mono text-xs px-1 py-0.5 rounded bg-[var(--bg-surface)]">
+              X-RateLimit-Reset
+            </code>{" "}
+            headers so you can track usage programmatically.
+          </p>
+        </div>
       </div>
     </div>
   );

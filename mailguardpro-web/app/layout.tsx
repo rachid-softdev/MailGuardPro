@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { headers } from "next/headers";
+import { ErrorToastProvider } from "@/components/ui/ErrorToastProvider";
 
 export const metadata: Metadata = {
   title: "MailGuard Pro - Email Intelligence Platform",
@@ -31,7 +32,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           }}
         />
       </head>
-      <body>{children}</body>
+      <body>
+        <ErrorToastProvider>{children}</ErrorToastProvider>
+      </body>
     </html>
   );
 }

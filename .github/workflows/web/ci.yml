@@ -88,10 +88,10 @@ jobs:
           cache: 'pnpm'
       - run: pnpm install --frozen-lockfile
       - run: pnpm exec prisma generate
-      - run: pnpm exec prisma db push --skip-generate
+      - run: pnpm --filter mailguardpro-web exec prisma db push --skip-generate
         env:
           DATABASE_URL: postgresql://test:test@localhost:5432/mailguard_test
-      - run: pnpm run test -- --run
+      - run: pnpm --filter mailguardpro-web run test:run
         env:
           DATABASE_URL: postgresql://test:test@localhost:5432/mailguard_test
           REDIS_URL: redis://localhost:6379

@@ -1,6 +1,7 @@
 "use client";
 
-import { useId, useRef, useState } from "react";
+import type { KeyboardEvent } from "react";
+import { Children, cloneElement, isValidElement, useId, useRef, useState } from "react";
 
 interface TooltipProps {
   content: string;
@@ -25,6 +26,34 @@ export function Tooltip({ content, children, side = "top", shortcut }: TooltipPr
     timeoutRef.current = setTimeout(() => setVisible(false), 100);
   };
 
+  const handleKeyDown = (e: KeyboardEvent) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      setVisible((v) => !v);
+    }
+  };
+
+  // Clone child to inject keyboard accessibility props
+  const trigger = Children.only(children);
+  const enhancedChild = isValidElement(trigger)
+    ? (() => {
+        const el = trigger as React.ReactElement<Record<string, unknown>>;
+        const p = el.props;
+        return cloneElement(el, {
+          tabIndex: p.href || el.type === "button" ? undefined : 0,
+          onKeyDown: (e: KeyboardEvent) => {
+            const original = p.onKeyDown;
+            if (typeof original === "function") {
+              (original as (e: KeyboardEvent) => void)(e);
+            }
+            if (!e.defaultPrevented) {
+              handleKeyDown(e);
+            }
+          },
+        });
+      })()
+    : trigger;
+
   const sideClasses = {
     top: "bottom-full left-1/2 -translate-x-1/2 mb-2",
     bottom: "top-full left-1/2 -translate-x-1/2 mt-2",
@@ -40,7 +69,7 @@ export function Tooltip({ content, children, side = "top", shortcut }: TooltipPr
       onFocus={show}
       onBlur={hide}
     >
-      <span aria-describedby={id}>{children}</span>
+      <span aria-describedby={visible ? id : undefined}>{enhancedChild}</span>
       {visible && (
         <span
           id={id}
