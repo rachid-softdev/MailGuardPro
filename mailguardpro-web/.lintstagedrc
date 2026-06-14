@@ -1,4 +1,4 @@
 {
   "*.{ts,tsx}": ["biome check --write"],
-  "*.{json,css,md}": ["biome format --write"]
+  "*.{json,css,md}": ["biome check --write --no-errors-on-unmatched --files-ignore-unknown=true"]
 }
