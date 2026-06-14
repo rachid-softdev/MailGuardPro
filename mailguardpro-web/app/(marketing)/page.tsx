@@ -6,59 +6,27 @@ import { ScoreCircle } from "@/components/validator/ScoreCircle";
 
 export default function LandingPage() {
   return (
-    <div className="min-h-screen bg-[var(--bg-base)]">
-      {/* Header */}
-      <header className="border-b border-[var(--border)]">
-        <div className="max-w-[var(--container-xl)] mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-[var(--accent)] rounded-lg" />
-            <span className="font-display text-xl font-bold">MailGuard Pro</span>
-          </div>
-          <nav className="hidden md:flex items-center gap-8">
-            <Link
-              href="/docs"
-              className="text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-            >
-              Documentation
-            </Link>
-            <Link
-              href="/pricing"
-              className="text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-            >
-              Pricing
-            </Link>
-          </nav>
-          <div className="flex items-center gap-3">
-            <Link href="/login" className="btn btn-ghost btn-sm">
-              Log in
-            </Link>
-            <Link href="/login" className="btn btn-accent btn-sm">
-              Start free
-            </Link>
-          </div>
-        </div>
-      </header>
-
+    <>
       {/* Hero */}
       <section className="py-20 md:py-32">
         <div className="max-w-[var(--container-lg)] mx-auto px-6">
           <div className="text-center max-w-2xl mx-auto">
             <h1
               className="animate-fade-up text-4xl md:text-5xl lg:text-6xl font-display font-extrabold tracking-tight mb-6"
-              style={{ letterSpacing: "-0.03em", animationDelay: "0ms", opacity: 0 }}
+              style={{ letterSpacing: "-0.03em", animationDelay: "0ms" }}
             >
               Your email list is <span className="text-[var(--accent)]">lying to you</span>
             </h1>
             <p
               className="animate-fade-up text-lg text-[var(--text-secondary)] mb-8 leading-relaxed"
-              style={{ animationDelay: "100ms", opacity: 0 }}
+              style={{ animationDelay: "100ms" }}
             >
               Get more than just &quot;valid/invalid&quot;. Our quality score (0-100) tells you
               exactly how deliverable each email is, with actionable recommendations.
             </p>
             <div
               className="animate-fade-up flex flex-col sm:flex-row items-center justify-center gap-4"
-              style={{ animationDelay: "200ms", opacity: 0 }}
+              style={{ animationDelay: "200ms" }}
             >
               <Link href="/validate" className="btn btn-accent btn-lg">
                 Try it now
@@ -90,86 +58,209 @@ export default function LandingPage() {
           <h2 className="text-3xl font-display font-bold text-center mb-12">Why MailGuard Pro?</h2>
           <div className="grid md:grid-cols-3 gap-8">
             {/* Feature 1 — Quality Score */}
-            <div className="card animate-fade-up" style={{ animationDelay: "0ms", opacity: 0 }}>
-              <div className="flex items-start justify-between mb-4">
-                <div className="w-12 h-12 bg-[var(--accent-light)] rounded-lg flex items-center justify-center">
+            <div
+              className="card animate-fade-up relative overflow-hidden"
+              style={{ animationDelay: "0ms" }}
+            >
+              <div className="absolute inset-0 bg-gradient-to-br from-[var(--accent)]/[0.03] to-transparent pointer-events-none" />
+              <div className="relative z-10">
+                <div className="flex items-center gap-4 mb-4">
+                  <div className="w-14 h-14 bg-[var(--accent)]/10 rounded-xl flex items-center justify-center">
+                    <svg
+                      className="w-7 h-7 text-[var(--accent)]"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={1.5}
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z"
+                      />
+                    </svg>
+                  </div>
+                  <ScoreCircle score={87} size="md" />
+                </div>
+                <h3 className="text-lg font-display font-semibold mb-2">Quality Score 0-100</h3>
+                <p className="text-sm text-[var(--text-secondary)] leading-relaxed">
+                  Beyond valid/invalid — know exactly how deliverable each email is with our
+                  proprietary scoring algorithm.
+                </p>
+                <div className="mt-4 flex items-center gap-2 text-xs text-[var(--text-accent)]">
+                  <svg
+                    className="w-3.5 h-3.5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                  </svg>
+                  <span>Includes typo detection &amp; disposable email identification</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Feature 2 — Bulk Processing */}
+            <div className="card animate-fade-up flex flex-col" style={{ animationDelay: "100ms" }}>
+              <div className="flex-1">
+                <div className="w-12 h-12 bg-[var(--accent-light)] rounded-lg mb-4 flex items-center justify-center">
                   <svg
                     className="w-6 h-6 text-[var(--accent)]"
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"
+                    strokeWidth={1.5}
                   >
                     <path
                       strokeLinecap="round"
                       strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                      d="M3 4v16h18V4H3zm16 4l-6 4.5L7 8"
                     />
                   </svg>
                 </div>
-                <ScoreCircle score={87} size="sm" />
+                <h3 className="text-lg font-display font-semibold mb-2">Bulk Processing</h3>
+                <p className="text-sm text-[var(--text-secondary)] mb-4 leading-relaxed">
+                  Upload CSV files up to 100k rows. Process in background with real-time progress
+                  and notifications when complete.
+                </p>
               </div>
-              <h3 className="text-lg font-display font-semibold mb-2">Quality Score 0-100</h3>
-              <p className="text-sm text-[var(--text-secondary)]">
-                Beyond valid/invalid — know exactly how deliverable each email is with our
-                proprietary scoring algorithm.
-              </p>
-            </div>
-
-            {/* Feature 2 — Bulk Processing */}
-            <div className="card animate-fade-up" style={{ animationDelay: "100ms", opacity: 0 }}>
-              <div className="w-12 h-12 bg-[var(--accent-light)] rounded-lg mb-4 flex items-center justify-center">
-                <svg
-                  className="w-6 h-6 text-[var(--accent)]"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
+              <div className="pt-4 border-t border-[var(--border)]">
+                <div className="flex items-center justify-between text-xs text-[var(--text-muted)] mb-2">
+                  <span>Processing</span>
+                  <span className="font-mono font-medium text-[var(--accent)]">75%</span>
+                </div>
+                <div className="w-full h-2.5 bg-[var(--bg-subtle)] rounded-full overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-[var(--accent)] to-[var(--accent-light)] transition-all"
+                    style={{ width: "75%" }}
                   />
-                </svg>
-              </div>
-              <h3 className="text-lg font-display font-semibold mb-2">Bulk Processing</h3>
-              <p className="text-sm text-[var(--text-secondary)] mb-4">
-                Upload CSV files up to 100k rows. Process in background with real-time progress and
-                notifications.
-              </p>
-              <div className="w-full h-2 bg-[var(--bg-subtle)] rounded-full overflow-hidden">
-                <div className="h-full rounded-full bg-[var(--accent)]" style={{ width: "75%" }} />
+                </div>
+                <div className="flex items-center gap-4 mt-3 text-xs text-[var(--text-muted)]">
+                  <span className="flex items-center gap-1">
+                    <svg
+                      className="w-3.5 h-3.5"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
+                    </svg>
+                    12,847 valid
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <svg
+                      className="w-3.5 h-3.5"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                    342 invalid
+                  </span>
+                </div>
               </div>
             </div>
 
             {/* Feature 3 — Export */}
-            <div className="card animate-fade-up" style={{ animationDelay: "200ms", opacity: 0 }}>
+            <div className="card animate-fade-up" style={{ animationDelay: "200ms" }}>
               <div className="w-12 h-12 bg-[var(--accent-light)] rounded-lg mb-4 flex items-center justify-center">
                 <svg
                   className="w-6 h-6 text-[var(--accent)]"
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
+                  strokeWidth={1.5}
                 >
                   <path
                     strokeLinecap="round"
                     strokeLinejoin="round"
-                    strokeWidth={2}
                     d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
                   />
                 </svg>
               </div>
               <h3 className="text-lg font-display font-semibold mb-2">Export in Any Format</h3>
-              <p className="text-sm text-[var(--text-secondary)] mb-4">
+              <p className="text-sm text-[var(--text-secondary)] mb-4 leading-relaxed">
                 CSV, JSON, XLSX with formatting, or PDF reports. Choose the format that fits your
                 workflow.
               </p>
-              <div className="flex gap-1.5 flex-wrap">
-                <span className="badge badge-accent">CSV</span>
-                <span className="badge badge-accent">JSON</span>
-                <span className="badge badge-accent">XLSX</span>
-                <span className="badge badge-accent">PDF</span>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[var(--bg-subtle)] text-xs font-mono text-[var(--text-primary)]">
+                  <svg
+                    className="w-4 h-4 text-[var(--accent)] shrink-0"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                    />
+                  </svg>
+                  .csv
+                </div>
+                <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[var(--bg-subtle)] text-xs font-mono text-[var(--text-primary)]">
+                  <svg
+                    className="w-4 h-4 text-[var(--accent)] shrink-0"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"
+                    />
+                  </svg>
+                  .json
+                </div>
+                <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[var(--bg-subtle)] text-xs font-mono text-[var(--text-primary)]">
+                  <svg
+                    className="w-4 h-4 text-[var(--accent)] shrink-0"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                    />
+                  </svg>
+                  .xlsx
+                </div>
+                <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[var(--bg-subtle)] text-xs font-mono text-[var(--text-primary)]">
+                  <svg
+                    className="w-4 h-4 text-[var(--accent)] shrink-0"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"
+                    />
+                  </svg>
+                  .pdf
+                </div>
               </div>
             </div>
           </div>
@@ -246,23 +337,17 @@ export default function LandingPage() {
               <span className="font-display font-semibold">MailGuard Pro</span>
             </div>
             <div className="flex items-center gap-6 text-sm text-[var(--text-muted)]">
-              <Link href="/docs" className="hover:text-[var(--text-primary)]">
-                Docs
+              <Link href="/docs/api-reference" className="hover:text-[var(--text-primary)]">
+                API Reference
               </Link>
               <Link href="/pricing" className="hover:text-[var(--text-primary)]">
                 Pricing
-              </Link>
-              <Link href="/api/v1/tools/mx" className="hover:text-[var(--text-primary)]">
-                MX Lookup
-              </Link>
-              <Link href="/api/v1/tools/spf" className="hover:text-[var(--text-primary)]">
-                SPF Lookup
               </Link>
             </div>
             <p className="text-sm text-[var(--text-muted)]">&copy; 2026 MailGuard Pro</p>
           </div>
         </div>
       </footer>
-    </div>
+    </>
   );
 }

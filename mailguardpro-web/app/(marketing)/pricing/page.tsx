@@ -195,20 +195,7 @@ export default function PricingPage() {
   const [openFAQ, setOpenFAQ] = useState<number | null>(null);
 
   return (
-    <div className="min-h-screen bg-[var(--bg-base)]">
-      {/* Header */}
-      <header className="border-b border-[var(--border)]">
-        <div className="max-w-[var(--container-xl)] mx-auto px-6 py-4 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-[var(--accent)] rounded-lg" />
-            <span className="font-display text-xl font-bold">MailGuard Pro</span>
-          </Link>
-          <Link href="/login" className="btn btn-ghost btn-sm">
-            Log in
-          </Link>
-        </div>
-      </header>
-
+    <>
       {/* Pricing */}
       <section className="py-20">
         <div className="max-w-[var(--container-xl)] mx-auto px-6">
@@ -224,7 +211,7 @@ export default function PricingPage() {
           </div>
 
           {/* Plan cards */}
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl mx-auto">
             {plans.map((plan, index) => (
               <div
                 key={plan.name}
@@ -309,6 +296,6 @@ export default function PricingPage() {
           <p>Pay as you go: €0.002 per validation • All plans include CSV/JSON export</p>
         </div>
       </footer>
-    </div>
+    </>
   );
 }

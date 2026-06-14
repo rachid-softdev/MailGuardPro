@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { Tooltip } from "@/components/ui/Tooltip";
 import { signOutAction } from "./actions";
 
 interface SidebarProps {
@@ -74,12 +75,27 @@ export function Sidebar({ credits, onClose }: SidebarProps) {
       <div className="absolute bottom-0 w-full p-4 border-t border-[var(--border)]">
         <div className="flex items-center justify-between text-sm">
           <div>
-            <p className="text-[var(--text-muted)]">Credits</p>
+            <Tooltip
+              content="Each validation consumes 1 credit. Credits reset monthly based on your plan."
+              side="top"
+            >
+              <p className="text-[var(--text-muted)] cursor-help">Credits</p>
+            </Tooltip>
             <p className="font-mono font-semibold">{credits}</p>
           </div>
-          <form action={signOutAction}>
-            <button className="btn btn-ghost btn-sm">Sign out</button>
-          </form>
+          <div className="flex items-center gap-3">
+            <Tooltip content="Show keyboard shortcuts" side="top" shortcut="?">
+              <span className="text-xs text-[var(--text-muted)] tracking-wide cursor-help">
+                <kbd className="font-mono text-[10px] bg-[var(--bg-subtle)] px-1 py-0.5 rounded border border-[var(--border)]">
+                  ?
+                </kbd>{" "}
+                shortcuts
+              </span>
+            </Tooltip>
+            <form action={signOutAction}>
+              <button className="btn btn-ghost btn-sm">Sign out</button>
+            </form>
+          </div>
         </div>
       </div>
     </>

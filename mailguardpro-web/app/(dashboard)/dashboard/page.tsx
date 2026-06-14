@@ -1,6 +1,7 @@
 import { formatDistanceToNow } from "date-fns";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { QuickValidate } from "@/components/dashboard/QuickValidate";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { auth } from "@/lib/auth";
 import { getDashboardData } from "./actions";
@@ -30,51 +31,113 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      {/* Quick validate */}
-      <div className="card mb-8">
-        <h2 className="text-lg font-display font-semibold mb-4">Quick Validate</h2>
-        <div className="flex gap-4">
-          <Link href="/validate" className="btn btn-accent">
-            Validate an Email
-          </Link>
-          <Link href="/bulk" className="btn btn-primary">
-            Bulk Upload
-          </Link>
+      {/* Quick validate — inline */}
+      <div className="mb-8">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-display font-semibold">Quick Validate</h2>
+          <div className="flex items-center gap-2">
+            <Link href="/validate" className="btn btn-accent btn-sm">
+              Full Validator
+            </Link>
+            <Link href="/bulk" className="btn btn-primary btn-sm">
+              Bulk Upload
+            </Link>
+          </div>
         </div>
+        <QuickValidate />
       </div>
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <div className="card">
-          <p className="text-xs text-[var(--text-muted)] uppercase tracking-widest mb-2">
-            This Month
-          </p>
+        <div
+          className="card border-l-4 border-l-[var(--accent)]"
+          title="Total validations performed this month. Resets on the 1st of each month."
+        >
+          <div className="flex items-start justify-between mb-1">
+            <p className="text-xs text-[var(--text-muted)] uppercase tracking-widest">This Month</p>
+            <svg
+              className="w-4 h-4 text-[var(--status-valid)]"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"
+              />
+            </svg>
+          </div>
           <p className="text-3xl font-display font-bold">{stats.thisMonth}</p>
-          <p className="text-xs text-[var(--text-muted)]">validations</p>
+          <p className="text-xs text-[var(--text-muted)]">validations this month</p>
         </div>
 
-        <div className="card">
-          <p className="text-xs text-[var(--text-muted)] uppercase tracking-widest mb-2">
-            Avg Score
-          </p>
+        <div
+          className="card"
+          title="Average quality score across all validations. 80+ is highly deliverable."
+        >
+          <div className="flex items-center justify-between mb-1">
+            <p className="text-xs text-[var(--text-muted)] uppercase tracking-widest">Avg Score</p>
+            <span
+              className={`text-xs font-mono font-bold px-1.5 py-0.5 rounded ${
+                stats.avgScore >= 80
+                  ? "text-[var(--status-valid)] bg-[var(--status-valid)]/10"
+                  : stats.avgScore >= 60
+                    ? "text-yellow-500 bg-yellow-500/10"
+                    : "text-[var(--status-invalid)] bg-[var(--status-invalid)]/10"
+              }`}
+            >
+              {stats.avgScore >= 80 ? "Good" : stats.avgScore >= 60 ? "Fair" : "Poor"}
+            </span>
+          </div>
           <p className="text-3xl font-display font-bold">{stats.avgScore}</p>
-          <p className="text-xs text-[var(--text-muted)]">/ 100</p>
+          <div className="mt-2 w-full h-1.5 bg-[var(--bg-subtle)] rounded-full overflow-hidden">
+            <div
+              className={`h-full rounded-full ${
+                stats.avgScore >= 80
+                  ? "bg-[var(--status-valid)]"
+                  : stats.avgScore >= 60
+                    ? "bg-yellow-500"
+                    : "bg-[var(--status-invalid)]"
+              }`}
+              style={{ width: `${stats.avgScore}%` }}
+            />
+          </div>
         </div>
 
         <div className="card">
-          <p className="text-xs text-[var(--text-muted)] uppercase tracking-widest mb-2">
+          <p className="text-xs text-[var(--text-muted)] uppercase tracking-widest mb-1">
             Valid Rate
           </p>
-          <p className="text-3xl font-display font-bold text-[var(--status-valid)]">
-            {stats.validRate}%
-          </p>
-          <p className="text-xs text-[var(--text-muted)]">emails valid</p>
+          <div className="flex items-baseline gap-2">
+            <p className="text-3xl font-display font-bold text-[var(--status-valid)]">
+              {stats.validRate}%
+            </p>
+            <span className="text-xs text-[var(--status-valid)]/70">deliverable</span>
+          </div>
+          <div className="mt-2 flex gap-0.5">
+            {[...Array(10)].map((_, i) => (
+              <div
+                key={i}
+                className={`flex-1 h-1.5 rounded-full ${
+                  i < Math.round(stats.validRate / 10)
+                    ? "bg-[var(--status-valid)]"
+                    : "bg-[var(--bg-subtle)]"
+                }`}
+              />
+            ))}
+          </div>
         </div>
 
-        <div className="card">
-          <p className="text-xs text-[var(--text-muted)] uppercase tracking-widest mb-2">Total</p>
-          <p className="text-3xl font-display font-bold">{stats.totalValidated}</p>
-          <p className="text-xs text-[var(--text-muted)]">validated</p>
+        <div className="card bg-[var(--bg-elevated)] border border-[var(--border-strong)]">
+          <p className="text-xs text-[var(--text-muted)] uppercase tracking-widest mb-1">
+            Lifetime Total
+          </p>
+          <p className="text-3xl font-display font-bold text-[var(--text-primary)]">
+            {stats.totalValidated}
+          </p>
+          <p className="text-xs text-[var(--text-muted)]">emails validated</p>
         </div>
       </div>
 

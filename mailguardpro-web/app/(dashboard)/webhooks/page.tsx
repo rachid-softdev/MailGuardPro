@@ -1,8 +1,11 @@
 "use client";
 
-import { Bell } from "lucide-react";
+import { Bell, Info } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Modal } from "@/components/ui/Modal";
+import { Tooltip } from "@/components/ui/Tooltip";
+import { useUndoDelete } from "@/hooks/useUndoDelete";
+import { useUndoHistory } from "@/hooks/useUndoHistory";
 import { logger } from "@/lib/logger";
 
 interface Webhook {
@@ -13,6 +16,14 @@ interface Webhook {
   isActive: boolean;
   createdAt: string;
 }
+
+const EVENT_DESCRIPTIONS: Record<string, string> = {
+  bulk_job_completed: "Fires when a bulk validation job finishes processing all emails.",
+  credits_low: "Fires when your available credits drop below 20% of your plan limit.",
+  subscription_renewed: "Fires after a successful subscription payment renewal.",
+  subscription_cancelled: "Fires when a subscription is cancelled (at period end or immediately).",
+  daily_report: "Fires daily with a summary of validation activity for the previous day.",
+};
 
 const AVAILABLE_EVENTS = [
   { value: "bulk_job_completed", label: "Bulk Job Completed" },
@@ -40,10 +51,6 @@ export default function WebhooksPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Webhook | null>(null);
 
-  useEffect(() => {
-    fetchWebhooks();
-  }, []);
-
   const fetchWebhooks = async () => {
     setLoading(true);
     try {
@@ -52,13 +59,28 @@ export default function WebhooksPage() {
         const data = await res.json();
         setWebhooks(data.data || []);
         setErrorMessage(null);
+      } else {
+        setErrorMessage("Failed to load webhooks");
       }
     } catch (error) {
       logger.error({ err: error }, "Failed to fetch webhooks");
+      setErrorMessage("Could not connect to server. Please try again.");
     } finally {
       setLoading(false);
     }
   };
+
+  const { deleteResource } = useUndoDelete({
+    deleteEndpoint: (id: string) => `/api/v1/webhooks/${id}`,
+    restoreEndpoint: (id: string) => `/api/v1/webhooks/${id}/restore`,
+    onRestored: fetchWebhooks,
+    onExpired: fetchWebhooks,
+    getMessage: (name) => `Deleted "${name}"`,
+  });
+
+  useEffect(() => {
+    fetchWebhooks();
+  }, []);
 
   const createWebhook = async () => {
     if (!formUrl.trim() || !formName.trim() || formEvents.length === 0) {
@@ -114,26 +136,16 @@ export default function WebhooksPage() {
     setDeleteTarget(webhook);
   };
 
-  const executeDelete = async (id: string) => {
-    try {
-      const res = await fetch(`/api/v1/webhooks/${id}`, {
-        method: "DELETE",
-      });
-
-      if (res.ok) {
-        setDeleteTarget(null);
-        setErrorMessage(null);
-        fetchWebhooks();
-      } else {
-        setErrorMessage("Failed to delete webhook");
-      }
-    } catch (error) {
-      logger.error({ err: error }, "Failed to delete webhook");
-      setErrorMessage("Failed to delete webhook");
-    }
+  const handleDeleteConfirm = () => {
+    if (!deleteTarget) return;
+    void deleteResource(deleteTarget.id, { name: deleteTarget.name ?? deleteTarget.url });
+    setDeleteTarget(null);
   };
 
+  const { pushUndo } = useUndoHistory();
+
   const toggleWebhook = async (id: string, isActive: boolean) => {
+    const previousState = isActive;
     try {
       const res = await fetch(`/api/v1/webhooks/${id}`, {
         method: "PATCH",
@@ -144,9 +156,31 @@ export default function WebhooksPage() {
       if (res.ok) {
         setErrorMessage(null);
         fetchWebhooks();
+        pushUndo({
+          label: previousState ? "Disable webhook" : "Enable webhook",
+          undo: () => {
+            fetch(`/api/v1/webhooks/${id}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ isActive: previousState }),
+            }).then((r) => {
+              if (r.ok) fetchWebhooks();
+            });
+          },
+          redo: () => {
+            fetch(`/api/v1/webhooks/${id}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ isActive: !previousState }),
+            }).then((r) => {
+              if (r.ok) fetchWebhooks();
+            });
+          },
+        });
       }
     } catch (error) {
       logger.error({ err: error }, "Failed to toggle webhook");
+      setErrorMessage("Failed to update webhook. Please try again.");
     }
   };
 
@@ -204,9 +238,16 @@ export default function WebhooksPage() {
       {/* Info */}
       <div className="card mb-8">
         <h3 className="font-medium mb-2">Available Events</h3>
+        <p className="text-xs text-[var(--text-muted)] mb-3">
+          Each webhook can subscribe to one or more event types. Hover for details.
+        </p>
         <div className="flex flex-wrap gap-2">
           {AVAILABLE_EVENTS.map((event) => (
-            <span key={event.value} className="badge badge-default">
+            <span
+              key={event.value}
+              className="badge badge-default"
+              title={EVENT_DESCRIPTIONS[event.value]}
+            >
               {event.label}
             </span>
           ))}
@@ -215,8 +256,8 @@ export default function WebhooksPage() {
 
       {/* Error Message */}
       {errorMessage && (
-        <div className="card mb-4 border border-red-300 bg-red-50">
-          <p className="text-sm text-red-700">{errorMessage}</p>
+        <div className="mb-4 px-4 py-3 rounded-lg bg-[var(--status-invalid)]/10 border border-[var(--status-invalid)]/30 text-sm text-[var(--status-invalid)]">
+          {errorMessage}
         </div>
       )}
 
@@ -345,7 +386,15 @@ export default function WebhooksPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-2">Events</label>
+            <div className="flex items-center gap-1.5 mb-2">
+              <label className="block text-sm font-medium">Events</label>
+              <Tooltip
+                content="Choose which actions trigger this webhook. Select all that apply."
+                side="right"
+              >
+                <Info className="w-3.5 h-3.5 text-[var(--text-muted)] cursor-help" />
+              </Tooltip>
+            </div>
             <div className="space-y-2">
               {AVAILABLE_EVENTS.map((event) => (
                 <label key={event.value} className="flex items-center gap-2">
@@ -361,7 +410,11 @@ export default function WebhooksPage() {
                     }}
                     className="rounded"
                   />
-                  <span className="text-sm">{event.label}</span>
+                  <Tooltip content={EVENT_DESCRIPTIONS[event.value]} side="right">
+                    <span className="text-sm cursor-help underline decoration-dotted decoration-[var(--text-muted)]/40">
+                      {event.label}
+                    </span>
+                  </Tooltip>
                 </label>
               ))}
             </div>
@@ -413,9 +466,13 @@ export default function WebhooksPage() {
               </div>
             ) : testResult ? (
               <div
-                className={`p-4 rounded-lg ${testResult.includes("success") ? "bg-green-50 border border-green-200" : "bg-red-50 border border-red-200"}`}
+                className={`p-4 rounded-lg ${testResult.includes("success") ? "bg-[var(--status-valid-bg)] border border-[var(--status-valid)]/30" : "bg-[var(--status-invalid-bg)] border border-[var(--status-invalid)]/30"}`}
               >
-                <p className="text-sm">{testResult}</p>
+                <p
+                  className={`text-sm ${testResult.includes("success") ? "text-[var(--status-valid)]" : "text-[var(--status-invalid)]"}`}
+                >
+                  {testResult}
+                </p>
               </div>
             ) : null}
 
@@ -449,7 +506,7 @@ export default function WebhooksPage() {
           </button>
           <button
             className="btn btn-ghost flex-1 text-[var(--status-invalid)]"
-            onClick={() => deleteTarget && executeDelete(deleteTarget.id)}
+            onClick={handleDeleteConfirm}
           >
             Delete
           </button>

@@ -221,9 +221,35 @@ export default function BulkPage() {
               <button className="btn btn-primary" onClick={() => fileInputRef.current?.click()}>
                 Select CSV File
               </button>
-              <p className="text-xs text-[var(--text-muted)] mt-4">
-                CSV should have an &quot;email&quot; column. Optional: firstName, lastName, company
-              </p>
+              <details className="text-left mt-4 text-xs text-[var(--text-muted)]">
+                <summary className="cursor-pointer hover:text-[var(--text-secondary)] transition-colors">
+                  CSV format guide
+                </summary>
+                <div className="mt-2 space-y-1.5 bg-[var(--bg-elevated)] p-3 rounded-[var(--radius-md)]">
+                  <p>
+                    <strong>Required column:</strong>{" "}
+                    <code className="font-mono bg-[var(--bg-subtle)] px-1 rounded">email</code>
+                  </p>
+                  <p>
+                    <strong>Optional columns:</strong>{" "}
+                    <code className="font-mono bg-[var(--bg-subtle)] px-1 rounded">firstName</code>,{" "}
+                    <code className="font-mono bg-[var(--bg-subtle)] px-1 rounded">lastName</code>,{" "}
+                    <code className="font-mono bg-[var(--bg-subtle)] px-1 rounded">company</code>
+                  </p>
+                  <p>
+                    <strong>Limit:</strong> up to 100,000 rows per file
+                  </p>
+                  <p className="pt-1 border-t border-[var(--border)]">
+                    <strong>Example CSV:</strong>
+                  </p>
+                  <pre className="font-mono text-[11px] leading-relaxed bg-[var(--bg-base)] p-2 rounded">
+                    email,firstName,lastName,company{"\n"}
+                    alice@acme.com,Alice,Smith,Acme Corp{"\n"}
+                    bob@beta.io,Bob,Jones,Beta Inc{"\n"}
+                    carol@gamma.org,Carol,Lee,Gamma LLC{"\n"}
+                  </pre>
+                </div>
+              </details>
             </>
           )}
         </div>

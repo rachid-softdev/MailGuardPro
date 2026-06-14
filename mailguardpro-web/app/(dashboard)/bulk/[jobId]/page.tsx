@@ -1,7 +1,7 @@
 "use client";
 
 import { format } from "date-fns";
-import { ArrowLeft, ExternalLink, Filter, Search } from "lucide-react";
+import { AlertCircle, AlertTriangle, ArrowLeft, Filter, Search } from "lucide-react";
 import Link from "next/link";
 import { use, useEffect, useState } from "react";
 import { PdfGenerator } from "@/components/export/PdfGenerator";
@@ -46,6 +46,7 @@ export default function BulkJobDetailPage({ params }: { params: Promise<{ jobId:
   const [loading, setLoading] = useState(true);
   const [resultsLoading, setResultsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [resultsError, setResultsError] = useState(false);
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [searchQuery, setSearchQuery] = useState("");
@@ -98,7 +99,7 @@ export default function BulkJobDetailPage({ params }: { params: Promise<{ jobId:
         setResults(json.data);
       }
     } catch {
-      // silently fail — results might not be ready
+      setResultsError(true);
     } finally {
       setResultsLoading(false);
     }
@@ -149,7 +150,7 @@ export default function BulkJobDetailPage({ params }: { params: Promise<{ jobId:
         </Link>
         <div className="card text-center py-12">
           <div className="w-16 h-16 bg-[var(--status-invalid)]/10 rounded-full flex items-center justify-center mx-auto mb-4">
-            <ExternalLink className="w-8 h-8 text-[var(--status-invalid)]" />
+            <Search className="w-8 h-8 text-[var(--status-invalid)]" />
           </div>
           <h2 className="text-xl font-display font-bold mb-2">Job Not Found</h2>
           <p className="text-[var(--text-muted)] mb-4">
@@ -306,7 +307,21 @@ export default function BulkJobDetailPage({ params }: { params: Promise<{ jobId:
           </div>
 
           {/* Results table */}
-          {resultsLoading ? (
+          {resultsError ? (
+            <div className="text-center py-8 text-[var(--text-muted)]">
+              <AlertCircle className="w-12 h-12 mx-auto mb-3 text-[var(--status-invalid)]" />
+              <p className="text-[var(--status-invalid)] font-medium">Could not load results</p>
+              <button
+                onClick={() => {
+                  setResultsError(false);
+                  fetchResults();
+                }}
+                className="btn btn-ghost btn-sm mt-2"
+              >
+                Retry
+              </button>
+            </div>
+          ) : resultsLoading ? (
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
@@ -480,7 +495,7 @@ export default function BulkJobDetailPage({ params }: { params: Promise<{ jobId:
       {job.status === "FAILED" && (
         <div className="card text-center py-12">
           <div className="w-16 h-16 bg-[var(--status-invalid)]/10 rounded-full flex items-center justify-center mx-auto mb-4">
-            <ExternalLink className="w-8 h-8 text-[var(--status-invalid)]" />
+            <AlertTriangle className="w-8 h-8 text-[var(--status-invalid)]" />
           </div>
           <h3 className="text-lg font-display font-semibold mb-2">Processing Failed</h3>
           <p className="text-[var(--text-muted)] mb-4">
