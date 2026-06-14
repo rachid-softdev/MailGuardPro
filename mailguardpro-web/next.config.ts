@@ -50,6 +50,7 @@ const nodeBuiltins = [
   "querystring",
   "readline",
   "repl",
+  "assert",
   "stream",
   "stream/consumers",
   "stream/promises",

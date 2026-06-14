@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { Modal } from "@/components/ui/Modal";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Tooltip } from "@/components/ui/Tooltip";
+import { useOnlineStatusSync } from "@/hooks/useOnlineStatusSync";
 import { useUndoDelete } from "@/hooks/useUndoDelete";
 import { logger } from "@/lib/logger";
 
@@ -59,6 +60,8 @@ export default function ApiKeysPage() {
   useEffect(() => {
     fetchKeys();
   }, []);
+
+  useOnlineStatusSync(fetchKeys);
 
   const createKey = async () => {
     if (!newKeyName.trim()) return;

@@ -4,6 +4,7 @@ import { Bell, Info } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Modal } from "@/components/ui/Modal";
 import { Tooltip } from "@/components/ui/Tooltip";
+import { useOnlineStatusSync } from "@/hooks/useOnlineStatusSync";
 import { useUndoDelete } from "@/hooks/useUndoDelete";
 import { useUndoHistory } from "@/hooks/useUndoHistory";
 import { logger } from "@/lib/logger";
@@ -83,6 +84,8 @@ export default function WebhooksPage() {
   useEffect(() => {
     fetchWebhooks();
   }, []);
+
+  useOnlineStatusSync(fetchWebhooks);
 
   const createWebhook = async () => {
     if (!formUrl.trim() || !formName.trim() || formEvents.length === 0) {

@@ -1,10 +1,20 @@
 "use client";
 
-import { formatDistanceToNow } from "date-fns";
-import { Inbox, Loader2, Search } from "lucide-react";
+import { format, formatDistanceToNow } from "date-fns";
+import {
+  CalendarClock,
+  Download,
+  FileSpreadsheet,
+  FileText,
+  Inbox,
+  Loader2,
+  Search,
+  Trash2,
+} from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { StatusBadge } from "@/components/ui/StatusBadge";
+import { useOnlineStatusSync } from "@/hooks/useOnlineStatusSync";
 import { useSelection } from "@/hooks/useSelection";
 import { useUndoHistory } from "@/hooks/useUndoHistory";
 import { logger } from "@/lib/logger";
@@ -36,6 +46,25 @@ export default function HistoryPage() {
 
   const selection = useSelection<string>();
   const [batchValidating, setBatchValidating] = useState(false);
+
+  // Export state
+  const [exportOpen, setExportOpen] = useState(false);
+  const [exportLoading, setExportLoading] = useState(false);
+  const [exportMessage, setExportMessage] = useState<string | null>(null);
+  const exportRef = useRef<HTMLDivElement | null>(null);
+
+  // Scheduled exports state
+  const [scheduledExports, setScheduledExports] = useState<
+    Array<{
+      id: string;
+      format: string;
+      frequency: string;
+      nextRunAt: string;
+      createdAt: string;
+    }>
+  >([]);
+  const [schedulesLoading, setSchedulesLoading] = useState(false);
+  const [deletingSchedule, setDeletingSchedule] = useState<string | null>(null);
 
   // Filters from URL
   const page = parseInt(searchParams.get("page") || "1");
@@ -71,6 +100,8 @@ export default function HistoryPage() {
   useEffect(() => {
     fetchValidations();
   }, [fetchValidations]);
+
+  useOnlineStatusSync(fetchValidations);
 
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [searchInput, setSearchInput] = useState(searchQuery);
@@ -154,6 +185,114 @@ export default function HistoryPage() {
     }
   }, [validations, selection]);
 
+  // Fetch scheduled exports
+  const fetchScheduledExports = useCallback(async () => {
+    setSchedulesLoading(true);
+    try {
+      const res = await fetch("/api/v1/exports");
+      if (res.ok) {
+        const data = await res.json();
+        setScheduledExports(data.data || []);
+      }
+    } catch {
+      logger.error({}, "Failed to fetch scheduled exports");
+    } finally {
+      setSchedulesLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchScheduledExports();
+  }, [fetchScheduledExports]);
+
+  // Close export dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (exportRef.current && !exportRef.current.contains(e.target as Node)) {
+        setExportOpen(false);
+      }
+    };
+    if (exportOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [exportOpen]);
+
+  // Handle export
+  const handleExport = useCallback(
+    async (format: "csv" | "xlsx" | "pdf") => {
+      setExportOpen(false);
+      setExportLoading(true);
+      setExportMessage(null);
+
+      try {
+        const params = new URLSearchParams();
+        params.set("format", format);
+        if (statusFilter) params.set("status", statusFilter);
+        if (searchQuery) params.set("search", searchQuery);
+
+        const body: Record<string, string | undefined> = {};
+        if (statusFilter) body.status = statusFilter;
+        if (searchQuery) body.search = searchQuery;
+
+        const res = await fetch(`/api/v1/exports?${params.toString()}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          const msg = errData.error || `Export failed (${res.status})`;
+          setExportMessage(msg);
+          setTimeout(() => setExportMessage(null), 5000);
+          return;
+        }
+
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `mailguard-export-${format}-${Date.now()}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        // Show "coming soon" message for xlsx/pdf
+        if (format === "xlsx") {
+          setExportMessage("XLSX export coming soon — CSV generated instead");
+        } else if (format === "pdf") {
+          setExportMessage("PDF export coming soon — CSV generated instead");
+        }
+        if (format !== "csv") {
+          setTimeout(() => setExportMessage(null), 5000);
+        }
+      } catch {
+        setExportMessage("Export failed. Please try again.");
+        setTimeout(() => setExportMessage(null), 5000);
+      } finally {
+        setExportLoading(false);
+      }
+    },
+    [statusFilter, searchQuery],
+  );
+
+  // Handle delete scheduled export
+  const handleDeleteSchedule = useCallback(async (id: string) => {
+    setDeletingSchedule(id);
+    try {
+      const res = await fetch(`/api/v1/exports/${id}`, { method: "DELETE" });
+      if (res.ok) {
+        setScheduledExports((prev) => prev.filter((s) => s.id !== id));
+      }
+    } catch {
+      logger.error({}, "Failed to delete scheduled export");
+    } finally {
+      setDeletingSchedule(null);
+    }
+  }, []);
+
   // Clear selection when filters change (new page, new search, new status filter)
   useEffect(() => {
     selection.clear();
@@ -184,7 +323,7 @@ export default function HistoryPage() {
             />
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex gap-2 items-start">
             <select
               value={statusFilter}
               onChange={(e) => handleStatusFilter(e.target.value)}
@@ -196,6 +335,48 @@ export default function HistoryPage() {
               <option value="risky">Risky</option>
               <option value="unknown">Unknown</option>
             </select>
+
+            {/* Export button */}
+            <div className="relative" ref={exportRef}>
+              <button
+                onClick={() => setExportOpen((prev) => !prev)}
+                disabled={exportLoading}
+                className="btn btn-ghost btn-sm gap-1.5"
+              >
+                {exportLoading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Download className="w-4 h-4" />
+                )}
+                Export
+              </button>
+
+              {exportOpen && (
+                <div className="absolute right-0 top-full mt-1 z-50 w-56 rounded-lg border border-[var(--border)] bg-[var(--bg-primary)] shadow-lg py-1">
+                  <button
+                    onClick={() => handleExport("csv")}
+                    className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-[var(--text-primary)] hover:bg-[var(--bg-elevated)] transition-colors"
+                  >
+                    <FileText className="w-4 h-4 text-[var(--text-muted)]" />
+                    <span>Export as CSV</span>
+                  </button>
+                  <button
+                    onClick={() => handleExport("xlsx")}
+                    className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-[var(--text-primary)] hover:bg-[var(--bg-elevated)] transition-colors"
+                  >
+                    <FileSpreadsheet className="w-4 h-4 text-[var(--text-muted)]" />
+                    <span>Export as XLSX</span>
+                  </button>
+                  <button
+                    onClick={() => handleExport("pdf")}
+                    className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-[var(--text-primary)] hover:bg-[var(--bg-elevated)] transition-colors"
+                  >
+                    <FileText className="w-4 h-4 text-[var(--text-muted)]" />
+                    <span>Export as PDF</span>
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -212,6 +393,19 @@ export default function HistoryPage() {
             className="text-xs font-medium underline hover:no-underline"
           >
             Retry
+          </button>
+        </div>
+      )}
+
+      {/* Export notification */}
+      {exportMessage && (
+        <div className="mb-4 px-4 py-3 rounded-lg bg-[var(--accent-light)]/30 border border-[var(--accent)]/20 text-sm text-[var(--accent)] flex items-center justify-between">
+          <span>{exportMessage}</span>
+          <button
+            onClick={() => setExportMessage(null)}
+            className="text-xs font-medium underline hover:no-underline"
+          >
+            Dismiss
           </button>
         </div>
       )}
@@ -409,6 +603,52 @@ export default function HistoryPage() {
           </div>
         )}
       </div>
+
+      {/* Scheduled Exports */}
+      {scheduledExports.length > 0 && (
+        <div className="card mt-6">
+          <div className="flex items-center gap-2 px-4 py-3 border-b border-[var(--border)]">
+            <CalendarClock className="w-4 h-4 text-[var(--text-muted)]" />
+            <h2 className="text-sm font-semibold text-[var(--text-primary)]">Scheduled Exports</h2>
+            {schedulesLoading && (
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-[var(--text-muted)]" />
+            )}
+          </div>
+          <div className="divide-y divide-[var(--border)]">
+            {scheduledExports.map((schedule) => (
+              <div key={schedule.id} className="flex items-center justify-between px-4 py-3">
+                <div className="flex items-center gap-3">
+                  {schedule.format === "xlsx" ? (
+                    <FileSpreadsheet className="w-4 h-4 text-[var(--text-muted)]" />
+                  ) : (
+                    <FileText className="w-4 h-4 text-[var(--text-muted)]" />
+                  )}
+                  <div>
+                    <p className="text-sm font-medium text-[var(--text-primary)]">
+                      {schedule.format.toUpperCase()} — {schedule.frequency}
+                    </p>
+                    <p className="text-xs text-[var(--text-muted)]">
+                      Next run: {format(new Date(schedule.nextRunAt), "MMM d, yyyy HH:mm")}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => handleDeleteSchedule(schedule.id)}
+                  disabled={deletingSchedule === schedule.id}
+                  className="btn btn-ghost btn-sm text-[var(--status-invalid)] hover:bg-[var(--status-invalid)]/10"
+                  aria-label="Delete scheduled export"
+                >
+                  {deletingSchedule === schedule.id ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Trash2 className="w-3.5 h-3.5" />
+                  )}
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -6,6 +6,7 @@ import {
   KeyRound,
   LayoutDashboard,
   Settings,
+  Shield,
   Upload,
   Webhook,
   X,
@@ -28,6 +29,7 @@ const navItems = [
   { href: "/history", label: "History", Icon: Clock },
   { href: "/api-keys", label: "API Keys", Icon: KeyRound },
   { href: "/webhooks", label: "Webhooks", Icon: Webhook },
+  { href: "/admin", label: "Admin", Icon: Shield },
   { href: "/settings", label: "Settings", Icon: Settings },
 ] as const;
 

@@ -3,7 +3,9 @@
 import { Menu, Redo2, Undo2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { CommandPalette } from "@/components/command-palette/CommandPalette";
+import { ErrorToastContainer } from "@/components/ui/ErrorToastContainer";
 import { KeyboardShortcutsPalette } from "@/components/ui/KeyboardShortcutsPalette";
+import { OfflineBanner } from "@/components/ui/OfflineBanner";
 import { UndoHistoryListener } from "@/components/undo/UndoHistoryListener";
 import { UndoProvider } from "@/components/undo/UndoProvider";
 import { UndoToastContainer } from "@/components/undo/UndoToastContainer";
@@ -117,6 +119,7 @@ export function DashboardShell({ credits, children }: DashboardShellProps) {
             </button>
             <span className="ml-2 font-display font-bold">MailGuard</span>
           </div>
+          <OfflineBanner />
           <UndoProvider>
             {children}
             <UndoToastContainer />
@@ -125,6 +128,9 @@ export function DashboardShell({ credits, children }: DashboardShellProps) {
 
         {/* Mobile bottom navigation */}
         <BottomNav />
+
+        {/* Error toasts */}
+        <ErrorToastContainer />
       </div>
     </UndoHistoryProvider>
   );

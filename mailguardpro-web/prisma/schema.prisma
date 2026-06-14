@@ -232,6 +232,22 @@ model IdempotencyKey {
   @@index([expiresAt])
 }
 
+model ScheduledExport {
+  id        String   @id @default(uuid())
+  userId    String
+  scope     String   // "validations" | "bulk-results"
+  format    String   // "csv" | "xlsx" | "pdf"
+  frequency String   // "daily" | "weekly" | "monthly"
+  filters   Json?
+  nextRunAt DateTime
+  lastRunAt DateTime?
+  createdAt DateTime @default(now())
+  isActive  Boolean  @default(true)
+
+  @@index([userId])
+  @@index([isActive, nextRunAt])
+}
+
 model WebhookDelivery {
   id           String   @id @default(uuid()) @db.Uuid
   webhookId    String   @db.Uuid
