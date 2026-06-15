@@ -121,7 +121,7 @@ export default function ApiKeysPage() {
 
   return (
     <div className="p-8">
-      <div className="mb-8 flex items-center justify-between">
+      <div className="mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h1 className="text-3xl font-display font-bold mb-2">API Keys</h1>
           <p className="text-[var(--text-secondary)]">
@@ -129,7 +129,7 @@ export default function ApiKeysPage() {
           </p>
         </div>
         <button
-          className="btn btn-primary"
+          className="btn btn-primary self-start sm:self-auto"
           onClick={() => setShowCreateModal(true)}
           aria-haspopup="dialog"
           aria-expanded={showCreateModal}
@@ -170,7 +170,7 @@ export default function ApiKeysPage() {
         <h2 className="text-lg font-display font-semibold mb-4">Your API Keys</h2>
 
         {errorMessage && (
-          <div className="mb-4 bg-[var(--status-invalid-bg)] border border-[var(--status-invalid)] rounded-lg p-3 flex items-start gap-3">
+          <div className="animate-fade-slide-in mb-4 bg-[var(--status-invalid-bg)] border border-[var(--status-invalid)] rounded-lg p-3 flex items-start gap-3">
             <svg
               className="w-5 h-5 text-[var(--status-invalid)] mt-0.5 shrink-0"
               fill="none"
@@ -312,14 +312,14 @@ export default function ApiKeysPage() {
               </div>
               <p className="text-sm text-[var(--text-muted)] mb-2">Your new API key:</p>
               <div className="flex items-center gap-2 bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg p-3 font-mono text-sm">
-                <code className="flex-1 break-all select-all">{newKey}</code>
+                <span className="flex-1 break-all">{newKey}</span>
                 <button
                   onClick={handleCopyNewKey}
-                  className="text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors shrink-0"
-                  title="Copy API key"
+                  className="shrink-0 text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
+                  aria-label={newKeyCopied ? "Copied" : "Copy API key"}
                 >
                   {newKeyCopied ? (
-                    <Check className="w-4 h-4 text-[var(--status-valid)]" />
+                    <Check className="w-4 h-4 text-[var(--status-valid)] animate-pulse-dot" />
                   ) : (
                     <Copy className="w-4 h-4" />
                   )}

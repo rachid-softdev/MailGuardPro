@@ -319,23 +319,17 @@ export default function BillingPage() {
 
           <div className="grid grid-cols-2 gap-4 mb-6">
             <div>
-              <p className="text-xs text-[var(--text-muted)] uppercase tracking-widest mb-1">
-                Monthly Price
-              </p>
+              <p className="text-xs text-[var(--text-muted)] uppercase  mb-1">Monthly Price</p>
               <p className="text-2xl font-mono font-bold">{currentPlanDef.monthlyPrice}</p>
             </div>
             <div>
-              <p className="text-xs text-[var(--text-muted)] uppercase tracking-widest mb-1">
-                Credits Remaining
-              </p>
+              <p className="text-xs text-[var(--text-muted)] uppercase  mb-1">Credits Remaining</p>
               <p className="text-2xl font-mono font-bold">{user.credits.toLocaleString()}</p>
             </div>
           </div>
 
           <div>
-            <p className="text-xs text-[var(--text-muted)] uppercase tracking-widest mb-3">
-              Plan Features
-            </p>
+            <p className="text-xs text-[var(--text-muted)] uppercase  mb-3">Plan Features</p>
             <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {currentPlanDef.features.map((feature) => (
                 <li key={feature} className="flex items-center gap-2 text-sm">
@@ -436,7 +430,7 @@ export default function BillingPage() {
               >
                 {/* Current plan indicator */}
                 {isCurrentPlan && (
-                  <div className="absolute -top-2.5 left-1/2 -translate-x-1/2 px-3 py-0.5 bg-[var(--accent)] text-white text-[10px] font-display font-semibold rounded-full whitespace-nowrap uppercase tracking-widest">
+                  <div className="absolute -top-2.5 left-1/2 -translate-x-1/2 px-3 py-0.5 bg-[var(--accent)] text-white text-[10px] font-display font-semibold rounded-full whitespace-nowrap uppercase ">
                     Current
                   </div>
                 )}

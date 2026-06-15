@@ -14,6 +14,14 @@ export interface ErrorToastContextValue {
   toasts: Toast[];
   addToast: (toast: Omit<Toast, "id">) => string;
   dismissToast: (id: string) => void;
+  /** History of all dismissed notifications, newest first */
+  history: Toast[];
+  /** Number of unread items in history */
+  unreadCount: number;
+  /** Mark all notifications as read */
+  markAllRead: () => void;
+  /** Clear notification history */
+  clearHistory: () => void;
 }
 
 export const ErrorToastContext = createContext<ErrorToastContextValue | null>(null);

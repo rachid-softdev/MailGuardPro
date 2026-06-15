@@ -90,7 +90,7 @@ export default function LoginPage() {
           {/* Divider */}
           <div className="flex items-center gap-4 mb-6">
             <div className="flex-1 h-px bg-[var(--border)]" />
-            <span className="text-xs text-[var(--text-muted)] uppercase tracking-widest">or</span>
+            <span className="text-xs text-[var(--text-muted)] uppercase ">or</span>
             <div className="flex-1 h-px bg-[var(--border)]" />
           </div>
 

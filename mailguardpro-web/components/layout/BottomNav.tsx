@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle, Clock, CreditCard, LayoutDashboard, Settings, Upload } from "lucide-react";
+import { CheckCircle, Clock, KeyRound, LayoutDashboard, Settings, Upload } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -9,7 +9,7 @@ const navItems = [
   { href: "/validate", label: "Validate", Icon: CheckCircle },
   { href: "/bulk", label: "Bulk", Icon: Upload },
   { href: "/history", label: "History", Icon: Clock },
-  { href: "/billing", label: "Billing", Icon: CreditCard },
+  { href: "/api-keys", label: "API Keys", Icon: KeyRound },
   { href: "/settings", label: "Settings", Icon: Settings },
 ] as const;
 

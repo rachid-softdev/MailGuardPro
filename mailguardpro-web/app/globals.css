@@ -33,7 +33,7 @@
 
   /* ==================== LIGHT MODE (default) ==================== */
   /* Backgrounds */
-  --bg-base: #f7f6f3;
+  --bg-base: #f5f5f4;
   --bg-surface: #ffffff;
   --bg-elevated: #fafaf8;
   --bg-subtle: #f0efe9;
@@ -47,7 +47,7 @@
   /* Textes */
   --text-primary: #111110;
   --text-secondary: #6b6860;
-  --text-muted: #a09d96;
+  --text-muted: #6a6a6a;
   --text-inverted: #f7f6f3;
 
   /* Accents */
@@ -135,7 +135,7 @@
   /* Textes */
   --text-primary: #f0efe9;
   --text-secondary: #8c8a82;
-  --text-muted: #5c5a54;
+  --text-muted: #7d7d7d;
   --text-inverted: #111110;
 
   /* Accents - brighter in dark */
@@ -191,14 +191,30 @@
     font-family: var(--font-display);
   }
 
-  /* Focus visible */
+  /* Focus visible — ring (box-shadow) respects border-radius in all browsers */
   :focus-visible {
-    @apply outline-2 outline-[var(--border-focus)] outline-offset-2 rounded-[var(--radius-sm)];
+    @apply outline-none;
+    box-shadow: 0 0 0 2px var(--border-focus);
   }
 
   :focus:not(:focus-visible) {
     @apply outline-none;
   }
+
+  /* Restore outline-based focus for elements that need it via the .focus-ring class */
+  .focus-ring:focus-visible {
+    box-shadow:
+      0 0 0 2px var(--border-focus),
+      0 0 0 4px var(--bg-overlay);
+  }
+}
+
+/* ==================== EASING CURVES ==================== */
+:root {
+  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+  --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* ==================== ANIMATIONS ==================== */
@@ -207,6 +223,28 @@
     from {
       opacity: 0;
       transform: translateY(16px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes fadeSlideIn {
+    from {
+      opacity: 0;
+      transform: translateY(-4px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes fadeSlideUp {
+    from {
+      opacity: 0;
+      transform: translateY(12px);
     }
     to {
       opacity: 1;
@@ -244,28 +282,50 @@
     }
   }
 
-  @keyframes fadeIn {
-    from {
-      opacity: 0;
+  @keyframes float-subtle {
+    0%,
+    100% {
+      transform: translateY(0);
     }
-    to {
-      opacity: 1;
-    }
-  }
-
-  @keyframes fadeInScale {
-    from {
-      opacity: 0;
-      transform: scale(0.95);
-    }
-    to {
-      opacity: 1;
-      transform: scale(1);
+    50% {
+      transform: translateY(-4px);
     }
   }
 
+  @keyframes flash-highlight {
+    0% {
+      background-color: var(--accent-light);
+    }
+    100% {
+      background-color: transparent;
+    }
+  }
+
+  /* Entrance: fade up with stagger support via --i */
   .animate-fade-up {
-    animation: fadeUp 0.5s ease both;
+    animation: fadeUp 0.5s var(--ease-out-quint) both;
+    animation-delay: calc(var(--i, 0) * 80ms);
+  }
+
+  /* Banner/dropdown entry: subtle fade + slide from above */
+  .animate-fade-slide-in {
+    animation: fadeSlideIn 0.2s var(--ease-out-quart) both;
+  }
+
+  /* Content entrance: fade + slide up (cards, sections) */
+  .animate-fade-slide-up {
+    animation: fadeSlideUp 0.35s var(--ease-out-quint) both;
+    animation-delay: calc(var(--i, 0) * 60ms);
+  }
+
+  /* Modal entrance overlay */
+  .animate-overlay-in {
+    animation: fadeIn 0.2s ease both;
+  }
+
+  /* Modal entrance panel */
+  .animate-panel-in {
+    animation: fadeInScale 0.25s var(--ease-out-quint) both;
   }
 
   .animate-skeleton {
@@ -291,6 +351,14 @@
 
   .animate-pulse-dot {
     animation: pulse-dot 2s ease-in-out infinite;
+  }
+
+  .animate-float-subtle {
+    animation: float-subtle 3s ease-in-out infinite;
+  }
+
+  .animate-flash-highlight {
+    animation: flash-highlight 1s var(--ease-out-quart) both;
   }
 }
 
@@ -324,7 +392,8 @@
   /* Button */
   .btn {
     @apply inline-flex items-center justify-center gap-2;
-    @apply font-display text-sm font-semibold tracking-wide;
+    @apply text-sm font-semibold;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     @apply rounded-[var(--radius-md)] border border-transparent;
     @apply cursor-pointer transition-all duration-150;
     @apply disabled:opacity-40 disabled:cursor-not-allowed;
@@ -378,7 +447,7 @@
   /* Badge */
   .badge {
     @apply inline-flex items-center gap-1 px-2 py-0.5;
-    @apply rounded-full text-xs font-mono uppercase tracking-widest;
+    @apply rounded-full text-xs font-mono uppercase;
   }
 
   .badge-success {

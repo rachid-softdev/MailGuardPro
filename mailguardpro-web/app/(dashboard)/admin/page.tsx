@@ -58,7 +58,7 @@ function PlanBadge({ plan }: { plan: string }) {
   const colorClass = planColors[plan] || "bg-zinc-500/20 text-zinc-400";
   return (
     <span
-      className={`inline-block px-2 py-0.5 rounded-full text-xs font-mono font-semibold uppercase tracking-wider ${colorClass}`}
+      className={`inline-block px-2 py-0.5 rounded-full text-xs font-mono font-semibold uppercase  ${colorClass}`}
     >
       {plan}
     </span>
@@ -67,12 +67,12 @@ function PlanBadge({ plan }: { plan: string }) {
 
 function ActiveBadge({ isActive }: { isActive: boolean }) {
   return isActive ? (
-    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-mono uppercase tracking-widest text-[var(--status-valid)] bg-[var(--status-valid-bg)]">
+    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-mono uppercase  text-[var(--status-valid)] bg-[var(--status-valid-bg)]">
       <span className="w-1.5 h-1.5 rounded-full bg-[var(--status-valid)]" />
       Active
     </span>
   ) : (
-    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-mono uppercase tracking-widest text-[var(--text-muted)] bg-[var(--bg-subtle)]">
+    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-mono uppercase  text-[var(--text-muted)] bg-[var(--bg-subtle)]">
       <span className="w-1.5 h-1.5 rounded-full bg-[var(--text-muted)]" />
       Inactive
     </span>
@@ -94,7 +94,7 @@ function StatCard({ icon, label, value, accentColor = "var(--accent)" }: StatCar
   return (
     <div className="card border-t-2" style={{ borderTopColor: accentColor }}>
       <div className="flex items-start justify-between mb-1">
-        <p className="text-xs text-[var(--text-muted)] uppercase tracking-widest">{label}</p>
+        <p className="text-xs text-[var(--text-muted)] uppercase ">{label}</p>
         <span className="text-[var(--text-muted)]" aria-hidden="true">
           {icon}
         </span>

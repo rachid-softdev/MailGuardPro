@@ -71,7 +71,7 @@ export default function ApiDocsPage() {
         </p>
 
         <div className="flex items-baseline gap-3 mb-4">
-          <span className="px-2 py-0.5 rounded text-xs font-mono font-bold uppercase tracking-wider bg-[var(--accent-light)] text-[var(--accent)]">
+          <span className="px-2 py-0.5 rounded text-xs font-mono font-bold uppercase  bg-[var(--accent-light)] text-[var(--accent)]">
             POST
           </span>
           <code className="text-sm font-mono">/api/v1/validate</code>
@@ -141,7 +141,7 @@ export default function ApiDocsPage() {
         </p>
 
         <div className="flex items-baseline gap-3 mb-4">
-          <span className="px-2 py-0.5 rounded text-xs font-mono font-bold uppercase tracking-wider bg-[var(--status-valid-bg)] text-[var(--status-valid)]">
+          <span className="px-2 py-0.5 rounded text-xs font-mono font-bold uppercase  bg-[var(--status-valid-bg)] text-[var(--status-valid)]">
             POST
           </span>
           <code className="text-sm font-mono">/api/v1/validate/bulk</code>
@@ -161,7 +161,7 @@ alice@example.com
 bob@example.org
 charlie@example.net`)}
         <div className="flex items-baseline gap-3 my-4">
-          <span className="px-2 py-0.5 rounded text-xs font-mono font-bold uppercase tracking-wider bg-[var(--bg-subtle)] text-[var(--text-muted)]">
+          <span className="px-2 py-0.5 rounded text-xs font-mono font-bold uppercase  bg-[var(--bg-subtle)] text-[var(--text-muted)]">
             GET
           </span>
           <code className="text-sm font-mono">/api/v1/validate/bulk/:job_id</code>

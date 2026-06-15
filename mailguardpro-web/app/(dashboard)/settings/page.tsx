@@ -164,12 +164,12 @@ export default function SettingsPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 mb-8 border-b border-[var(--border)]">
+      <div className="flex gap-1 mb-8 border-b border-[var(--border)] overflow-x-auto pb-px">
         {["profile", "billing", "api", "danger"].map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`px-4 py-2 text-sm font-medium capitalize transition-colors duration-150 ${
+            className={`px-4 py-2 text-sm font-medium capitalize transition-all duration-200 ${
               activeTab === tab
                 ? "text-[var(--accent)] border-b-2 border-[var(--accent)] -mb-px"
                 : "text-[var(--text-muted)] hover:text-[var(--text-primary)]"
@@ -182,12 +182,12 @@ export default function SettingsPage() {
 
       {/* Profile Tab */}
       {activeTab === "profile" && (
-        <div className="card max-w-2xl">
+        <div className="animate-fade-slide-up card max-w-2xl">
           <h2 className="text-lg font-display font-semibold mb-6">Profile Information</h2>
 
           {message && (
             <div
-              className={`p-4 rounded-lg mb-6 ${message.type === "success" ? "bg-[var(--status-valid-bg)] text-[var(--status-valid)]" : "bg-[var(--status-invalid-bg)] text-[var(--status-invalid)]"}`}
+              className={`animate-fade-slide-in p-4 rounded-lg mb-6 ${message.type === "success" ? "bg-[var(--status-valid-bg)] text-[var(--status-valid)]" : "bg-[var(--status-invalid-bg)] text-[var(--status-invalid)]"}`}
             >
               {message.text}
             </div>
@@ -227,7 +227,7 @@ export default function SettingsPage() {
 
       {/* Billing Tab */}
       {activeTab === "billing" && (
-        <div className="card max-w-2xl">
+        <div className="animate-fade-slide-up card max-w-2xl">
           <h2 className="text-lg font-display font-semibold mb-6">Billing & Subscription</h2>
 
           <div className="space-y-6">
@@ -256,7 +256,7 @@ export default function SettingsPage() {
 
       {/* API Tab */}
       {activeTab === "api" && (
-        <div className="card max-w-2xl">
+        <div className="animate-fade-slide-up card max-w-2xl">
           <h2 className="text-lg font-display font-semibold mb-6">API Access</h2>
 
           <div className="space-y-4">
@@ -273,7 +273,7 @@ export default function SettingsPage() {
 
       {/* Danger Tab */}
       {activeTab === "danger" && (
-        <div className="card max-w-2xl border-[var(--status-invalid)]">
+        <div className="animate-fade-slide-up card max-w-2xl border-[var(--status-invalid)]">
           <h2 className="text-lg font-display font-semibold mb-6 text-[var(--status-invalid)]">
             Danger Zone
           </h2>

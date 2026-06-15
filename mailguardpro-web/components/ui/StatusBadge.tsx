@@ -44,7 +44,7 @@ export function StatusBadge({ status, showDot = true }: StatusBadgeProps) {
   return (
     <Tooltip content={config.help} side="top">
       <span
-        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-mono uppercase tracking-widest"
+        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-mono uppercase"
         style={{
           backgroundColor: config.bg,
           color: config.color,

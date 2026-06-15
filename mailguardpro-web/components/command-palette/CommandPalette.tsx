@@ -127,7 +127,7 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
 
           {navigationCommands.length > 0 && (
             <div>
-              <div className="px-3 py-1.5 text-xs font-medium text-[var(--text-muted)] uppercase tracking-wide">
+              <div className="px-3 py-1.5 text-xs font-medium text-[var(--text-muted)] uppercase ">
                 Navigation
               </div>
               {navigationCommands.map((cmd, i) => (
@@ -150,7 +150,7 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
 
           {actionCommands.length > 0 && (
             <div>
-              <div className="px-3 py-1.5 text-xs font-medium text-[var(--text-muted)] uppercase tracking-wide">
+              <div className="px-3 py-1.5 text-xs font-medium text-[var(--text-muted)] uppercase ">
                 Actions
               </div>
               {actionCommands.map((cmd, i) => (

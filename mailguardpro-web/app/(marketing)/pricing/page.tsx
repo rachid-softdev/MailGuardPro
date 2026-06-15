@@ -237,7 +237,7 @@ export default function PricingPage() {
 
                 {annual && plan.annualPrice !== "€0" && (
                   <div className="mb-2">
-                    <span className="inline-block text-xs font-mono font-semibold text-[var(--accent)] bg-[var(--accent-light)] px-2 py-0.5 rounded-full tracking-wide">
+                    <span className="inline-block text-xs font-mono font-semibold text-[var(--accent)] bg-[var(--accent-light)] px-2 py-0.5 rounded-full ">
                       Save 20%
                     </span>
                   </div>
