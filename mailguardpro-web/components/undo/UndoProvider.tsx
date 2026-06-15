@@ -23,7 +23,7 @@ export function UndoProvider({ children }: { children: React.ReactNode }) {
   const showUndo = useCallback(
     (params: ShowUndoParams): string => {
       const id = `undo-${nextToastId++}`;
-      const duration = params.duration ?? 5000;
+      const duration = params.duration ?? 30000;
       const expiresAt = new Date(Date.now() + duration);
       const actionLabel = params.actionLabel ?? "Undo";
 

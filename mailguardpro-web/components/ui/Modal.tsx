@@ -78,7 +78,7 @@ export function Modal({ isOpen, onClose, title, children, size = "md", id }: Mod
 
   return (
     <div
-      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 animate-overlay-in"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
@@ -90,7 +90,7 @@ export function Modal({ isOpen, onClose, title, children, size = "md", id }: Mod
         aria-modal="true"
         aria-labelledby="modal-title"
         id={id}
-        className={`bg-[var(--bg-surface)] border border-[var(--border)] rounded-[var(--radius-xl)] p-6 w-full mx-4 ${sizeClasses[size]} shadow-[var(--shadow-lg)]`}
+        className={`bg-[var(--bg-surface)] border border-[var(--border)] rounded-[var(--radius-xl)] p-6 w-full mx-4 ${sizeClasses[size]} shadow-[var(--shadow-lg)] animate-panel-in`}
         onClick={(e) => e.stopPropagation()}
       >
         <h2 id="modal-title" className="text-xl font-display font-semibold mb-4">

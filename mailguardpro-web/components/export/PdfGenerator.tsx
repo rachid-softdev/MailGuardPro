@@ -119,7 +119,7 @@ function generatePdfWithBrowser(data: ExportData): boolean {
     .recommendations { margin-bottom: 30px; }
     .recommendations h3 { margin-bottom: 10px; }
     .recommendations ul { list-style: none; padding: 0; }
-    .recommendations li { padding: 8px 12px; background: var(--bg-warning); border-left: 3px solid var(--border-warning); margin-bottom: 8px; }
+    .recommendations li { padding: 8px 12px; background: var(--bg-warning); border: 1px solid var(--border-warning); border-radius: 6px; margin-bottom: 8px; }
     table { width: 100%; border-collapse: collapse; font-size: 12px; }
     th { background: var(--bg-subtle); padding: 10px; text-align: left; }
     td { padding: 8px 10px; border-bottom: 1px solid var(--border); }

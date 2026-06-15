@@ -96,13 +96,13 @@ export default function ValidatePage() {
   );
 
   return (
-    <div className="min-h-screen bg-[var(--bg-base)] p-6">
+    <div className="p-8">
       <div className="max-w-4xl mx-auto">
         <h1 className="text-3xl font-display font-bold mb-8">Validate Email</h1>
 
         {/* Input */}
         <form onSubmit={handleSubmit} className="mb-8">
-          <div className="flex gap-4">
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
             <div className="flex-1">
               <input
                 type="email"
@@ -134,30 +134,36 @@ export default function ValidatePage() {
                 </span>
               </div>
             </div>
-            <button type="submit" disabled={loading || !email} className="btn btn-accent btn-lg">
-              {loading ? "Analyzing..." : "Analyze"}
-            </button>
-            {result && (
+            <div className="flex gap-2 sm:gap-3 shrink-0">
               <button
-                type="button"
-                onClick={() => {
-                  setEmail("");
-                  setResult(null);
-                  setError("");
-                  if (abortControllerRef.current) {
-                    abortControllerRef.current.abort();
-                  }
-                }}
-                className="btn btn-ghost btn-lg"
+                type="submit"
+                disabled={loading || !email}
+                className="btn btn-accent btn-lg flex-1 sm:flex-initial"
               >
-                Clear
+                {loading ? "Analyzing..." : "Analyze"}
               </button>
-            )}
+              {result && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEmail("");
+                    setResult(null);
+                    setError("");
+                    if (abortControllerRef.current) {
+                      abortControllerRef.current.abort();
+                    }
+                  }}
+                  className="btn btn-ghost btn-lg flex-1 sm:flex-initial"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
           </div>
         </form>
 
         {error && (
-          <div className="card border-[var(--status-invalid)] bg-[var(--status-invalid-bg)] p-4 mb-8">
+          <div className="animate-fade-slide-in card border-[var(--status-invalid)] bg-[var(--status-invalid-bg)] p-4 mb-8">
             <p className="text-[var(--status-invalid)]">{error}</p>
           </div>
         )}
@@ -249,7 +255,10 @@ export default function ValidatePage() {
         {!result && !loading && !error && (
           <div className="card text-center py-12">
             <div className="flex flex-col items-center gap-4">
-              <Search size={48} className="text-[var(--text-muted)] opacity-40" />
+              <Search
+                size={48}
+                className="text-[var(--text-muted)] opacity-40 animate-float-subtle"
+              />
               <p className="text-[var(--text-muted)]">
                 Enter an email address above to get a quality score (0–100)
               </p>

@@ -94,7 +94,7 @@ function StatusBadgeDelivery({ status }: { status: string }) {
 
   return (
     <span
-      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-mono uppercase tracking-widest"
+      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-mono uppercase "
       style={{ backgroundColor: config.bg, color: config.color }}
     >
       {status === "success" && <CheckCircle className="w-3 h-3" />}
@@ -169,7 +169,7 @@ function DeliveryRow({
               <div className="grid grid-cols-2 gap-4">
                 {/* Request Body */}
                 <div>
-                  <h4 className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-2">
+                  <h4 className="text-xs font-semibold uppercase  text-[var(--text-muted)] mb-2">
                     Request Body
                   </h4>
                   <pre className="text-xs font-mono bg-[var(--bg-subtle)] p-3 rounded-lg overflow-auto max-h-64 leading-relaxed">
@@ -179,7 +179,7 @@ function DeliveryRow({
 
                 {/* Response Body */}
                 <div>
-                  <h4 className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-2">
+                  <h4 className="text-xs font-semibold uppercase  text-[var(--text-muted)] mb-2">
                     Response Body
                   </h4>
                   <pre className="text-xs font-mono bg-[var(--bg-subtle)] p-3 rounded-lg overflow-auto max-h-64 leading-relaxed">
@@ -423,22 +423,22 @@ export default function WebhookDeliveriesPage() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-[var(--border)] bg-[var(--bg-subtle)]/50">
-                  <th className="text-left py-3 px-4 text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+                  <th className="text-left py-3 px-4 text-xs font-semibold uppercase  text-[var(--text-muted)]">
                     Event
                   </th>
-                  <th className="text-left py-3 px-4 text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+                  <th className="text-left py-3 px-4 text-xs font-semibold uppercase  text-[var(--text-muted)]">
                     URL
                   </th>
-                  <th className="text-left py-3 px-4 text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+                  <th className="text-left py-3 px-4 text-xs font-semibold uppercase  text-[var(--text-muted)]">
                     Status
                   </th>
-                  <th className="text-left py-3 px-4 text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+                  <th className="text-left py-3 px-4 text-xs font-semibold uppercase  text-[var(--text-muted)]">
                     Code
                   </th>
-                  <th className="text-left py-3 px-4 text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+                  <th className="text-left py-3 px-4 text-xs font-semibold uppercase  text-[var(--text-muted)]">
                     Duration
                   </th>
-                  <th className="text-left py-3 px-4 text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+                  <th className="text-left py-3 px-4 text-xs font-semibold uppercase  text-[var(--text-muted)]">
                     When
                   </th>
                   <th className="py-3 px-4 w-10" />

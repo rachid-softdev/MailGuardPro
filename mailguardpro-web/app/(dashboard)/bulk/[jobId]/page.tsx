@@ -204,16 +204,12 @@ export default function BulkJobDetailPage({ params }: { params: Promise<{ jobId:
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
         <div className="card">
-          <p className="text-xs text-[var(--text-muted)] font-medium uppercase tracking-wider mb-1">
-            Total
-          </p>
+          <p className="text-xs text-[var(--text-muted)] font-medium uppercase  mb-1">Total</p>
           <p className="text-2xl font-display font-bold">{job.totalEmails.toLocaleString()}</p>
           <p className="text-xs text-[var(--text-muted)] mt-1">emails processed</p>
         </div>
         <div className="card">
-          <p className="text-xs text-[var(--text-muted)] font-medium uppercase tracking-wider mb-1">
-            Valid
-          </p>
+          <p className="text-xs text-[var(--text-muted)] font-medium uppercase  mb-1">Valid</p>
           <p className="text-2xl font-display font-bold text-[var(--status-valid)]">
             {job.validCount.toLocaleString()}
           </p>
@@ -222,9 +218,7 @@ export default function BulkJobDetailPage({ params }: { params: Promise<{ jobId:
           </p>
         </div>
         <div className="card">
-          <p className="text-xs text-[var(--text-muted)] font-medium uppercase tracking-wider mb-1">
-            Invalid
-          </p>
+          <p className="text-xs text-[var(--text-muted)] font-medium uppercase  mb-1">Invalid</p>
           <p className="text-2xl font-display font-bold text-[var(--status-invalid)]">
             {job.invalidCount.toLocaleString()}
           </p>
@@ -235,9 +229,7 @@ export default function BulkJobDetailPage({ params }: { params: Promise<{ jobId:
           </p>
         </div>
         <div className="card">
-          <p className="text-xs text-[var(--text-muted)] font-medium uppercase tracking-wider mb-1">
-            Avg Score
-          </p>
+          <p className="text-xs text-[var(--text-muted)] font-medium uppercase  mb-1">Avg Score</p>
           <p className="text-2xl font-display font-bold">{job.avgScore}</p>
           <p className="text-xs text-[var(--text-muted)] mt-1">/ 100</p>
         </div>

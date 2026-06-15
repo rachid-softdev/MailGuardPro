@@ -179,7 +179,7 @@ export default function BulkPage() {
 
       {/* Error Message */}
       {errorMessage && (
-        <div className="mb-4 px-4 py-3 rounded-lg bg-[var(--status-invalid)]/10 border border-[var(--status-invalid)]/30 text-sm text-[var(--status-invalid)]">
+        <div className="animate-fade-slide-in mb-4 px-4 py-3 rounded-lg bg-[var(--status-invalid)]/10 border border-[var(--status-invalid)]/30 text-sm text-[var(--status-invalid)]">
           {errorMessage}
         </div>
       )}

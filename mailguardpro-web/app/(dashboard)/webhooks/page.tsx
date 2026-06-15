@@ -226,7 +226,7 @@ export default function WebhooksPage() {
 
   return (
     <div className="p-8">
-      <div className="mb-8 flex items-center justify-between">
+      <div className="mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h1 className="text-3xl font-display font-bold mb-2">Webhooks</h1>
           <p className="text-[var(--text-secondary)]">
@@ -234,7 +234,7 @@ export default function WebhooksPage() {
           </p>
         </div>
         <button
-          className="btn btn-primary"
+          className="btn btn-primary self-start sm:self-auto"
           onClick={() => setShowCreateModal(true)}
           aria-haspopup="dialog"
           aria-expanded={showCreateModal}
@@ -265,7 +265,7 @@ export default function WebhooksPage() {
 
       {/* Error Message */}
       {errorMessage && (
-        <div className="mb-4 px-4 py-3 rounded-lg bg-[var(--status-invalid)]/10 border border-[var(--status-invalid)]/30 text-sm text-[var(--status-invalid)]">
+        <div className="animate-fade-slide-in mb-4 px-4 py-3 rounded-lg bg-[var(--status-invalid)]/10 border border-[var(--status-invalid)]/30 text-sm text-[var(--status-invalid)]">
           {errorMessage}
         </div>
       )}
@@ -353,7 +353,7 @@ export default function WebhooksPage() {
         ) : (
           <div className="text-center py-8 text-[var(--text-muted)]">
             <div className="w-12 h-12 bg-[var(--bg-subtle)] rounded-full flex items-center justify-center mx-auto mb-4">
-              <Bell className="w-6 h-6" />
+              <Bell className="w-6 h-6 animate-float-subtle" />
             </div>
             <p>No webhooks configured</p>
             <p className="text-sm mt-1">Add a webhook to receive notifications</p>

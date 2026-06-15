@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { NotificationBell } from "@/components/ui/NotificationBell";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { signOutAction } from "./actions";
@@ -87,9 +88,10 @@ export function Sidebar({ credits, onClose }: SidebarProps) {
             <p className="font-mono font-semibold">{credits}</p>
           </div>
           <div className="flex items-center gap-2">
+            <NotificationBell />
             <ThemeToggle />
             <Tooltip content="Show keyboard shortcuts" side="top" shortcut="?">
-              <span className="text-xs text-[var(--text-muted)] tracking-wide cursor-help">
+              <span className="text-xs text-[var(--text-muted)] cursor-help">
                 <kbd className="font-mono text-[10px] bg-[var(--bg-subtle)] px-1 py-0.5 rounded border border-[var(--border)]">
                   ?
                 </kbd>{" "}
