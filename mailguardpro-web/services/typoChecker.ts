@@ -93,7 +93,6 @@ export async function checkTypo(email: string): Promise<CheckResult> {
     yaho: "yahoo.com",
     hotmial: "hotmail.com",
     outlok: "outlook.com",
-    icloud: "icloud.com",
   };
 
   const typoMatch = Object.keys(commonTypos).find((typo) => domain.toLowerCase().includes(typo));

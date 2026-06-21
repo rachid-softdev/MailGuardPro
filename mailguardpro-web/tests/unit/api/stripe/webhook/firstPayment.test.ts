@@ -255,6 +255,20 @@ describe("Stripe webhook — checkIdempotency", () => {
     expect(body.error).toContain("Service temporarily unavailable");
   });
 
+  it("should return duplicate when PostgreSQL throws P2002 (Prisma unique constraint)", async () => {
+    redisReturnValues.push({ type: "throw" });
+    mockStripeEventCreate.mockRejectedValue({ code: "P2002" });
+    const POST = await getHandler();
+    const res = await POST(createReq());
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.received).toBe(true);
+    expect(body.deduplicated).toBe(true);
+    // No DB updates for duplicates
+    expect(mockPrismaUpdate).not.toHaveBeenCalled();
+  });
+
   // ────────────────────────────────────────────
   // Success response shape
   // ────────────────────────────────────────────
@@ -279,5 +293,14 @@ describe("Stripe webhook — checkIdempotency", () => {
     const res = await POST(createReq());
 
     expect(res.status).toBe(200);
+  });
+
+  it("should throw at import when STRIPE_WEBHOOK_SECRET is not defined", async () => {
+    vi.stubEnv("STRIPE_WEBHOOK_SECRET", "");
+    vi.resetModules();
+    await expect(import("@/app/api/stripe/webhook/route")).rejects.toThrow(
+      "STRIPE_WEBHOOK_SECRET is not defined",
+    );
+    vi.unstubAllEnvs();
   });
 });

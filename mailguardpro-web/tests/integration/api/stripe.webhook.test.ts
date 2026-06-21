@@ -95,7 +95,7 @@ describe("POST /api/stripe/webhook", () => {
     redis = redisModule.redis;
   });
 
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
     // Default: signature header present and valid
     mockHeadersGet.mockReturnValue("test_signature");
@@ -110,6 +110,13 @@ describe("POST /api/stripe/webhook", () => {
     // Default: no user found in DB
     vi.mocked(prisma.user.findFirst).mockResolvedValue(null);
     vi.mocked(prisma.user.update).mockResolvedValue({});
+    // Default: checkRateLimit returns success=true
+    const { checkRateLimit } = await import("@/lib/redis");
+    vi.mocked(checkRateLimit).mockResolvedValue({
+      success: true,
+      resetAt: Date.now() + 60000,
+      remaining: 100,
+    });
   });
 
   // -----------------------------------------------------------------------
@@ -143,6 +150,71 @@ describe("POST /api/stripe/webhook", () => {
     expect(response.status).toBe(400);
     const json = await response.json();
     expect(json.error).toBe("Invalid signature");
+  });
+
+  it("should return 413 when content-length exceeds 1MB", async () => {
+    const req = new NextRequest("http://localhost:3000/api/stripe/webhook", {
+      method: "POST",
+      headers: { "content-length": "1048577" },
+      body: JSON.stringify({}),
+    });
+    const response = await POST(req);
+
+    expect(response.status).toBe(413);
+    const json = await response.json();
+    expect(json.error).toBe("Request body too large");
+  });
+
+  it("should return 413 when actual body exceeds 1MB even if content-length is spoofed", async () => {
+    const req = new NextRequest("http://localhost:3000/api/stripe/webhook", {
+      method: "POST",
+      headers: { "content-length": "100" },
+      body: "x".repeat(1024 * 1024 + 1),
+    });
+    const response = await POST(req);
+
+    expect(response.status).toBe(413);
+    const json = await response.json();
+    expect(json.error).toBe("Request body too large");
+  });
+
+  it("should return 429 when rate limit is exceeded", async () => {
+    const { checkRateLimit } = await import("@/lib/redis");
+    vi.mocked(checkRateLimit).mockResolvedValue({
+      success: false,
+      resetAt: Date.now() + 60000,
+      remaining: 0,
+    });
+
+    const req = new NextRequest("http://localhost:3000/api/stripe/webhook", {
+      method: "POST",
+      body: JSON.stringify({}),
+    });
+    const response = await POST(req);
+
+    expect(response.status).toBe(429);
+    const json = await response.json();
+    expect(json.error).toBe("Too many requests");
+  });
+
+  it("should continue when rate limit check throws (Redis down)", async () => {
+    const { checkRateLimit } = await import("@/lib/redis");
+    vi.mocked(checkRateLimit).mockRejectedValue(new Error("Redis connection error"));
+
+    vi.mocked(stripe.webhooks.constructEvent).mockReturnValue({
+      id: "evt_rate_throw",
+      type: "checkout.session.completed",
+      data: { object: {} },
+    });
+
+    const req = new NextRequest("http://localhost:3000/api/stripe/webhook", {
+      method: "POST",
+      body: JSON.stringify({}),
+    });
+    const response = await POST(req);
+
+    // The catch block allows through when rate limit check fails
+    expect(response.status).toBe(200);
   });
 
   // -----------------------------------------------------------------------
@@ -198,6 +270,209 @@ describe("POST /api/stripe/webhook", () => {
     const json = await response.json();
     expect(json.received).toBe(true);
     // No db update expected for checkout.session.completed (currently just logs)
+    expect(prisma.user.update).not.toHaveBeenCalled();
+  });
+
+  it("should update user plan and credits on checkout.session.completed with valid subscription", async () => {
+    const mockUser = { id: "user-1", stripeCustomerId: "cus_123", plan: "FREE" };
+    vi.mocked(prisma.user.findFirst).mockResolvedValue(mockUser);
+    vi.mocked(stripe.webhooks.constructEvent).mockReturnValue({
+      id: "evt_cs_full",
+      type: "checkout.session.completed",
+      data: {
+        object: {
+          id: "cs_test_full",
+          customer: "cus_123",
+          subscription: "sub_full_1",
+        },
+      },
+    });
+    const { getPlanFromPriceId } = await import("@/lib/stripe");
+    vi.mocked(getPlanFromPriceId).mockReturnValue("STARTER");
+    vi.mocked(stripe.subscriptions.retrieve).mockResolvedValue({
+      id: "sub_full_1",
+      items: { data: [{ price: { id: "price_starter_test" } }] },
+    });
+
+    const req = new NextRequest("http://localhost:3000/api/stripe/webhook", {
+      method: "POST",
+      body: JSON.stringify({}),
+    });
+    const response = await POST(req);
+
+    expect(response.status).toBe(200);
+    // Should update plan, subscriptionId, and add credits
+    expect(prisma.user.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "user-1" },
+        data: expect.objectContaining({
+          plan: "STARTER",
+          stripeSubscriptionId: "sub_full_1",
+          credits: { increment: 5000 },
+        }),
+      }),
+    );
+  });
+
+  it("should not update user on checkout.session.completed when plan is not mapped", async () => {
+    const mockUser = { id: "user-1", stripeCustomerId: "cus_123", plan: "FREE" };
+    vi.mocked(prisma.user.findFirst).mockResolvedValue(mockUser);
+    vi.mocked(stripe.webhooks.constructEvent).mockReturnValue({
+      id: "evt_cs_noplan",
+      type: "checkout.session.completed",
+      data: {
+        object: {
+          id: "cs_test_noplan",
+          customer: "cus_123",
+          subscription: "sub_noplan_1",
+        },
+      },
+    });
+    const { getPlanFromPriceId } = await import("@/lib/stripe");
+    vi.mocked(getPlanFromPriceId).mockReturnValue(null);
+    vi.mocked(stripe.subscriptions.retrieve).mockResolvedValue({
+      id: "sub_noplan_1",
+      items: { data: [{ price: { id: "price_unknown" } }] },
+    });
+
+    const req = new NextRequest("http://localhost:3000/api/stripe/webhook", {
+      method: "POST",
+      body: JSON.stringify({}),
+    });
+    const response = await POST(req);
+
+    expect(response.status).toBe(200);
+    expect(prisma.user.update).not.toHaveBeenCalled();
+  });
+
+  it("should not crash on checkout.session.completed when user is not found (orphan)", async () => {
+    vi.mocked(prisma.user.findFirst).mockResolvedValue(null);
+    vi.mocked(stripe.webhooks.constructEvent).mockReturnValue({
+      id: "evt_cs_orphan",
+      type: "checkout.session.completed",
+      data: {
+        object: {
+          id: "cs_test_orphan",
+          customer: "cus_unknown",
+          subscription: "sub_orphan_1",
+        },
+      },
+    });
+    const { getPlanFromPriceId } = await import("@/lib/stripe");
+    vi.mocked(getPlanFromPriceId).mockReturnValue("STARTER");
+    vi.mocked(stripe.subscriptions.retrieve).mockResolvedValue({
+      id: "sub_orphan_1",
+      items: { data: [{ price: { id: "price_starter_test" } }] },
+    });
+
+    const req = new NextRequest("http://localhost:3000/api/stripe/webhook", {
+      method: "POST",
+      body: JSON.stringify({}),
+    });
+    const response = await POST(req);
+
+    expect(response.status).toBe(200);
+    expect(prisma.user.update).not.toHaveBeenCalled();
+  });
+
+  it("should log error when subscriptions.retrieve fails in checkout.session.completed", async () => {
+    const mockUser = { id: "user-1", stripeCustomerId: "cus_123", plan: "FREE" };
+    vi.mocked(prisma.user.findFirst).mockResolvedValue(mockUser);
+    vi.mocked(stripe.webhooks.constructEvent).mockReturnValue({
+      id: "evt_cs_retrieve_err",
+      type: "checkout.session.completed",
+      data: {
+        object: {
+          id: "cs_test_retrieve_err",
+          customer: "cus_123",
+          subscription: "sub_retrieve_err",
+        },
+      },
+    });
+    const { getPlanFromPriceId } = await import("@/lib/stripe");
+    vi.mocked(getPlanFromPriceId).mockReturnValue("STARTER");
+    vi.mocked(stripe.subscriptions.retrieve).mockRejectedValue(new Error("Stripe API error"));
+
+    const stripeErrorSpy = vi.spyOn(loggerStripe, "error").mockImplementation(() => {});
+
+    const req = new NextRequest("http://localhost:3000/api/stripe/webhook", {
+      method: "POST",
+      body: JSON.stringify({}),
+    });
+    const response = await POST(req);
+
+    expect(response.status).toBe(200);
+    expect(stripeErrorSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ err: expect.any(Error) }),
+      "Failed to process checkout.session.completed",
+    );
+    expect(prisma.user.update).not.toHaveBeenCalled();
+
+    stripeErrorSpy.mockRestore();
+  });
+
+  it("should log error when prisma.user.update fails in checkout.session.completed", async () => {
+    const mockUser = { id: "user-1", stripeCustomerId: "cus_123", plan: "FREE" };
+    vi.mocked(prisma.user.findFirst).mockResolvedValue(mockUser);
+    vi.mocked(stripe.webhooks.constructEvent).mockReturnValue({
+      id: "evt_cs_update_err",
+      type: "checkout.session.completed",
+      data: {
+        object: {
+          id: "cs_test_update_err",
+          customer: "cus_123",
+          subscription: "sub_update_err",
+        },
+      },
+    });
+    const { getPlanFromPriceId } = await import("@/lib/stripe");
+    vi.mocked(getPlanFromPriceId).mockReturnValue("PRO");
+    vi.mocked(stripe.subscriptions.retrieve).mockResolvedValue({
+      id: "sub_update_err",
+      items: { data: [{ price: { id: "price_pro_test" } }] },
+    });
+    vi.mocked(prisma.user.update).mockRejectedValue(new Error("DB update failed"));
+
+    const stripeErrorSpy = vi.spyOn(loggerStripe, "error").mockImplementation(() => {});
+
+    const req = new NextRequest("http://localhost:3000/api/stripe/webhook", {
+      method: "POST",
+      body: JSON.stringify({}),
+    });
+    const response = await POST(req);
+
+    expect(response.status).toBe(200);
+    expect(stripeErrorSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ err: expect.any(Error) }),
+      "Failed to process checkout.session.completed",
+    );
+
+    stripeErrorSpy.mockRestore();
+  });
+
+  it("should not crash when checkout.session.completed has customerId but no subscriptionId", async () => {
+    vi.mocked(stripe.webhooks.constructEvent).mockReturnValue({
+      id: "evt_cs_no_sub",
+      type: "checkout.session.completed",
+      data: {
+        object: {
+          id: "cs_test_no_sub",
+          customer: "cus_123",
+          subscription: null,
+        },
+      },
+    });
+
+    const req = new NextRequest("http://localhost:3000/api/stripe/webhook", {
+      method: "POST",
+      body: JSON.stringify({}),
+    });
+    const response = await POST(req);
+
+    expect(response.status).toBe(200);
+    // findUserByStripeCustomerId should NOT be called because
+    // the condition `if (customerId && subscriptionId)` short-circuits
+    expect(prisma.user.findFirst).not.toHaveBeenCalled();
     expect(prisma.user.update).not.toHaveBeenCalled();
   });
 
@@ -299,6 +574,40 @@ describe("POST /api/stripe/webhook", () => {
     expect(prisma.user.update).not.toHaveBeenCalled();
   });
 
+  it("should fall back to FREE on subscription updated when plan mapping returns null", async () => {
+    const mockUser = { id: "user-1", plan: "PRO" };
+    vi.mocked(prisma.user.findFirst).mockResolvedValue(mockUser);
+    vi.mocked(stripe.webhooks.constructEvent).mockReturnValue({
+      id: "evt_sub_nullmap",
+      type: "customer.subscription.updated",
+      data: {
+        object: {
+          id: "sub_nullmap_1",
+          customer: "cus_123",
+          status: "active",
+          items: { data: [{ price: { id: "price_unknown" } }] },
+        },
+      },
+    });
+    const { getPlanFromPriceId } = await import("@/lib/stripe");
+    vi.mocked(getPlanFromPriceId).mockReturnValue(null);
+
+    const req = new NextRequest("http://localhost:3000/api/stripe/webhook", {
+      method: "POST",
+      body: JSON.stringify({}),
+    });
+    const response = await POST(req);
+
+    expect(response.status).toBe(200);
+    // Even though status is active, null plan mapping → FREE
+    expect(prisma.user.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "user-1" },
+        data: { plan: "FREE" },
+      }),
+    );
+  });
+
   // -----------------------------------------------------------------------
   // customer.subscription.deleted
   // -----------------------------------------------------------------------
@@ -335,6 +644,38 @@ describe("POST /api/stripe/webhook", () => {
         userId: "user-1",
         action: "SUBSCRIPTION_CANCELLED",
         resource: "Subscription",
+      }),
+    );
+  });
+
+  it("should handle subscription.deleted gracefully when logAudit fails", async () => {
+    const mockUser = { id: "user-1", plan: "PRO", stripeSubscriptionId: "sub_del_audit" };
+    vi.mocked(prisma.user.findFirst).mockResolvedValue(mockUser);
+    vi.mocked(stripe.webhooks.constructEvent).mockReturnValue({
+      id: "evt_sub_deleted_audit_fail",
+      type: "customer.subscription.deleted",
+      data: {
+        object: {
+          id: "sub_del_audit",
+          customer: "cus_123",
+        },
+      },
+    });
+    const { logAudit } = await import("@/services/auditLogger");
+    vi.mocked(logAudit).mockRejectedValue(new Error("Audit log DB error"));
+
+    const req = new NextRequest("http://localhost:3000/api/stripe/webhook", {
+      method: "POST",
+      body: JSON.stringify({}),
+    });
+    const response = await POST(req);
+
+    expect(response.status).toBe(200);
+    // User update should still proceed even though audit log failed
+    expect(prisma.user.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "user-1" },
+        data: { plan: "FREE", stripeSubscriptionId: null },
       }),
     );
   });
@@ -464,6 +805,59 @@ describe("POST /api/stripe/webhook", () => {
     stripeErrorSpy.mockRestore();
   });
 
+  it("should not crash on payment_succeeded when customerId and subscription are missing", async () => {
+    vi.mocked(stripe.webhooks.constructEvent).mockReturnValue({
+      id: "evt_inv_succ_nocust",
+      type: "invoice.payment_succeeded",
+      data: {
+        object: {
+          id: "in_succ_nocust",
+          customer: null,
+          subscription: null,
+          attempt_count: 1,
+        },
+      },
+    });
+
+    const req = new NextRequest("http://localhost:3000/api/stripe/webhook", {
+      method: "POST",
+      body: JSON.stringify({}),
+    });
+    const response = await POST(req);
+
+    expect(response.status).toBe(200);
+    expect(prisma.user.findFirst).not.toHaveBeenCalled();
+    expect(prisma.user.update).not.toHaveBeenCalled();
+  });
+
+  it("should handle invoice.payment_succeeded when subscriptions.retrieve throws", async () => {
+    const mockUser = { id: "user-1", stripeCustomerId: "cus_123", plan: "STARTER" };
+    vi.mocked(prisma.user.findFirst).mockResolvedValue(mockUser);
+    vi.mocked(stripe.webhooks.constructEvent).mockReturnValue({
+      id: "evt_inv_retrieve_err",
+      type: "invoice.payment_succeeded",
+      data: {
+        object: {
+          id: "in_retrieve_err",
+          customer: "cus_123",
+          subscription: "sub_err",
+          attempt_count: 1,
+        },
+      },
+    });
+    vi.mocked(stripe.subscriptions.retrieve).mockRejectedValue(new Error("Stripe API error"));
+
+    const req = new NextRequest("http://localhost:3000/api/stripe/webhook", {
+      method: "POST",
+      body: JSON.stringify({}),
+    });
+    const response = await POST(req);
+
+    expect(response.status).toBe(200);
+    // No user update should happen since retrieve failed
+    expect(prisma.user.update).not.toHaveBeenCalled();
+  });
+
   it("should not crash when Redis is down during idempotency check", async () => {
     const mockUser = { id: "user-1", stripeCustomerId: "cus_123" };
     vi.mocked(prisma.user.findFirst).mockResolvedValue(mockUser);
@@ -588,6 +982,57 @@ describe("POST /api/stripe/webhook", () => {
     const response = await POST(req);
 
     expect(response.status).toBe(200);
+    expect(prisma.user.update).not.toHaveBeenCalled();
+  });
+
+  it("should handle invoice.payment_failed when prisma.user.update throws", async () => {
+    const mockUser = { id: "user-1", stripeCustomerId: "cus_123", plan: "PRO" };
+    vi.mocked(prisma.user.findFirst).mockResolvedValue(mockUser);
+    vi.mocked(stripe.webhooks.constructEvent).mockReturnValue({
+      id: "evt_inv_fail_update_err",
+      type: "invoice.payment_failed",
+      data: {
+        object: {
+          id: "in_fail_update",
+          customer: "cus_123",
+          subscription: "sub_fail_update",
+          attempt_count: 5,
+        },
+      },
+    });
+    vi.mocked(prisma.user.update).mockRejectedValue(new Error("DB update failed"));
+
+    const req = new NextRequest("http://localhost:3000/api/stripe/webhook", {
+      method: "POST",
+      body: JSON.stringify({}),
+    });
+    const response = await POST(req);
+
+    expect(response.status).toBe(200);
+  });
+
+  it("should not crash on payment failed when customerId is missing", async () => {
+    vi.mocked(stripe.webhooks.constructEvent).mockReturnValue({
+      id: "evt_inv_fail_nocust",
+      type: "invoice.payment_failed",
+      data: {
+        object: {
+          id: "in_fail_nocust",
+          customer: null,
+          attempt_count: 5,
+        },
+      },
+    });
+
+    const req = new NextRequest("http://localhost:3000/api/stripe/webhook", {
+      method: "POST",
+      body: JSON.stringify({}),
+    });
+    const response = await POST(req);
+
+    expect(response.status).toBe(200);
+    // No user lookup or update should happen
+    expect(prisma.user.findFirst).not.toHaveBeenCalled();
     expect(prisma.user.update).not.toHaveBeenCalled();
   });
 

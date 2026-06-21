@@ -198,6 +198,27 @@ describe("crypto utils", () => {
 
       expect(hashA).not.toBe(hashB);
     });
+
+    // ────────────────────────────────────────────
+    // Scenario (a): getPepper() sans API_KEY_PEPPER → throw
+    // ────────────────────────────────────────────
+    it("should throw when API_KEY_PEPPER is not defined (empty string)", async () => {
+      vi.stubEnv("API_KEY_PEPPER", "");
+      const { hashApiKey } = await import("@/lib/crypto");
+
+      expect(() => hashApiKey("test")).toThrow(
+        "API_KEY_PEPPER is not defined — set it in environment before deploying",
+      );
+    });
+
+    it("should throw when API_KEY_PEPPER is undefined", async () => {
+      vi.stubEnv("API_KEY_PEPPER", undefined as unknown as string);
+      const { hashApiKey } = await import("@/lib/crypto");
+
+      expect(() => hashApiKey("test")).toThrow(
+        "API_KEY_PEPPER is not defined — set it in environment before deploying",
+      );
+    });
   });
 
   describe("hashApiKeyLegacy", () => {
@@ -215,6 +236,44 @@ describe("crypto utils", () => {
       const { hashApiKeyLegacy } = await import("@/lib/crypto");
 
       expect(hashApiKeyLegacy("test")).toBe(hashApiKeyLegacy("test"));
+    });
+
+    // ────────────────────────────────────────────
+    // Pepper independence: hashApiKeyLegacy does NOT use pepper,
+    // unlike hashApiKey which uses HMAC with API_KEY_PEPPER.
+    // ────────────────────────────────────────────
+
+    it("should NOT depend on API_KEY_PEPPER (legacy uses plain SHA256)", async () => {
+      vi.stubEnv("API_KEY_PEPPER", "first-pepper");
+      const { hashApiKeyLegacy: hash } = await import("@/lib/crypto");
+
+      const resultWithPepperA = hash("my_api_key");
+
+      // Reset and change pepper
+      vi.unstubAllEnvs();
+      vi.resetModules();
+      vi.stubEnv("API_KEY_PEPPER", "different-pepper");
+      const { hashApiKeyLegacy: hash2 } = await import("@/lib/crypto");
+
+      const resultWithPepperB = hash2("my_api_key");
+
+      // hashApiKeyLegacy uses crypto.createHash("sha256") directly,
+      // NOT crypto.createHmac("sha256", pepper). So the result must
+      // be identical regardless of API_KEY_PEPPER value.
+      expect(resultWithPepperA).toBe(resultWithPepperB);
+      expect(resultWithPepperA).toHaveLength(64);
+    });
+
+    it("should produce same legacy hash even without any pepper set", async () => {
+      vi.stubEnv("API_KEY_PEPPER", "");
+      vi.resetModules();
+      const { hashApiKeyLegacy } = await import("@/lib/crypto");
+
+      // Even with empty pepper, hashApiKeyLegacy should work fine
+      // because it doesn't call getPepper() at all.
+      const result = hashApiKeyLegacy("key-without-pepper");
+      expect(result).toHaveLength(64);
+      expect(result).toMatch(/^[a-f0-9]{64}$/);
     });
   });
 });

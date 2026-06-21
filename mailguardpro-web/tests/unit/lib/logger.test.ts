@@ -5,6 +5,7 @@ import {
   logger,
   loggerApi,
   loggerAuth,
+  logMetrics,
   logRequest,
 } from "@/lib/logger";
 
@@ -94,6 +95,43 @@ describe("logger", () => {
     it("should log error with context", () => {
       const error = new Error("Test error");
       expect(() => logError(error, { userId: "123" })).not.toThrow();
+    });
+  });
+
+  describe("logMetrics", () => {
+    it("should call logger.info with correct metrics", () => {
+      const infoSpy = vi.spyOn(logger, "info").mockImplementation(() => {});
+
+      const metrics = { apiCalls: 150, avgLatency: 42, errorRate: 0.05 };
+      logMetrics(metrics);
+
+      expect(infoSpy).toHaveBeenCalledTimes(1);
+      expect(infoSpy).toHaveBeenCalledWith(
+        { metrics: { apiCalls: 150, avgLatency: 42, errorRate: 0.05 } },
+        "Performance metrics",
+      );
+
+      infoSpy.mockRestore();
+    });
+
+    it("should handle empty metrics object", () => {
+      const infoSpy = vi.spyOn(logger, "info").mockImplementation(() => {});
+
+      logMetrics({});
+
+      expect(infoSpy).toHaveBeenCalledWith({ metrics: {} }, "Performance metrics");
+
+      infoSpy.mockRestore();
+    });
+
+    it("should handle a single metric", () => {
+      const infoSpy = vi.spyOn(logger, "info").mockImplementation(() => {});
+
+      logMetrics({ usersOnline: 42 });
+
+      expect(infoSpy).toHaveBeenCalledWith({ metrics: { usersOnline: 42 } }, "Performance metrics");
+
+      infoSpy.mockRestore();
     });
   });
 });

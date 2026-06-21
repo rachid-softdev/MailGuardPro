@@ -51,6 +51,10 @@ vi.mock("@/services/auditLogger", () => ({
   logAudit: vi.fn(),
 }));
 
+vi.mock("@/lib/csrf", () => ({
+  validateCsrfOrigin: vi.fn(() => ({ valid: true })),
+}));
+
 // Mock crypto (used by subscribe route for idempotency key generation)
 // Must include "default" export because the route uses `import crypto from "node:crypto"`
 vi.mock("crypto", () => ({
@@ -91,6 +95,7 @@ describe("POST /api/v1/billing/subscribe", () => {
   let stripe: any;
   let getPlanFromPriceId: any;
   let auth: any;
+  let validateCsrfOrigin: any;
 
   beforeAll(async () => {
     const prismaModule = await import("@/lib/prisma");
@@ -100,6 +105,8 @@ describe("POST /api/v1/billing/subscribe", () => {
     getPlanFromPriceId = stripeModule.getPlanFromPriceId;
     const authModule = await import("@/lib/auth");
     auth = authModule.auth;
+    const csrfModule = await import("@/lib/csrf");
+    validateCsrfOrigin = csrfModule.validateCsrfOrigin;
   });
 
   beforeEach(() => {
@@ -499,5 +506,209 @@ describe("POST /api/v1/billing/subscribe", () => {
         subscriptionId: "sub_audit_test",
       },
     });
+  });
+
+  // -----------------------------------------------------------------------
+  // CSRF validation failure
+  // -----------------------------------------------------------------------
+
+  it("should return 403 when CSRF validation fails", async () => {
+    vi.mocked(validateCsrfOrigin).mockReturnValueOnce({
+      valid: false,
+      error: "Origin not allowed: http://evil.com",
+    });
+
+    const req = new NextRequest("http://localhost:3000/api/v1/billing/subscribe", {
+      method: "POST",
+      body: JSON.stringify({ priceId: "price_pro_monthly", paymentMethodId: "pm_123" }),
+      headers: { origin: "http://evil.com", "Content-Type": "application/json" },
+    });
+    const response = await POST(req);
+
+    expect(response.status).toBe(403);
+    const json = await response.json();
+    expect(json.success).toBe(false);
+    expect(json.error).toContain("Origin not allowed");
+  });
+
+  // -----------------------------------------------------------------------
+  // Bad request body (parseJsonBody failure)
+  // -----------------------------------------------------------------------
+
+  it("should return 400 when request body is malformed JSON", async () => {
+    const req = new NextRequest("http://localhost:3000/api/v1/billing/subscribe", {
+      method: "POST",
+      body: "not-valid-json{{{",
+      headers: { origin: "http://localhost:3000", "Content-Type": "application/json" },
+    });
+    const response = await POST(req);
+
+    expect(response.status).toBe(400);
+    const json = await response.json();
+    expect(json.success).toBe(false);
+    expect(json.error).toBe("Invalid JSON");
+  });
+
+  // -----------------------------------------------------------------------
+  // Stripe customer creation failure
+  // -----------------------------------------------------------------------
+
+  it("should return 500 when stripe.customers.create fails for new user", async () => {
+    const { loggerApi } = await import("@/lib/logger");
+    const loggerSpy = vi.spyOn(loggerApi, "error").mockImplementation(() => {});
+
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({
+      email: "test@example.com",
+      name: "Test User",
+      stripeCustomerId: null,
+    });
+    vi.mocked(getPlanFromPriceId).mockReturnValue("PRO");
+    vi.mocked(stripe.customers.create).mockRejectedValue(
+      new Error("Stripe customer creation failed"),
+    );
+
+    const req = new NextRequest("http://localhost:3000/api/v1/billing/subscribe", {
+      method: "POST",
+      body: JSON.stringify({ priceId: "price_pro_monthly", paymentMethodId: "pm_123" }),
+      headers: { origin: "http://localhost:3000", "Content-Type": "application/json" },
+    });
+    const response = await POST(req);
+
+    expect(response.status).toBe(500);
+    const json = await response.json();
+    expect(json.success).toBe(false);
+    expect(json.error).toBe("Failed to create subscription");
+    expect(loggerSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ err: expect.any(Error) }),
+      "Subscribe error",
+    );
+
+    loggerSpy.mockRestore();
+  });
+
+  // -----------------------------------------------------------------------
+  // stripeCustomerId DB save failure
+  // -----------------------------------------------------------------------
+
+  it("should return 500 when saving stripeCustomerId fails after customer creation", async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({
+      email: "test@example.com",
+      name: "Test User",
+      stripeCustomerId: null,
+    });
+    vi.mocked(getPlanFromPriceId).mockReturnValue("STARTER");
+    vi.mocked(stripe.customers.create).mockResolvedValue({ id: "cus_new_save_fail" });
+    vi.mocked(prisma.user.update).mockRejectedValueOnce(new Error("DB save failed"));
+
+    const req = new NextRequest("http://localhost:3000/api/v1/billing/subscribe", {
+      method: "POST",
+      body: JSON.stringify({ priceId: "price_starter_monthly", paymentMethodId: "pm_save_fail" }),
+      headers: { origin: "http://localhost:3000", "Content-Type": "application/json" },
+    });
+    const response = await POST(req);
+
+    expect(response.status).toBe(500);
+    const json = await response.json();
+    expect(json.success).toBe(false);
+    expect(json.error).toBe("Failed to create subscription");
+  });
+
+  // -----------------------------------------------------------------------
+  // Payment method attach failure
+  // -----------------------------------------------------------------------
+
+  it("should return 500 when stripe.paymentMethods.attach fails", async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({
+      email: "test@example.com",
+      name: "Test User",
+      stripeCustomerId: "cus_existing",
+    });
+    vi.mocked(getPlanFromPriceId).mockReturnValue("PRO");
+    vi.mocked(stripe.paymentMethods.attach).mockRejectedValue(new Error("Attach failed"));
+
+    const req = new NextRequest("http://localhost:3000/api/v1/billing/subscribe", {
+      method: "POST",
+      body: JSON.stringify({ priceId: "price_pro_monthly", paymentMethodId: "pm_attach_fail" }),
+      headers: { origin: "http://localhost:3000", "Content-Type": "application/json" },
+    });
+    const response = await POST(req);
+
+    expect(response.status).toBe(500);
+    const json = await response.json();
+    expect(json.success).toBe(false);
+    expect(json.error).toBe("Failed to create subscription");
+  });
+
+  // -----------------------------------------------------------------------
+  // Set default payment method failure
+  // -----------------------------------------------------------------------
+
+  it("should return 500 when stripe.customers.update (set default payment) fails", async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({
+      email: "test@example.com",
+      name: "Test User",
+      stripeCustomerId: "cus_existing",
+    });
+    vi.mocked(getPlanFromPriceId).mockReturnValue("PRO");
+    vi.mocked(stripe.paymentMethods.attach).mockResolvedValue({});
+    vi.mocked(stripe.customers.update).mockRejectedValue(
+      new Error("Update default payment failed"),
+    );
+
+    const req = new NextRequest("http://localhost:3000/api/v1/billing/subscribe", {
+      method: "POST",
+      body: JSON.stringify({ priceId: "price_pro_monthly", paymentMethodId: "pm_update_fail" }),
+      headers: { origin: "http://localhost:3000", "Content-Type": "application/json" },
+    });
+    const response = await POST(req);
+
+    expect(response.status).toBe(500);
+    const json = await response.json();
+    expect(json.success).toBe(false);
+    expect(json.error).toBe("Failed to create subscription");
+  });
+
+  // -----------------------------------------------------------------------
+  // Audit logger non-fatal failure
+  // -----------------------------------------------------------------------
+
+  it("should handle logAudit failure gracefully (non-fatal)", async () => {
+    const { loggerApi } = await import("@/lib/logger");
+    const loggerSpy = vi.spyOn(loggerApi, "error").mockImplementation(() => {});
+
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({
+      email: "test@example.com",
+      name: "Test User",
+      stripeCustomerId: "cus_existing",
+    });
+    vi.mocked(getPlanFromPriceId).mockReturnValue("BUSINESS");
+    vi.mocked(stripe.paymentMethods.attach).mockResolvedValue({});
+    vi.mocked(stripe.customers.update).mockResolvedValue({});
+    vi.mocked(stripe.subscriptions.create).mockResolvedValue({
+      id: "sub_audit_fail",
+      status: "incomplete",
+      latest_invoice: { payment_intent: { client_secret: "pi_secret_audit_fail" } },
+    });
+    vi.mocked(prisma.user.update).mockResolvedValue({});
+    const { logAudit } = await import("@/services/auditLogger");
+    vi.mocked(logAudit).mockRejectedValue(new Error("Audit log DB error"));
+
+    const req = new NextRequest("http://localhost:3000/api/v1/billing/subscribe", {
+      method: "POST",
+      body: JSON.stringify({ priceId: "price_business_monthly", paymentMethodId: "pm_audit_fail" }),
+      headers: { origin: "http://localhost:3000", "Content-Type": "application/json" },
+    });
+    const response = await POST(req);
+
+    // Non-fatal: should still return 200 with success
+    expect(response.status).toBe(200);
+    const json = await response.json();
+    expect(json.success).toBe(true);
+    expect(loggerSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ err: expect.any(Error) }),
+      "Audit log failed (non-fatal)",
+    );
+
+    loggerSpy.mockRestore();
   });
 });

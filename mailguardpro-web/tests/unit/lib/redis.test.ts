@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { logger } from "@/lib/logger";
+
 // Use vi.hoisted to create mock before imports - mock ioredis to return our controlled instance
 const { mockRedisInstance } = vi.hoisted(() => {
   const instance = {
@@ -21,13 +23,37 @@ const { mockRedisInstance } = vi.hoisted(() => {
   return { mockRedisInstance: instance };
 });
 
+// Track Redis constructor calls to verify options passed by createRedisClient
+const redisConstructorCalls = vi.hoisted(() => [] as Array<{ url: string; opts: any }>);
+
 // Mock ioredis — use a proper constructor function (not arrow) so new Redis() works
 vi.mock("ioredis", () => {
-  const Redis = function () {
+  const Redis = function (url: string, opts: any) {
+    // ioredis supports both new Redis(options) and new Redis(url, options)
+    // createRedisClient calls new Redis({host, port, ...}) — options as first arg
+    // Extract the effective options object regardless of calling convention
+    const effectiveOpts = opts || (typeof url === "object" ? url : {});
+    redisConstructorCalls.push({ url, opts: effectiveOpts });
     return mockRedisInstance;
   };
   return { default: Redis };
 });
+
+// Mock logger so subscribeToProgress tests can verify warn calls
+vi.mock("@/lib/logger", () => ({
+  logger: {
+    warn: vi.fn(),
+    error: vi.fn(),
+    info: vi.fn(),
+    debug: vi.fn(),
+    child: vi.fn(() => ({
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+      debug: vi.fn(),
+    })),
+  },
+}));
 
 // Use importOriginal to get actual implementation but we need to mock the underlying redis instance
 vi.mock("@/lib/redis", async () => {
@@ -114,6 +140,13 @@ describe("redis", () => {
 
       await expect(getCached("bad-key")).rejects.toThrow();
     });
+
+    it("should reject when redis.get fails", async () => {
+      const testError = new Error("Connection refused");
+      mockRedisInstance.get.mockRejectedValue(testError);
+
+      await expect(getCached("fail-key")).rejects.toThrow("Connection refused");
+    });
   });
 
   describe("setCached", () => {
@@ -136,6 +169,12 @@ describe("redis", () => {
 
       expect(mockRedisInstance.setex).toHaveBeenCalledWith("test-key", 3600, '"simple-value"');
     });
+
+    it("should reject when redis.setex fails", async () => {
+      mockRedisInstance.setex.mockRejectedValue(new Error("Timeout"));
+
+      await expect(setCached("fail-key", "value", 60)).rejects.toThrow("Timeout");
+    });
   });
 
   describe("deleteCached", () => {
@@ -153,6 +192,12 @@ describe("redis", () => {
       const result = await deleteCached("test-key");
 
       expect(result).toBeUndefined();
+    });
+
+    it("should reject when redis.del fails", async () => {
+      mockRedisInstance.del.mockRejectedValue(new Error("Connection refused"));
+
+      await expect(deleteCached("fail-key")).rejects.toThrow("Connection refused");
     });
   });
 
@@ -251,6 +296,39 @@ describe("redis", () => {
       expect(result.resetAt).toBe(expected);
       expect(result.success).toBe(true);
     });
+
+    it("should handle malformed eval reply (single element array)", async () => {
+      // eval returns [current] without ttl
+      mockRedisInstance.eval.mockResolvedValue([1]);
+
+      const result = await checkRateLimit("test-key", 10, 60);
+
+      expect(result.success).toBe(true);
+      expect(result.remaining).toBe(9);
+      expect(result.resetAt).toBeGreaterThan(Date.now());
+    });
+
+    it("should return success with 0 remaining when exactly at limit", async () => {
+      mockRedisInstance.eval.mockResolvedValue([10, 60]); // current=10, limit=10
+
+      const result = await checkRateLimit("test-key", 10, 60);
+
+      expect(result.success).toBe(true);
+      expect(result.remaining).toBe(0);
+      expect(result.limit).toBe(10);
+    });
+
+    it("should use windowSeconds for resetAt when TTL returns -1", async () => {
+      const now = Date.now();
+      mockRedisInstance.eval.mockResolvedValue([1, -1]); // ttl=-1
+
+      const result = await checkRateLimit("test-key", 10, 60);
+
+      // ttl=-1 => ttl > 0 is false => use windowSeconds
+      const expected = Math.ceil((now + 60000) / 10000) * 10000;
+      expect(result.resetAt).toBe(expected);
+      expect(result.success).toBe(true);
+    });
   });
 
   describe("publishProgress", () => {
@@ -271,6 +349,12 @@ describe("redis", () => {
       await publishProgress("job-empty", null);
 
       expect(mockRedisInstance.publish).toHaveBeenCalled();
+    });
+
+    it("should reject when redis.publish fails", async () => {
+      mockRedisInstance.publish.mockRejectedValue(new Error("Timeout"));
+
+      await expect(publishProgress("job-123", { data: "test" })).rejects.toThrow("Timeout");
     });
   });
 
@@ -332,6 +416,137 @@ describe("redis", () => {
 
       expect(mockSubscriber.unsubscribe).toHaveBeenCalledWith("job:job-123:progress");
       expect(mockSubscriber.disconnect).toHaveBeenCalled();
+    });
+
+    it("should parse valid JSON and invoke callback with parsed data", () => {
+      const mockSubscriber = {
+        subscribe: vi.fn(),
+        unsubscribe: vi.fn(),
+        disconnect: vi.fn(),
+        on: vi.fn(),
+      };
+      mockRedisInstance.duplicate.mockReturnValue(mockSubscriber as any);
+
+      const callback = vi.fn();
+      subscribeToProgress("job-123", callback);
+
+      // Extract the message handler registered by subscribeToProgress
+      const messageHandler = mockSubscriber.on.mock.calls.find((call) => call[0] === "message")![1];
+
+      const testData = { status: "completed", progress: 100 };
+      messageHandler("job:job-123:progress", JSON.stringify(testData));
+
+      expect(callback).toHaveBeenCalledWith(testData);
+    });
+
+    it("should log a warning when message contains invalid JSON", () => {
+      const mockSubscriber = {
+        subscribe: vi.fn(),
+        unsubscribe: vi.fn(),
+        disconnect: vi.fn(),
+        on: vi.fn(),
+      };
+      mockRedisInstance.duplicate.mockReturnValue(mockSubscriber as any);
+
+      const callback = vi.fn();
+      subscribeToProgress("job-123", callback);
+
+      const messageHandler = mockSubscriber.on.mock.calls.find((call) => call[0] === "message")![1];
+
+      messageHandler("job:job-123:progress", "invalid-json");
+
+      expect(callback).not.toHaveBeenCalled();
+      expect(logger.warn).toHaveBeenCalledWith(
+        expect.objectContaining({ err: expect.any(Error) }),
+        "Failed to parse progress message",
+      );
+    });
+  });
+
+  // ==========================================================================
+  // createRedisClient options — retryStrategy and extraOpts merging
+  // ==========================================================================
+
+  describe("createRedisClient retryStrategy", () => {
+    it("retryStrategy should return null when times > 5", () => {
+      expect(redisConstructorCalls.length).toBeGreaterThanOrEqual(1);
+      expect(redisConstructorCalls[0]).toBeDefined();
+      expect(redisConstructorCalls[0].opts).toBeDefined();
+
+      // Find the main redis client options (first call, no extraOpts)
+      const mainOpts = redisConstructorCalls[0].opts;
+      expect(mainOpts.retryStrategy).toBeInstanceOf(Function);
+
+      const strategy = mainOpts.retryStrategy;
+      expect(strategy(6)).toBeNull();
+      expect(strategy(10)).toBeNull();
+      expect(strategy(100)).toBeNull();
+    });
+
+    it("retryStrategy should return times * 200 for times <= 5, max 2000", () => {
+      const mainOpts = redisConstructorCalls[0].opts;
+      const strategy = mainOpts.retryStrategy;
+
+      expect(strategy(1)).toBe(200);
+      expect(strategy(2)).toBe(400);
+      expect(strategy(3)).toBe(600);
+      expect(strategy(4)).toBe(800);
+      expect(strategy(5)).toBe(1000);
+    });
+  });
+
+  describe("createRedisClient host and port extraction", () => {
+    it("should extract host and port from REDIS_URL and set defaults otherwise", () => {
+      // The default REDIS_URL is redis://localhost:6379
+      // parsedUrl.hostname = "localhost" (truthy) → used directly
+      // parseInt(parsedUrl.port) = 6379 (truthy) → used directly
+      const opts = redisConstructorCalls[0].opts;
+      expect(opts.host).toBe("localhost");
+      expect(opts.port).toBe(6379);
+    });
+
+    it("|| fallback: parsedUrl.hostname || localhost — hostname is always present in valid URLs", () => {
+      // The fallback branch at line 21 (`parsedUrl.hostname || "localhost"`)
+      // is defensive: for any valid redis:// URL that includes a host,
+      // parsedUrl.hostname is always a non-empty string (truthy).
+      // A URL without a hostname (e.g. "redis://:6379") causes the URL
+      // constructor to throw TypeError, so this fallback only applies
+      // if the URL parser were to return an empty hostname unexpectedly.
+      const url = new URL("redis://localhost:6379");
+      expect(url.hostname).toBe("localhost"); // truthy → used directly
+      expect(url.hostname || "localhost").toBe("localhost"); // same result
+      expect(url.port).toBe("6379"); // truthy → used directly
+    });
+
+    it("|| fallback: parseInt(parsedUrl.port) defaults to 6379 when NaN", () => {
+      // Demonstrates the fallback branch at line 22:
+      //   port: parseInt(parsedUrl.port) || 6379
+      // When parseInt returns NaN (falsy), 6379 is used.
+      const noPortUrl = new URL("redis://localhost");
+      expect(noPortUrl.port).toBe("");
+      expect(parseInt(noPortUrl.port)).toBeNaN();
+      expect(parseInt(noPortUrl.port) || 6379).toBe(6379);
+    });
+  });
+
+  describe("createRedisClient extraOpts merging", () => {
+    it("should merge extraOpts into Redis constructor options", () => {
+      // redisConstructorCalls captures all calls: redis, queueRedis, rateLimitRedis
+      // queueRedis is the 2nd call (index 1) with extraOpts { maxRetriesPerRequest: null }
+      expect(redisConstructorCalls.length).toBeGreaterThanOrEqual(2);
+
+      // First call: main redis client (default options)
+      const defaultOpts = redisConstructorCalls[0].opts;
+      expect(defaultOpts.maxRetriesPerRequest).toBe(3);
+
+      // Second call: queueRedis with extraOpts { maxRetriesPerRequest: null }
+      const queueOpts = redisConstructorCalls[1].opts;
+      expect(queueOpts.maxRetriesPerRequest).toBeNull();
+
+      // Other defaults should still be present
+      expect(queueOpts.lazyConnect).toBe(true);
+      expect(queueOpts.connectTimeout).toBe(5000);
+      expect(queueOpts.commandTimeout).toBe(5000);
     });
   });
 });

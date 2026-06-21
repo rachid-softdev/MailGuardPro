@@ -1,6 +1,7 @@
 import * as dns from "dns/promises";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { checkDMARC, checkMX, checkSPF, getDomainInfo } from "@/services/dnsChecker";
+import { getCachedDomainChecks, setCachedDomainChecks } from "@/services/validationCache";
 
 // Mock dns/promises
 vi.mock("dns/promises", () => {
@@ -20,9 +21,14 @@ vi.mock("dns/promises", () => {
   };
 });
 
+vi.mock("@/services/validationCache", () => ({
+  getCachedDomainChecks: vi.fn(),
+  setCachedDomainChecks: vi.fn(),
+}));
+
 describe("dnsChecker", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
   });
 
   describe("checkMX", () => {
@@ -77,6 +83,71 @@ describe("dnsChecker", () => {
       const result = await checkMX("user@example.com");
 
       expect(result.passed).toBe(false);
+    });
+
+    it("should return cached MX result when cache hit", async () => {
+      const cachedResult = {
+        passed: true,
+        weight: 25,
+        message: "MX valide",
+        detail: "Serveur principal: mx.example.com",
+      };
+      vi.mocked(getCachedDomainChecks).mockResolvedValue({ mx: cachedResult });
+
+      const result = await checkMX("user@example.com");
+
+      expect(dns.resolveMx).not.toHaveBeenCalled();
+      expect(result).toEqual(cachedResult);
+    });
+
+    it("should handle ENOTFOUND DNS error", async () => {
+      const err = new Error("getaddrinfo ENOTFOUND example.com");
+      (err as any).code = "ENOTFOUND";
+      vi.mocked(dns.resolveMx).mockRejectedValue(err);
+
+      const result = await checkMX("user@notfound.com");
+
+      expect(result.passed).toBe(false);
+      expect(result.message).toBe("Erreur de résolution DNS");
+    });
+
+    it("should handle null MX records", async () => {
+      vi.mocked(dns.resolveMx).mockResolvedValue(null as any);
+
+      const result = await checkMX("user@example.com");
+
+      expect(result.passed).toBe(false);
+      expect(result.message).toBe("Aucun enregistrement MX trouvé");
+    });
+
+    it("should handle MX record with empty exchange", async () => {
+      vi.mocked(dns.resolveMx).mockResolvedValue([{ priority: 10, exchange: "" }]);
+
+      const result = await checkMX("user@example.com");
+
+      expect(result.passed).toBe(true);
+      expect(result.detail).toContain("Serveur principal: ");
+    });
+
+    it("should handle MX record with priority 0", async () => {
+      vi.mocked(dns.resolveMx).mockResolvedValue([
+        { priority: 0, exchange: "mx0.example.com" },
+        { priority: 10, exchange: "mx1.example.com" },
+      ]);
+
+      const result = await checkMX("user@example.com");
+
+      expect(result.detail).toContain("mx0.example.com");
+      expect(result.detail).toContain("priorité: 0");
+    });
+
+    it("should handle internationalized domain names", async () => {
+      vi.mocked(dns.resolveMx).mockResolvedValue([{ priority: 10, exchange: "mx.example.com" }]);
+
+      const result = await checkMX("user@münchen.de");
+
+      expect(dns.resolveMx).toHaveBeenCalledWith("münchen.de");
+      expect(result.passed).toBe(true);
     });
   });
 
@@ -133,6 +204,20 @@ describe("dnsChecker", () => {
 
       expect(result.detail?.length).toBeLessThanOrEqual(103); // 100 + '...'
     });
+
+    it("should return cached SPF result when cache hit", async () => {
+      const cachedResult = {
+        passed: true,
+        weight: 5,
+        message: "SPF configuré",
+      };
+      vi.mocked(getCachedDomainChecks).mockResolvedValue({ spf: cachedResult });
+
+      const result = await checkSPF("example.com");
+
+      expect(dns.resolveTxt).not.toHaveBeenCalled();
+      expect(result).toEqual(cachedResult);
+    });
   });
 
   describe("checkDMARC", () => {
@@ -181,6 +266,20 @@ describe("dnsChecker", () => {
 
       expect(result.detail?.length).toBeLessThanOrEqual(100);
     });
+
+    it("should return cached DMARC result when cache hit", async () => {
+      const cachedResult = {
+        passed: false,
+        weight: 0,
+        message: "DMARC non trouvé",
+      };
+      vi.mocked(getCachedDomainChecks).mockResolvedValue({ dmarc: cachedResult });
+
+      const result = await checkDMARC("example.com");
+
+      expect(dns.resolveTxt).not.toHaveBeenCalled();
+      expect(result).toEqual(cachedResult);
+    });
   });
 
   describe("getDomainInfo", () => {
@@ -213,6 +312,84 @@ describe("dnsChecker", () => {
       const result = await getDomainInfo("error.com");
 
       expect(result.mx).toEqual([]);
+      expect(result.spf).toBe(false);
+      expect(result.dmarc).toBe(false);
+    });
+
+    it("should return cached domain info when full cache hit", async () => {
+      vi.mocked(getCachedDomainChecks).mockResolvedValue({
+        mx: { detail: "Serveur principal: mx1.example.com" },
+        spf: { passed: true },
+        dmarc: { passed: false },
+      });
+
+      const result = await getDomainInfo("example.com");
+
+      expect(dns.resolveMx).not.toHaveBeenCalled();
+      expect(dns.resolveTxt).not.toHaveBeenCalled();
+      expect(result).toEqual({ mx: ["mx1.example.com"], spf: true, dmarc: false });
+    });
+
+    it("should parse MX detail with trailing text in cache hit", async () => {
+      vi.mocked(getCachedDomainChecks).mockResolvedValue({
+        mx: { detail: "Serveur principal: mx1.example.com (priorité: 10)" },
+        spf: { passed: true },
+        dmarc: { passed: true },
+      });
+
+      const result = await getDomainInfo("example.com");
+
+      expect(result.mx).toEqual(["mx1.example.com (priorité: 10)"]);
+    });
+
+    it("should handle cache write failure after cache miss", async () => {
+      vi.mocked(getCachedDomainChecks).mockResolvedValue(null);
+      vi.mocked(setCachedDomainChecks).mockRejectedValue(new Error("Cache write failed"));
+      vi.mocked(dns.resolveMx).mockResolvedValue([{ priority: 10, exchange: "mx1.example.com" }]);
+      vi.mocked(dns.resolveTxt).mockResolvedValue([]);
+
+      const result = await getDomainInfo("example.com");
+
+      expect(result).toEqual({ mx: [], spf: false, dmarc: false });
+    });
+
+    it("should return empty mx when cached MX detail has no colon separator", async () => {
+      vi.mocked(getCachedDomainChecks).mockResolvedValue({
+        mx: { detail: "Serveur principal without colon" },
+        spf: { passed: true },
+        dmarc: { passed: false },
+      });
+
+      const result = await getDomainInfo("example.com");
+
+      // Regex /: (.+)$/ does not match → mx = []
+      expect(result.mx).toEqual([]);
+      expect(result.spf).toBe(true);
+      expect(result.dmarc).toBe(false);
+    });
+
+    it("should cache domain info after successful live resolution", async () => {
+      vi.mocked(getCachedDomainChecks).mockResolvedValue(null);
+      vi.mocked(dns.resolveMx).mockResolvedValue([{ priority: 10, exchange: "mx1.example.com" }]);
+      vi.mocked(dns.resolveTxt).mockResolvedValue([["v=spf1 +all"], ["v=DMARC1 p=none"]]);
+
+      const result = await getDomainInfo("example.com");
+
+      expect(setCachedDomainChecks).toHaveBeenCalledWith("example.com", {
+        mx: expect.objectContaining({ passed: true, message: "MX valide" }),
+        spf: expect.objectContaining({ passed: true }),
+        dmarc: expect.objectContaining({ passed: true }),
+      });
+      expect(result).toEqual({ mx: ["mx1.example.com"], spf: true, dmarc: true });
+    });
+
+    it("should return partial results when MX resolves but TXT fails", async () => {
+      vi.mocked(dns.resolveMx).mockResolvedValue([{ priority: 10, exchange: "mx1.example.com" }]);
+      vi.mocked(dns.resolveTxt).mockRejectedValue(new Error("DNS error"));
+
+      const result = await getDomainInfo("partial.com");
+
+      expect(result.mx).toContain("mx1.example.com");
       expect(result.spf).toBe(false);
       expect(result.dmarc).toBe(false);
     });

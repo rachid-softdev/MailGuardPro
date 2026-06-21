@@ -30,6 +30,22 @@ describe("catchAllChecker", () => {
       expect(result.message).toBe("Pas de MX record");
     });
 
+    it("should handle MX records that throw on sort in outer catch block", async () => {
+      // Return a non-array with length > 0 but no .sort() method
+      // This triggers the outer catch (lines 75-76) when mxRecords.sort() throws
+      vi.mocked(dns.resolveMx).mockResolvedValue({
+        length: 1,
+        0: { priority: 10, exchange: "mx.example.com" },
+      } as any);
+
+      const result = await checkCatchAll("example.com");
+
+      expect(result.passed).toBe(true);
+      expect(result.weight).toBe(10);
+      expect(result.message).toBe("Vérification échouée");
+      expect(result.detail).toBe("Erreur lors de la vérification catch-all");
+    });
+
     it("should return passed when MX records exist and count <= 5", async () => {
       vi.mocked(dns.resolveMx).mockResolvedValue([
         { priority: 10, exchange: "mx1.example.com" },

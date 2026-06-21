@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // The module is not mocked globally — we test the real implementation.
 // We use vi.useFakeTimers to control time for window/sweep tests.
-import { logger } from "@/lib/logger";
+import { loggerEdge } from "@/lib/logger-edge";
 import { checkMemoryRateLimit, clearSweeper } from "@/lib/rateLimitMemory";
 
 describe("checkMemoryRateLimit", () => {
@@ -200,6 +200,42 @@ describe("checkMemoryRateLimit", () => {
     expect(result2).toHaveProperty("limit");
   });
 
+  it("should sweep entries with long windows (stronger sweeper test via resetModules)", async () => {
+    // The sweeper's setInterval at module load time uses REAL timers, so it
+    // doesn't respond to vi.advanceTimersByTime(). To test it properly, we
+    // reset modules and re-import so the setInterval is created with FAKE timers.
+    vi.resetModules();
+    const freshMod = await import("@/lib/rateLimitMemory");
+
+    const key = "long-window-sweep";
+    // Use a window (120s) longer than the sweeper interval (60s).
+    // This way, the entry won't expire naturally when we advance 61s,
+    // but the sweeper WILL remove it (because sweeper checks
+    // now - windowStart >= 60000 regardless of windowMs).
+    await freshMod.checkMemoryRateLimit(key, 10, 120); // windowStart=0, count=1
+
+    // Advance time past the sweeper interval (60s) but before the window expires (120s)
+    vi.advanceTimersByTime(61_000);
+
+    // At this point:
+    //   - The sweeper has run (at t=60s) and removed the entry (windowStart=0,
+    //     now-windowStart=60000 >= 60000)
+    //   - The entry's window has NOT expired naturally (61s < 120s)
+    //
+    // If the sweeper removed the entry, checkMemoryRateLimit creates a NEW window
+    // with count=1, remaining=4 (limit=5, remaining=5-1=4).
+    // If the sweeper did NOT remove it, the existing entry has count=1, and
+    // calling checkMemoryRateLimit would increment to count=2 → remaining=3.
+    const result = await freshMod.checkMemoryRateLimit(key, 10, 120);
+    expect(result.success).toBe(true);
+    // remaining = 4 proves new window (sweeper cleaned) vs remaining = 3
+    // would mean existing window (sweeper didn't clean)
+    expect(result.remaining).toBe(4);
+
+    // Cleanup the fresh module's sweeper
+    freshMod.clearSweeper();
+  });
+
   // ────────────────────────────────────────────
   // Unlimited / very high limits
   // ────────────────────────────────────────────
@@ -271,7 +307,7 @@ describe("checkMemoryRateLimit", () => {
   it("should evict oldest entries when store exceeds 10,000 entries (LRU)", async () => {
     // Create enough unique keys to trigger LRU eviction
     // MAX_STORE_SIZE = 10,000, so we need at least 10,001 keys
-    const warnSpy = vi.spyOn(logger, "warn").mockImplementation(() => {});
+    const warnSpy = vi.spyOn(loggerEdge, "warn").mockImplementation(() => {});
 
     // Fill store with unique keys — each key triggers checkMemoryRateLimit which adds to the store
     const keyCount = 10_050;
@@ -287,5 +323,120 @@ describe("checkMemoryRateLimit", () => {
     );
 
     warnSpy.mockRestore();
+  });
+
+  // ────────────────────────────────────────────
+  // Scenario (b): evictIfNeeded calls loggerEdge.warn with entriesToDelete: 2000
+  // ────────────────────────────────────────────
+
+  it("should pass entriesToDelete=2000 to loggerEdge.warn on eviction", async () => {
+    // MAX_STORE_SIZE = 10,000, EVICT_PERCENT = 0.2 → entriesToDelete = 2000
+    const warnSpy = vi.spyOn(loggerEdge, "warn").mockImplementation(() => {});
+
+    // Exceed the store limit
+    for (let i = 0; i < 10_050; i++) {
+      await checkMemoryRateLimit(`eviction-exact-key-${i}`, 100, 60);
+    }
+
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ entriesToDelete: 2000 }),
+      expect.stringContaining("Store exceeded limit"),
+    );
+
+    warnSpy.mockRestore();
+  });
+
+  // ────────────────────────────────────────────
+  // Scenario (c): evictIfNeeded ne fait rien quand store.size <= MAX_STORE_SIZE
+  // ────────────────────────────────────────────
+
+  it("should NOT log warning when store is below MAX_STORE_SIZE", async () => {
+    const warnSpy = vi.spyOn(loggerEdge, "warn").mockImplementation(() => {});
+
+    // Fill only a few entries (well below 10,000)
+    for (let i = 0; i < 10; i++) {
+      await checkMemoryRateLimit(`small-store-key-${i}`, 100, 60);
+    }
+
+    // No eviction warning should have been logged
+    expect(warnSpy).not.toHaveBeenCalled();
+
+    warnSpy.mockRestore();
+  });
+
+  // ────────────────────────────────────────────
+  // Scenario (d): Le warn de rejet est bien loggé avec les bons paramètres
+  // ────────────────────────────────────────────
+
+  it("should log rejection warning with correct parameters when rate limited", async () => {
+    const warnSpy = vi.spyOn(loggerEdge, "warn").mockImplementation(() => {});
+    const key = "rejection-log-key";
+
+    // Exhaust the limit
+    for (let i = 0; i < 50; i++) {
+      await checkMemoryRateLimit(key, 100, 60);
+    }
+
+    // Trigger rejection
+    await checkMemoryRateLimit(key, 100, 60);
+
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        key: "rejection-log-key",
+        originalLimit: 100,
+        effectiveLimit: 50,
+        windowSeconds: 60,
+        currentCount: 51,
+        source: "memory",
+      }),
+      "[RateLimit] REJECTED (memory fallback)",
+    );
+
+    warnSpy.mockRestore();
+  });
+
+  // ────────────────────────────────────────────
+  // Scenario (e): clearSweeper() vide le store
+  // ────────────────────────────────────────────
+
+  it("should clear the store after clearSweeper() is called", async () => {
+    const warnSpy = vi.spyOn(loggerEdge, "warn").mockImplementation(() => {});
+
+    // Create entries
+    await checkMemoryRateLimit("clear-key-1", 10, 60);
+    await checkMemoryRateLimit("clear-key-2", 10, 60);
+
+    // Clear the store
+    clearSweeper();
+
+    // After clearing, a new rate limit session should start fresh
+    const result = await checkMemoryRateLimit("clear-key-1", 10, 60);
+    expect(result.success).toBe(true);
+    expect(result.remaining).toBe(4); // limit = floor(10 * 0.5) = 5, remaining = 5 - 1
+
+    warnSpy.mockRestore();
+  });
+
+  // ────────────────────────────────────────────
+  // Scenario (f): resetAt est arrondi aux 10 secondes près (multiple de 10000)
+  // ────────────────────────────────────────────
+
+  it("should round resetAt to nearest 10 seconds (multiple of 10000)", async () => {
+    const result = await checkMemoryRateLimit("rounding-key", 100, 60);
+
+    // resetAt must be a multiple of 10000 (10 seconds in ms)
+    expect(result.resetAt % 10000).toBe(0);
+  });
+
+  it("resetAt rounding should work for different window durations", async () => {
+    // Set time to a specific millisecond to verify rounding
+    vi.setSystemTime(new Date("2026-05-29T12:00:00.001Z")); // 1ms past the second
+
+    const result = await checkMemoryRateLimit("rounding-key-2", 100, 60);
+    expect(result.resetAt % 10000).toBe(0);
+
+    vi.setSystemTime(new Date("2026-05-29T12:00:00.500Z")); // 500ms past
+    const result2 = await checkMemoryRateLimit("rounding-key-3", 100, 60);
+    expect(result2.resetAt % 10000).toBe(0);
   });
 });

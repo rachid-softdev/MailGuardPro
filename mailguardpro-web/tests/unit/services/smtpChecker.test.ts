@@ -117,7 +117,24 @@ vi.mock("@/lib/ssrf", () => ({
   validateResolvedIp: vi.fn(),
 }));
 
+vi.mock("@/lib/logger", () => ({
+  logger: {
+    warn: vi.fn(),
+    info: vi.fn(),
+    error: vi.fn(),
+    debug: vi.fn(),
+    child: vi.fn(() => ({
+      warn: vi.fn(),
+      info: vi.fn(),
+      error: vi.fn(),
+      debug: vi.fn(),
+    })),
+  },
+}));
+
 import dns from "dns/promises";
+import { logger } from "@/lib/logger";
+import { redis } from "@/lib/redis";
 import { validateResolvedIp } from "@/lib/ssrf";
 // ---------------------------------------------------------------------------
 // Subject under test
@@ -411,5 +428,95 @@ describe("checkSMTP", () => {
     // Should have resolved only the lowest-priority MX
     expect(vi.mocked(dns.resolve4)).toHaveBeenCalledWith("mx1.example.com");
     expect(result.passed).toBe(true);
+  });
+
+  // -----------------------------------------------------------------------
+  // Redis cache unavailable – line 122
+  // -----------------------------------------------------------------------
+  it("should continue without cache when Redis is unavailable", async () => {
+    vi.mocked(redis.get).mockRejectedValue(new Error("ECONNREFUSED"));
+    vi.mocked(dns.resolveMx).mockResolvedValue([]);
+
+    const result = await checkSMTP("user@redis-down.com");
+
+    expect(result.passed).toBe(false);
+    expect(result.message).toBe("SMTP: no MX record");
+    // Ensure the function continued past the Redis error
+    expect(dns.resolveMx).toHaveBeenCalledWith("redis-down.com");
+
+    // Reset so subsequent tests aren't affected by the rejected mock
+    vi.mocked(redis.get).mockReset();
+  });
+
+  // -----------------------------------------------------------------------
+  // DNS resolves to an empty IP list – line 174
+  // -----------------------------------------------------------------------
+  it("should fail when MX hostname resolves to an empty IP list", async () => {
+    vi.mocked(dns.resolveMx).mockResolvedValue([{ priority: 10, exchange: "mx.example.com" }]);
+    vi.mocked(dns.resolve4).mockResolvedValue([]);
+    vi.mocked(dns.resolve6).mockResolvedValue([]);
+
+    const result = await checkSMTP("user@empty-ip.com");
+
+    expect(result.passed).toBe(false);
+    expect(result.message).toBe("SMTP: no IP resolved");
+    expect(result.detail).toBe("No IP address found for mx.example.com");
+  });
+
+  // -----------------------------------------------------------------------
+  // Error during SMTP conversation (after connection) – lines 308-312
+  // -----------------------------------------------------------------------
+  it("should catch SMTP conversation errors and return SMTP error", async () => {
+    vi.mocked(dns.resolveMx).mockResolvedValue([{ priority: 10, exchange: "mx.example.com" }]);
+    vi.mocked(dns.resolve4).mockResolvedValue(["192.0.2.1"]);
+
+    // Only supply the banner – the EHLO readResponse will time out
+    MockSocket.nextResponses = ["220 mx.example.com ESMTP ready\r\n"];
+
+    // Use a short timeout so readResponse rejects quickly
+    const result = await checkSMTP("user@conversation-error.com", 50);
+
+    expect(result.passed).toBe(false);
+    expect(result.message).toBe("SMTP error");
+    expect(result.detail).toBe("SMTP response timeout");
+  });
+
+  // -----------------------------------------------------------------------
+  // Redis cache HIT – line 119: return cached result without network call
+  // -----------------------------------------------------------------------
+  it("should return cached SMTP result from Redis without performing any check", async () => {
+    const cachedResult = {
+      passed: true,
+      weight: 30,
+      message: "Email deliverable",
+      detail: "Cached result",
+      code: "250",
+    };
+    vi.mocked(redis.get).mockResolvedValueOnce(JSON.stringify(cachedResult));
+
+    const result = await checkSMTP("user@example.com");
+
+    expect(result).toEqual(cachedResult);
+    // No DNS resolution should happen – cache hit returns immediately
+    expect(dns.resolveMx).not.toHaveBeenCalled();
+  });
+
+  // -----------------------------------------------------------------------
+  // cacheSmtpResult – redis.setex rejects → line 106: logger.warn + return
+  // -----------------------------------------------------------------------
+  it("should log warning and continue when caching SMTP result fails", async () => {
+    vi.mocked(dns.resolveMx).mockResolvedValue([]);
+    // Make setex reject so cacheSmtpResult enters the catch block
+    vi.mocked(redis.setex).mockRejectedValue(new Error("Redis write error"));
+
+    const result = await checkSMTP("user@example.com");
+
+    expect(result.passed).toBe(false);
+    expect(result.message).toBe("SMTP: no MX record");
+    // logger.warn should have been called inside cacheSmtpResult catch
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({ err: expect.any(Error) }),
+      "Failed to cache SMTP result",
+    );
   });
 });

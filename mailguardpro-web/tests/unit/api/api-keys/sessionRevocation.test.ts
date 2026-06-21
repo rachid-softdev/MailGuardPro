@@ -27,6 +27,10 @@ vi.mock("@/services/auditLogger", () => ({
   AuditResource: { API_KEY: "ApiKey" },
 }));
 
+vi.mock("@/lib/csrf", () => ({
+  validateCsrfOrigin: vi.fn(() => ({ valid: true })),
+}));
+
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     apiKey: {
@@ -45,6 +49,7 @@ vi.mock("@/lib/prisma", () => ({
 
 import { DELETE } from "@/app/api/v1/api-keys/[id]/route";
 import { auth } from "@/lib/auth";
+import { validateCsrfOrigin } from "@/lib/csrf";
 import { prisma } from "@/lib/prisma";
 
 describe("Session revocation on API key delete [M-07]", () => {
@@ -120,7 +125,7 @@ describe("Session revocation on API key delete [M-07]", () => {
     expect(prisma.apiKey.update).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { id: "key-456" },
-        data: { isActive: false },
+        data: expect.objectContaining({ isActive: false }),
       }),
     );
   });
@@ -245,5 +250,105 @@ describe("Session revocation on API key delete [M-07]", () => {
     const response = await DELETE(req, { params } as any);
 
     expect(response.status).toBe(404);
+  });
+
+  // ────────────────────────────────────────────
+  // CSRF validation failure
+  // ────────────────────────────────────────────
+
+  it("should return 403 when CSRF validation fails", async () => {
+    vi.mocked(validateCsrfOrigin).mockReturnValueOnce({
+      valid: false,
+      error: "Origin not allowed: http://evil.com",
+    });
+
+    const url = new URL("http://localhost:3000/api/v1/api-keys/key-csrf");
+    const req = new NextRequest(url, {
+      method: "DELETE",
+      headers: { origin: "http://evil.com" },
+    });
+    const params = Promise.resolve({ id: "key-csrf" });
+    const response = await DELETE(req, { params } as any);
+
+    expect(response.status).toBe(403);
+    const body = await response.json();
+    expect(body.success).toBe(false);
+    expect(body.error).toContain("Origin not allowed");
+  });
+
+  // ────────────────────────────────────────────
+  // Error handling — $transaction rejection
+  // ────────────────────────────────────────────
+
+  it("should return 500 and log error when $transaction fails", async () => {
+    const { loggerApi } = await import("@/lib/logger");
+    const loggerSpy = vi.spyOn(loggerApi, "error").mockImplementation(() => {});
+
+    vi.mocked(auth).mockResolvedValue({
+      user: { id: "user-txn-fail" },
+      expires: new Date(Date.now() + 86400000).toISOString(),
+    } as any);
+
+    vi.mocked(prisma.apiKey.findFirst).mockResolvedValue({
+      id: "key-txn-fail",
+      userId: "user-txn-fail",
+      name: "Test Key",
+    } as any);
+
+    vi.mocked(prisma.$transaction).mockRejectedValue(new Error("Transaction failed"));
+
+    const url = new URL("http://localhost:3000/api/v1/api-keys/key-txn-fail");
+    const req = new NextRequest(url, {
+      method: "DELETE",
+      headers: { origin: "http://localhost:3000" },
+    });
+    const params = Promise.resolve({ id: "key-txn-fail" });
+    const response = await DELETE(req, { params } as any);
+
+    expect(response.status).toBe(500);
+    const body = await response.json();
+    expect(body.success).toBe(false);
+    expect(body.error).toBe("Internal server error");
+    expect(loggerSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ err: expect.any(Error) }),
+      "API key delete error",
+    );
+
+    loggerSpy.mockRestore();
+  });
+
+  // ────────────────────────────────────────────
+  // Error handling — findFirst rejection
+  // ────────────────────────────────────────────
+
+  it("should return 500 when apiKey.findFirst throws", async () => {
+    const { loggerApi } = await import("@/lib/logger");
+    const loggerSpy = vi.spyOn(loggerApi, "error").mockImplementation(() => {});
+
+    vi.mocked(auth).mockResolvedValue({
+      user: { id: "user-find-fail" },
+      expires: new Date(Date.now() + 86400000).toISOString(),
+    } as any);
+
+    vi.mocked(prisma.apiKey.findFirst).mockRejectedValue(new Error("DB connection lost"));
+
+    const url = new URL("http://localhost:3000/api/v1/api-keys/key-find-fail");
+    const req = new NextRequest(url, {
+      method: "DELETE",
+      headers: { origin: "http://localhost:3000" },
+    });
+    const params = Promise.resolve({ id: "key-find-fail" });
+    const response = await DELETE(req, { params } as any);
+
+    expect(response.status).toBe(500);
+    const body = await response.json();
+    expect(body.success).toBe(false);
+    expect(body.error).toBe("Internal server error");
+    expect(loggerSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ err: expect.any(Error) }),
+      "API key delete error",
+    );
+
+    loggerSpy.mockRestore();
   });
 });

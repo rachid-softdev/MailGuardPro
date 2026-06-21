@@ -50,7 +50,8 @@ vi.mock("@/lib/prisma", () => ({
       update: vi.fn(() => Promise.resolve({})),
     },
     validation: {
-      create: vi.fn(() => Promise.resolve({})),
+      create: vi.fn(() => Promise.resolve({ id: "val-1" })),
+      update: vi.fn(() => Promise.resolve({})),
     },
     $transaction: vi.fn(async (cb: any) => {
       return cb({
@@ -59,7 +60,7 @@ vi.mock("@/lib/prisma", () => ({
           findUnique: vi.fn(() => Promise.resolve({ credits: 99 })),
         },
         validation: {
-          create: vi.fn(() => Promise.resolve({})),
+          create: vi.fn(() => Promise.resolve({ id: "val-1" })),
         },
       });
     }),
@@ -112,6 +113,10 @@ vi.mock("@/services/emailValidator", () => ({
 
 vi.mock("@/services/formatChecker", () => ({
   checkFormat: vi.fn(() => ({ passed: true, message: "Valid format" })),
+}));
+
+vi.mock("@/lib/logger", () => ({
+  loggerApi: { info: vi.fn(), error: vi.fn(), warn: vi.fn() },
 }));
 
 // Silence console
@@ -257,5 +262,100 @@ describe("SEC-1: Timing-safe catch block", () => {
     expect(startTimeArg).toBeGreaterThan(0);
     // Should be close to current time
     expect(startTimeArg).toBeLessThanOrEqual(Date.now());
+  });
+});
+
+// =============================================================================
+// Additional tests: rate limit exceeded, cache headers, Vary header
+// =============================================================================
+
+describe("Additional validate route tests", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  // --------------------------------------------------------------------------
+  // Authenticated rate limit exceeded
+  // --------------------------------------------------------------------------
+  it("should return 429 when authenticated rate limit is exceeded", async () => {
+    const { checkRateLimitByPlan } = await import("@/lib/rateLimits");
+    vi.mocked(checkRateLimitByPlan).mockResolvedValueOnce({
+      success: false,
+      remaining: 0,
+      resetAt: Date.now() + 60000,
+      limit: 100,
+    });
+
+    const url = new URL("http://localhost:3000/api/v1/validate?email=test@example.com");
+    const req = new NextRequest(url);
+    const response = await GET(req);
+
+    expect(response.status).toBe(429);
+    const json = await response.json();
+    expect(json.success).toBe(false);
+    expect(json.error).toBe("Rate limit exceeded");
+    expect(json).toHaveProperty("retryAfter");
+
+    // enforceTimingSafeResponse should be called before returning 429
+    expect(mockEnforceTimingSafeResponse).toHaveBeenCalled();
+  });
+
+  // --------------------------------------------------------------------------
+  // Cache-Control for FREE plan: s-maxage=60
+  // --------------------------------------------------------------------------
+  it("should set Cache-Control s-maxage=60 for FREE plan users", async () => {
+    // Auth is already mocked to return FREE plan — use it as-is
+    const url = new URL("http://localhost:3000/api/v1/validate?email=test@example.com");
+    const req = new NextRequest(url);
+    const response = await GET(req);
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("Cache-Control")).toBe("s-maxage=60, stale-while-revalidate=120");
+  });
+
+  // --------------------------------------------------------------------------
+  // Cache-Control for PRO plan: s-maxage=300
+  // --------------------------------------------------------------------------
+  it("should set Cache-Control s-maxage=300 for PRO plan users", async () => {
+    const { auth } = await import("@/lib/auth");
+    vi.mocked(auth).mockResolvedValueOnce({
+      user: { id: "pro-user", plan: "PRO", credits: 500 },
+    } as any);
+
+    const url = new URL("http://localhost:3000/api/v1/validate?email=test@example.com");
+    const req = new NextRequest(url);
+    const response = await GET(req);
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("Cache-Control")).toBe("s-maxage=300, stale-while-revalidate=600");
+  });
+
+  // --------------------------------------------------------------------------
+  // Vary header
+  // --------------------------------------------------------------------------
+  it("should set Vary header to X-API-Key, Cookie, Authorization", async () => {
+    const url = new URL("http://localhost:3000/api/v1/validate?email=test@example.com");
+    const req = new NextRequest(url);
+    const response = await GET(req);
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("Vary")).toBe("X-API-Key, Cookie, Authorization");
+  });
+
+  // --------------------------------------------------------------------------
+  // Cache-Control for BUSINESS plan: s-maxage=300
+  // --------------------------------------------------------------------------
+  it("should set Cache-Control s-maxage=300 for BUSINESS plan users", async () => {
+    const { auth } = await import("@/lib/auth");
+    vi.mocked(auth).mockResolvedValueOnce({
+      user: { id: "biz-user", plan: "BUSINESS", credits: 9999 },
+    } as any);
+
+    const url = new URL("http://localhost:3000/api/v1/validate?email=test@example.com");
+    const req = new NextRequest(url);
+    const response = await GET(req);
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("Cache-Control")).toBe("s-maxage=300, stale-while-revalidate=600");
   });
 });

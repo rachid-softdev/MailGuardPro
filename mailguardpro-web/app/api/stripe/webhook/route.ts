@@ -122,40 +122,44 @@ export async function POST(req: NextRequest) {
 
   switch (event.type) {
     case "checkout.session.completed": {
-      const sessionData = event.data.object as Stripe.Checkout.Session;
-      const customerId = sessionData.customer as string;
-      const subscriptionId = sessionData.subscription as string;
+      try {
+        const sessionData = event.data.object as Stripe.Checkout.Session;
+        const customerId = sessionData.customer as string;
+        const subscriptionId = sessionData.subscription as string;
 
-      if (customerId && subscriptionId) {
-        const user = await findUserByStripeCustomerId(customerId, event.type);
+        if (customerId && subscriptionId) {
+          const user = await findUserByStripeCustomerId(customerId, event.type);
 
-        if (user) {
-          const subscription = await stripe.subscriptions.retrieve(subscriptionId);
-          const priceId = subscription.items.data[0]?.price.id ?? "";
-          const plan = getPlanFromPriceId(priceId);
+          if (user) {
+            const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+            const priceId = subscription.items.data[0]?.price.id ?? "";
+            const plan = getPlanFromPriceId(priceId);
 
-          if (plan) {
-            const creditMap: Record<string, number> = {
-              BUSINESS: 0,
-              PRO: 50000,
-              STARTER: 5000,
-            };
+            if (plan) {
+              const creditMap: Record<string, number> = {
+                BUSINESS: 0,
+                PRO: 50000,
+                STARTER: 5000,
+              };
 
-            await prisma.user.update({
-              where: { id: user.id },
-              data: {
-                plan,
-                stripeSubscriptionId: subscriptionId,
-                credits: { increment: creditMap[plan] ?? 5000 },
-              },
-            });
+              await prisma.user.update({
+                where: { id: user.id },
+                data: {
+                  plan,
+                  stripeSubscriptionId: subscriptionId,
+                  credits: { increment: creditMap[plan] ?? 5000 },
+                },
+              });
 
-            loggerStripe.info(
-              { userId: user.id, plan },
-              "Checkout.session: User activated plan with initial credits",
-            );
+              loggerStripe.info(
+                { userId: user.id, plan },
+                "Checkout.session: User activated plan with initial credits",
+              );
+            }
           }
         }
+      } catch (error) {
+        loggerStripe.error({ err: error }, "Failed to process checkout.session.completed");
       }
       break;
     }

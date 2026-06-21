@@ -83,6 +83,14 @@ export async function processBulkUpload(
     };
   }
 
+  // Early row limit check before expensive processing
+  if (records.length > MAX_BULK_ROWS) {
+    return {
+      success: false,
+      errors: [`Too many emails. Maximum: ${MAX_BULK_ROWS}`],
+    };
+  }
+
   // Extract emails
   const emails: ParsedEmail[] = [];
   const errors: string[] = [];

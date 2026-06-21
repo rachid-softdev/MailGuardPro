@@ -1,8 +1,7 @@
 /**
  * Unit tests for app/api/v1/user/route.ts — DELETE /api/v1/user
  *
- * H-2 fix: Verifies that the Prisma transaction (GDPR deletion) runs
- * BEFORE the Stripe cancellation call.
+ * Tests the schedule-based account deletion with undo support.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -10,29 +9,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 // Mocks
 // ---------------------------------------------------------------------------
 
-// Stripe mock
-vi.mock("@/lib/stripe", () => ({
-  stripe: {
-    subscriptions: {
-      cancel: vi.fn().mockResolvedValue({}),
-    },
-  },
-}));
-
-// Prisma mock
+// Prisma mock — must include deletionSchedule used by current source
 vi.mock("@/lib/prisma", () => ({
   prisma: {
-    user: {
-      findUnique: vi.fn(),
-      update: vi.fn(),
+    deletionSchedule: {
+      findUnique: vi.fn().mockResolvedValue(null),
+      create: vi.fn().mockResolvedValue({}),
     },
-    session: { deleteMany: vi.fn() },
-    account: { updateMany: vi.fn() },
-    validation: { updateMany: vi.fn() },
-    bulkJob: { updateMany: vi.fn() },
-    apiKey: { deleteMany: vi.fn() },
-    webhook: { deleteMany: vi.fn() },
-    $transaction: vi.fn(),
   },
 }));
 
@@ -48,17 +31,14 @@ vi.mock("@/lib/csrf", () => ({
   validateCsrfOrigin: vi.fn().mockReturnValue({ valid: true }),
 }));
 
-// Audit logger mock
-vi.mock("@/services/auditLogger", () => ({
-  logAudit: vi.fn().mockResolvedValue(undefined),
-  AuditAction: { USER_DELETED: "USER_DELETED" },
-  AuditResource: { USER: "User" },
+// Logger mock
+vi.mock("@/lib/logger", () => ({
+  loggerApi: { error: vi.fn() },
 }));
 
 import { NextRequest } from "next/server";
 import { DELETE } from "@/app/api/v1/user/route";
 import { prisma } from "@/lib/prisma";
-import { stripe } from "@/lib/stripe";
 
 function createRequest(): NextRequest {
   return new NextRequest("https://mailguard.pro/api/v1/user", {
@@ -67,98 +47,49 @@ function createRequest(): NextRequest {
   });
 }
 
-describe("DELETE /api/v1/user (H-2 fix)", () => {
+describe("DELETE /api/v1/user", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it("should run DB transaction BEFORE Stripe cancellation (H-2 fix)", async () => {
-    // Simulate user with active Stripe subscription
-    vi.mocked(prisma.user.findUnique).mockResolvedValue({
-      id: "user-123",
-      name: null,
-      email: "test@example.com",
-      emailVerified: null,
-      image: null,
-      plan: "FREE",
-      credits: 100,
-      role: "USER",
-      isActive: true,
-      stripeCustomerId: "cus_456",
-      stripeSubscriptionId: "sub_123",
-      tokenVersion: 0,
-      createdAt: new Date(),
-    });
-
-    // Track call order
-    const callOrder: string[] = [];
-
-    vi.mocked(prisma.$transaction).mockImplementation(async () => {
-      callOrder.push("DB_TRANSACTION");
-      return [];
-    });
-
-    vi.mocked(stripe.subscriptions.cancel).mockImplementation(async () => {
-      callOrder.push("STRIPE_CANCEL");
-      return {} as any;
-    });
-
-    await DELETE(createRequest());
-
-    // DB transaction must come FIRST, THEN Stripe cancel
-    expect(callOrder).toEqual(["DB_TRANSACTION", "STRIPE_CANCEL"]);
-  });
-
-  it("should still delete account when Stripe cancel fails (best-effort)", async () => {
-    vi.mocked(prisma.user.findUnique).mockResolvedValue({
-      id: "user-123",
-      name: null,
-      email: "test@example.com",
-      emailVerified: null,
-      image: null,
-      plan: "FREE",
-      credits: 100,
-      role: "USER",
-      isActive: true,
-      stripeCustomerId: "cus_456",
-      stripeSubscriptionId: "sub_123",
-      tokenVersion: 0,
-      createdAt: new Date(),
-    });
-    vi.mocked(prisma.$transaction).mockResolvedValue([]);
-    vi.mocked(stripe.subscriptions.cancel).mockRejectedValue(new Error("Stripe API error"));
+  it("should schedule account deletion when no existing schedule", async () => {
+    vi.mocked(prisma.deletionSchedule.findUnique).mockResolvedValue(null);
+    vi.mocked(prisma.deletionSchedule.create).mockResolvedValue({
+      id: "schedule-1",
+      userId: "user-123",
+      expiresAt: new Date(Date.now() + 5000),
+    } as any);
 
     const response = await DELETE(createRequest());
     const body = await response.json();
 
-    // Should return success despite Stripe failure
     expect(response.status).toBe(200);
     expect(body.success).toBe(true);
-    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
-    expect(stripe.subscriptions.cancel).toHaveBeenCalledWith("sub_123");
+    expect(body.undoable).toBe(true);
+    expect(body.message).toContain("Account deletion scheduled");
+    expect(prisma.deletionSchedule.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          userId: "user-123",
+        }),
+      }),
+    );
   });
 
-  it("should not attempt Stripe cancel when user has no subscription", async () => {
-    vi.mocked(prisma.user.findUnique).mockResolvedValue({
-      id: "user-123",
-      name: null,
-      email: "test@example.com",
-      emailVerified: null,
-      image: null,
-      plan: "FREE",
-      credits: 100,
-      role: "USER",
-      isActive: true,
-      stripeCustomerId: null,
-      stripeSubscriptionId: null,
-      tokenVersion: 0,
-      createdAt: new Date(),
-    });
-    vi.mocked(prisma.$transaction).mockResolvedValue([]);
+  it("should return 409 when deletion already scheduled", async () => {
+    vi.mocked(prisma.deletionSchedule.findUnique).mockResolvedValue({
+      id: "existing-schedule",
+      userId: "user-123",
+      expiresAt: new Date(Date.now() + 5000),
+    } as any);
 
-    await DELETE(createRequest());
+    const response = await DELETE(createRequest());
+    const body = await response.json();
 
-    expect(stripe.subscriptions.cancel).not.toHaveBeenCalled();
+    expect(response.status).toBe(409);
+    expect(body.success).toBe(false);
+    expect(body.error).toContain("already scheduled");
+    expect(prisma.deletionSchedule.create).not.toHaveBeenCalled();
   });
 
   it("should return 401 when not authenticated", async () => {
@@ -178,5 +109,20 @@ describe("DELETE /api/v1/user (H-2 fix)", () => {
 
     const response = await DELETE(createRequest());
     expect(response.status).toBe(403);
+  });
+
+  it("should return 500 when prisma.create fails", async () => {
+    vi.mocked(prisma.deletionSchedule.findUnique).mockResolvedValue(null);
+    vi.mocked(prisma.deletionSchedule.create).mockRejectedValue(new Error("DB error"));
+
+    const response = await DELETE(createRequest());
+    expect(response.status).toBe(500);
+  });
+
+  it("should return 500 when prisma.findUnique fails", async () => {
+    vi.mocked(prisma.deletionSchedule.findUnique).mockRejectedValue(new Error("DB error"));
+
+    const response = await DELETE(createRequest());
+    expect(response.status).toBe(500);
   });
 });

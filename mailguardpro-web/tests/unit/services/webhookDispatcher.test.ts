@@ -80,6 +80,42 @@ describe("webhookDispatcher", () => {
       expect(mockFetch).not.toHaveBeenCalled();
     });
 
+    it("should return false when webhook has no pinnedIps (null)", async () => {
+      mockLoggerWebhookError.mockClear();
+      const result = await WebhookDispatcher.dispatch(
+        { ...mockWebhook, pinnedIps: undefined as any },
+        "bulk_job_completed",
+        { test: "data" },
+      );
+
+      expect(result).toBe(false);
+      expect(mockLoggerWebhookError).toHaveBeenCalledWith(
+        { webhookId: "webhook-123" },
+        "No pinned IPs for webhook — rejecting",
+      );
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+
+    it("should return false when DNS resolution fails", async () => {
+      const { resolveWebhookIps } = await import("@/lib/ssrf");
+      vi.mocked(resolveWebhookIps).mockResolvedValueOnce({
+        valid: false,
+        error: "DNS lookup returned no records",
+      });
+
+      mockLoggerWebhookError.mockClear();
+      const result = await WebhookDispatcher.dispatch(mockWebhook, "bulk_job_completed", {
+        test: "data",
+      });
+
+      expect(result).toBe(false);
+      expect(mockLoggerWebhookError).toHaveBeenCalledWith(
+        { hostname: "example.com", error: "DNS lookup returned no records" },
+        "DNS resolution failed",
+      );
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+
     it("should return true on successful dispatch", async () => {
       mockFetch.mockResolvedValue({
         ok: true,
@@ -253,6 +289,37 @@ describe("webhookDispatcher", () => {
       expect(result.total).toBe(0);
       expect(result.successful).toBe(0);
       expect(result.failed).toBe(0);
+    });
+
+    it("should handle webhook with pinnedIps set to null (line 214 falsy branch)", async () => {
+      // Line 214: pinnedIps: webhook.pinnedIps ? String(...) : undefined
+      // When pinnedIps is null/undefined, the ternary takes the falsy branch → undefined
+      mockPrisma.webhook.findMany.mockResolvedValue([
+        {
+          id: "webhook-null-ips",
+          userId: "user-123",
+          url: "https://example.com/nulls",
+          isActive: true,
+          events: ["bulk_job_completed"],
+          encryptedSecret: "secret",
+          pinnedIps: null, // null → falsy branch → undefined
+        },
+      ]);
+
+      mockFetch.mockResolvedValue({
+        ok: true,
+        status: 200,
+        statusText: "OK",
+      } as any);
+
+      const result = await WebhookDispatcher.dispatchToUser("user-123", "bulk_job_completed", {
+        test: "data",
+      });
+
+      // Since pinnedIps is null, dispatch will reject with "No pinned IPs for webhook"
+      expect(result.total).toBe(1);
+      expect(result.successful).toBe(0);
+      expect(result.failed).toBe(1);
     });
   });
 

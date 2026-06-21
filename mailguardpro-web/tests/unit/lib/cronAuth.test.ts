@@ -52,13 +52,25 @@ vi.mock("@/lib/redis", () => ({
   default: mockRedis,
 }));
 
-// Mock @sentry/nextjs
-vi.mock("@sentry/nextjs", () => ({
-  captureMessage: vi.fn(),
-  captureException: vi.fn(),
+// Mock @sentry/nextjs — use a mutable flag to control behavior
+const { sentryMockState } = vi.hoisted(() => ({
+  sentryMockState: { shouldThrow: false },
 }));
 
+vi.mock("@sentry/nextjs", () => {
+  const sentry = {
+    captureMessage: vi.fn(() => {
+      if (sentryMockState.shouldThrow) {
+        throw new Error("Sentry not available");
+      }
+    }),
+    captureException: vi.fn(),
+  };
+  return sentry;
+});
+
 import { verifyCronRequest } from "@/lib/cronAuth";
+import { logger } from "@/lib/logger";
 
 describe("verifyCronRequest", () => {
   beforeEach(() => {
@@ -167,5 +179,85 @@ describe("verifyCronRequest", () => {
 
     expect(result.authorized).toBe(false);
     expect(result.response?.status).toBe(401);
+  });
+
+  // ────────────────────────────────────────────
+  // Scenario (d): IP fallback to "unknown" when both headers are absent
+  // ────────────────────────────────────────────
+
+  it("should log ip=unknown when both x-forwarded-for AND x-real-ip headers are missing", async () => {
+    const errorSpy = vi.spyOn(logger, "error");
+    const req = {
+      headers: {
+        get: () => null, // neither x-forwarded-for nor x-real-ip present
+      },
+      method: "GET",
+      nextUrl: { pathname: "/api/cron/cleanup" },
+    };
+
+    const result = await verifyCronRequest(req as any, "cleanup");
+
+    expect(result.authorized).toBe(false);
+    expect(result.response?.status).toBe(401);
+    // The log should contain ip=unknown since neither header was present
+    expect(errorSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ ip: "unknown" }),
+      "[Cron] Unauthorized access attempt",
+    );
+  });
+
+  // ────────────────────────────────────────────
+  // Scenario (c): reportToSentry hors production → PAS de Sentry.captureMessage
+  // ────────────────────────────────────────────
+  it("should NOT call Sentry.captureMessage in non-production (test)", async () => {
+    // NODE_ENV is already "test" from beforeEach
+    const req = createMockRequest("Bearer wrong-secret");
+
+    await verifyCronRequest(req as any, "cleanup");
+
+    // Sentry should not be called because NODE_ENV !== "production"
+    const Sentry = await import("@sentry/nextjs");
+    expect(Sentry.captureMessage).not.toHaveBeenCalled();
+  });
+
+  // ────────────────────────────────────────────
+  // Scenario (a): reportToSentry en production → Sentry.captureMessage appelé
+  // ────────────────────────────────────────────
+  it("should call Sentry.captureMessage in production on auth failure", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    const req = createMockRequest("Bearer wrong-secret");
+
+    await verifyCronRequest(req as any, "cleanup");
+
+    const Sentry = await import("@sentry/nextjs");
+    expect(Sentry.captureMessage).toHaveBeenCalledWith(
+      "Cron auth failure: cleanup",
+      expect.objectContaining({
+        level: "warning",
+        extra: expect.objectContaining({
+          endpoint: "cleanup",
+          ip: "127.0.0.1",
+        }),
+      }),
+    );
+  });
+
+  // ────────────────────────────────────────────
+  // Scenario (b): Import Sentry échoue → catch silencieux
+  // ────────────────────────────────────────────
+  it("should handle Sentry captureMessage failure gracefully (catch silent)", async () => {
+    // Make captureMessage throw so the .catch handler runs
+    sentryMockState.shouldThrow = true;
+    vi.stubEnv("NODE_ENV", "production");
+
+    const req = createMockRequest("Bearer wrong-secret");
+    const result = await verifyCronRequest(req as any, "cleanup");
+
+    // Should still return unauthorized — the catch silences the error
+    expect(result.authorized).toBe(false);
+    expect(result.response?.status).toBe(401);
+
+    // Restore for other tests
+    sentryMockState.shouldThrow = false;
   });
 });

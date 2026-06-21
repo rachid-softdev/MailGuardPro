@@ -293,7 +293,7 @@ export async function checkSMTP(email: string, timeoutMs = 5000): Promise<SMTPRe
           weight: SCORING_WEIGHTS.smtp.fail,
           message: "Server temporarily unavailable",
           detail: rcptResponse,
-          code: "452",
+          code: rcptResponse.substring(0, 3),
         });
       } else {
         // Uncertain status

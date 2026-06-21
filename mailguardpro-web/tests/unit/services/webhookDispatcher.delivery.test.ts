@@ -267,4 +267,41 @@ describe("webhookDispatcher - persistDelivery", () => {
       }),
     );
   }, 20000);
+
+  // ──────────────── requestBody ?? data fallback (line 177) ────────────────
+
+  it("should use data as requestBody fallback when result.requestBody is null (line 177)", async () => {
+    // persistDelivery has: requestBody: result.requestBody ?? (data as Record<string, unknown>)
+    // When requestBody is null/undefined, the fallback `data` (third arg of persistDelivery) is used.
+    // Access private static method via type cast
+    const persistDelivery = (WebhookDispatcher as any).persistDelivery;
+
+    await persistDelivery(
+      TEST_WEBHOOK,
+      "bulk_job_completed",
+      {
+        event: "bulk_job_completed",
+        timestamp: "2024-01-01T00:00:00.000Z",
+        data: { fallback: true },
+      },
+      {
+        status: "success",
+        statusCode: 200,
+        requestBody: null, // triggers ?? fallback
+        responseBody: null,
+        durationMs: 100,
+        error: null,
+      },
+    );
+
+    expect(mockPrisma.webhookDelivery.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          requestBody: expect.objectContaining({
+            data: { fallback: true },
+          }),
+        }),
+      }),
+    );
+  });
 });

@@ -88,4 +88,107 @@ describe("stripe", () => {
       await expect(vi.importActual("@/lib/stripe")).rejects.toThrow("STRIPE_STARTER_PRICE_ID");
     });
   });
+
+  describe("STRIPE_SECRET_KEY missing", () => {
+    it("should throw STRIPE_SECRET_KEY is not defined when env var missing", async () => {
+      vi.resetModules();
+      vi.stubEnv("STRIPE_SECRET_KEY", "");
+      vi.stubEnv("STRIPE_STARTER_PRICE_ID", "price_starter");
+      vi.stubEnv("STRIPE_PRO_PRICE_ID", "price_pro");
+      vi.stubEnv("STRIPE_BUSINESS_PRICE_ID", "price_business");
+
+      try {
+        await vi.importActual("@/lib/stripe");
+        // Should not reach here
+        expect(true).toBe(false);
+      } catch (e: any) {
+        expect(e.message).toBe("STRIPE_SECRET_KEY is not defined");
+      }
+
+      vi.unstubAllEnvs();
+    });
+  });
+
+  describe("individual price IDs missing", () => {
+    it("should throw when STARTER price ID is missing", async () => {
+      vi.resetModules();
+      vi.stubEnv("STRIPE_SECRET_KEY", "sk_test_123");
+      vi.stubEnv("STRIPE_STARTER_PRICE_ID", "");
+      vi.stubEnv("STRIPE_PRO_PRICE_ID", "price_pro");
+      vi.stubEnv("STRIPE_BUSINESS_PRICE_ID", "price_business");
+
+      try {
+        await vi.importActual("@/lib/stripe");
+        expect(true).toBe(false);
+      } catch (e: any) {
+        expect(e.message).toContain("STRIPE_STARTER_PRICE_ID");
+      }
+
+      vi.unstubAllEnvs();
+    });
+
+    it("should throw when PRO price ID is missing", async () => {
+      vi.resetModules();
+      vi.stubEnv("STRIPE_SECRET_KEY", "sk_test_123");
+      vi.stubEnv("STRIPE_STARTER_PRICE_ID", "price_starter");
+      vi.stubEnv("STRIPE_PRO_PRICE_ID", "");
+      vi.stubEnv("STRIPE_BUSINESS_PRICE_ID", "price_business");
+
+      try {
+        await vi.importActual("@/lib/stripe");
+        expect(true).toBe(false);
+      } catch (e: any) {
+        expect(e.message).toContain("STRIPE_PRO_PRICE_ID");
+      }
+
+      vi.unstubAllEnvs();
+    });
+
+    it("should throw when BUSINESS price ID is missing", async () => {
+      vi.resetModules();
+      vi.stubEnv("STRIPE_SECRET_KEY", "sk_test_123");
+      vi.stubEnv("STRIPE_STARTER_PRICE_ID", "price_starter");
+      vi.stubEnv("STRIPE_PRO_PRICE_ID", "price_pro");
+      vi.stubEnv("STRIPE_BUSINESS_PRICE_ID", "");
+
+      try {
+        await vi.importActual("@/lib/stripe");
+        expect(true).toBe(false);
+      } catch (e: any) {
+        expect(e.message).toContain("STRIPE_BUSINESS_PRICE_ID");
+      }
+
+      vi.unstubAllEnvs();
+    });
+  });
+
+  describe("getPlanFromPriceId edge cases", () => {
+    it("should return null for empty string price ID", async () => {
+      // Use vi.importActual to force a fresh module eval with properly set env vars
+      vi.resetModules();
+      vi.stubEnv("STRIPE_SECRET_KEY", "sk_test_123");
+      vi.stubEnv("STRIPE_STARTER_PRICE_ID", "price_starter");
+      vi.stubEnv("STRIPE_PRO_PRICE_ID", "price_pro");
+      vi.stubEnv("STRIPE_BUSINESS_PRICE_ID", "price_business");
+
+      const mod = await import("@/lib/stripe");
+      expect(mod.getPlanFromPriceId("")).toBeNull();
+
+      vi.unstubAllEnvs();
+    });
+
+    it("should return null for undefined price ID", async () => {
+      vi.resetModules();
+      vi.stubEnv("STRIPE_SECRET_KEY", "sk_test_123");
+      vi.stubEnv("STRIPE_STARTER_PRICE_ID", "price_starter");
+      vi.stubEnv("STRIPE_PRO_PRICE_ID", "price_pro");
+      vi.stubEnv("STRIPE_BUSINESS_PRICE_ID", "price_business");
+
+      const mod = await import("@/lib/stripe");
+      // @ts-expect-error - testing undefined behaviour
+      expect(mod.getPlanFromPriceId(undefined)).toBeNull();
+
+      vi.unstubAllEnvs();
+    });
+  });
 });

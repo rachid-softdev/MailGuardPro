@@ -397,3 +397,151 @@ describe("DI-1: Credit deduction race conditions", () => {
     expect(failures).toBe(1);
   });
 });
+
+// =============================================================================
+// Tests for post-transaction edge cases (f, g) and Cache-Control headers (h)
+// =============================================================================
+
+describe("Post-transaction edge cases & Cache-Control headers", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+
+    // Default: format and disposable pass
+    mockCheckFormat.mockReturnValue({ passed: true, message: "Valid format" });
+    mockCheckDisposable.mockResolvedValue({ passed: true, message: "Not disposable" });
+
+    // Default: validateEmail succeeds
+    mockValidateEmail.mockResolvedValue({
+      email: VALID_EMAIL,
+      score: 85,
+      status: "valid",
+      checks: {
+        format: { passed: true, message: "Valid" },
+        mx: { passed: true, message: "MX OK" },
+        smtp: { passed: true, message: "SMTP OK" },
+      },
+      domain: { name: "company.com", reputation: "good", ageInDays: 400 },
+      processingTimeMs: 150,
+    });
+
+    // Default: transaction succeeds with credit deduction
+    mockPrisma.$transaction.mockImplementation(async (fn: any) => {
+      return fn({
+        user: {
+          updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+          findUnique: vi.fn().mockResolvedValue({ id: "user-credits-1", credits: 4 }),
+        },
+        validation: {
+          create: vi.fn().mockResolvedValue({ id: "val-1" }),
+        },
+      });
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // (f) prisma.validation.update échoue APRÈS la transaction → catch doit logger
+  // ---------------------------------------------------------------------------
+  it("should return 500 and log error when prisma.validation.update fails after transaction", async () => {
+    mockPrisma.validation.update.mockRejectedValueOnce(new Error("DB update failed after tx"));
+
+    // Override user.findUnique to succeed for isActive check, then for credits read
+    mockPrisma.user.findUnique.mockResolvedValue({
+      id: "user-credits-1",
+      credits: 5,
+      isActive: true,
+    });
+
+    const url = new URL(`http://localhost:3000/api/v1/validate?email=${VALID_EMAIL}`);
+    const req = new (await import("next/server")).NextRequest(url);
+    const response = await GET(req);
+
+    expect(response.status).toBe(500);
+    const json = await response.json();
+    expect(json.success).toBe(false);
+    expect(json.error).toBe("Internal server error");
+  });
+
+  // ---------------------------------------------------------------------------
+  // (g) Lecture crédits restants après update échoue → creditsRemaining doit être null
+  // ---------------------------------------------------------------------------
+  it("should set creditsRemaining to null when user credits fetch returns null", async () => {
+    // First call (isActive check in getAuthenticatedUser): returns active user
+    // Second call (credits read after validation.update): returns null
+    let callIndex = 0;
+    mockPrisma.user.findUnique.mockImplementation(() => {
+      callIndex++;
+      if (callIndex === 1) {
+        return Promise.resolve({ id: "user-credits-1", credits: 5, isActive: true });
+      }
+      // Second call returns null → creditsRemaining becomes null
+      return Promise.resolve(null);
+    });
+
+    const url = new URL(`http://localhost:3000/api/v1/validate?email=${VALID_EMAIL}`);
+    const req = new (await import("next/server")).NextRequest(url);
+    const response = await GET(req);
+
+    expect(response.status).toBe(200);
+    const json = await response.json();
+    expect(json.meta.creditsRemaining).toBeNull();
+    expect(json.data.status).toBe("valid");
+  });
+
+  // ---------------------------------------------------------------------------
+  // (h) Cache-Control headers diffèrent pour FREE vs PRO
+  // ---------------------------------------------------------------------------
+
+  it("should set s-maxage=60 Cache-Control for FREE user", async () => {
+    mockPrisma.validation.update.mockResolvedValue({ id: "val-1" } as any);
+    // isActive check returns the user with FREE plan
+    mockPrisma.user.findUnique.mockResolvedValue({
+      id: "user-credits-1",
+      credits: 5,
+      isActive: true,
+      plan: "FREE",
+    });
+
+    const url = new URL(`http://localhost:3000/api/v1/validate?email=${VALID_EMAIL}`);
+    const req = new (await import("next/server")).NextRequest(url);
+
+    // Override auth to return FREE user (explicitly)
+    const { auth } = await import("@/lib/auth");
+    vi.mocked(auth).mockResolvedValueOnce({
+      user: { id: "user-credits-1", plan: "FREE", credits: 5 },
+      expires: new Date(Date.now() + 86400000).toISOString(),
+    } as any);
+
+    const response = await GET(req);
+    expect(response.status).toBe(200);
+
+    const cc = response.headers.get("Cache-Control") || "";
+    expect(cc).toContain("s-maxage=60");
+    expect(cc).toContain("stale-while-revalidate=120");
+  });
+
+  it("should set s-maxage=300 Cache-Control for PRO user", async () => {
+    mockPrisma.validation.update.mockResolvedValue({ id: "val-1" } as any);
+    mockPrisma.user.findUnique.mockResolvedValue({
+      id: "user-credits-1",
+      credits: 500,
+      isActive: true,
+      plan: "PRO",
+    });
+
+    const url = new URL(`http://localhost:3000/api/v1/validate?email=${VALID_EMAIL}`);
+    const req = new (await import("next/server")).NextRequest(url);
+
+    const { auth } = await import("@/lib/auth");
+    vi.mocked(auth).mockResolvedValueOnce({
+      user: { id: "user-credits-1", plan: "PRO", credits: 500 },
+      expires: new Date(Date.now() + 86400000).toISOString(),
+    } as any);
+
+    const response = await GET(req);
+    expect(response.status).toBe(200);
+
+    const cc = response.headers.get("Cache-Control") || "";
+    expect(cc).toContain("s-maxage=300");
+    expect(cc).toContain("stale-while-revalidate=600");
+  });
+});
