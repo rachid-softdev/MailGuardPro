@@ -45,8 +45,8 @@ const mockClose = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
 
 // State captured at module load time
 let capturedProcessor: ((job: any) => Promise<any>) | null = null;
-const capturedEventHandlers: Record<string, Function> = {};
-const capturedProcessHandlers: Record<string, Function> = {};
+const capturedEventHandlers: Record<string, (...args: any[]) => void> = {};
+const capturedProcessHandlers: Record<string, (...args: any[]) => void> = {};
 
 // Worker constructor arguments
 let capturedWorkerName: string = "";
@@ -59,7 +59,7 @@ const mockWorkerCtor = vi.hoisted(
       capturedWorkerName = name;
       capturedWorkerOptions = options;
       return {
-        on: (event: string, handler: Function) => {
+        on: (event: string, handler: (...args: any[]) => void) => {
           capturedEventHandlers[event] = handler;
         },
         close: mockClose,
