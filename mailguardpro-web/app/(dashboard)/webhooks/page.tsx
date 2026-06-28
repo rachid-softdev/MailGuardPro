@@ -211,7 +211,7 @@ export default function WebhooksPage() {
       } else {
         setTestResult(`Test failed: ${data.error}`);
       }
-    } catch (error) {
+    } catch {
       setTestResult(`Test failed: Network error`);
     } finally {
       setTesting(false);

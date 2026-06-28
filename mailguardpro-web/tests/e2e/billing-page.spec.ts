@@ -1,4 +1,4 @@
-// =============================================================================
+/* eslint-disable @typescript-eslint/no-unused-vars */ // =============================================================================
 // BILL-1, BILL-2, BILL-3: Billing Page (Dashboard) E2E Tests
 // Tests:
 //   - /billing page renders plan information (when authenticated)

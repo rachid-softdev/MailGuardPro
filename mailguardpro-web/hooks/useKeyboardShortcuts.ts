@@ -21,65 +21,59 @@ export function useKeyboardShortcuts() {
   const [showPalette, setShowPalette] = useState(false);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
 
-  const shortcuts: Shortcut[] = [
-    {
-      key: "d",
-      label: "D",
-      description: "Go to Dashboard",
-      action: () => router.push("/dashboard"),
-    },
-    {
-      key: "v",
-      label: "V",
-      description: "Go to Validate",
-      action: () => router.push("/validate"),
-    },
-    {
-      key: "b",
-      label: "B",
-      description: "Go to Bulk",
-      action: () => router.push("/bulk"),
-    },
-    {
-      key: "h",
-      label: "H",
-      description: "Go to History",
-      action: () => router.push("/history"),
-    },
-    {
-      key: "k",
-      label: "K",
-      description: "Go to API Keys",
-      action: () => router.push("/api-keys"),
-    },
-    {
-      key: "w",
-      label: "W",
-      description: "Go to Webhooks",
-      action: () => router.push("/webhooks"),
-    },
-    {
-      key: "s",
-      label: "S",
-      description: "Go to Settings",
-      action: () => router.push("/settings"),
-    },
-    {
-      key: "/",
-      label: "/",
-      description: "Focus search or primary input",
-      action: () => {
-        // Try to find and focus the primary input on the current page
-        const primaryInput = document.querySelector<HTMLElement>(
-          'input[type="email"], input[type="text"][placeholder*="earch"], input[type="text"][placeholder*="email"]',
-        );
-        primaryInput?.focus();
-      },
-    },
-  ];
-
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
+      const shortcuts: Shortcut[] = [
+        {
+          key: "d",
+          label: "D",
+          description: "Go to Dashboard",
+          action: () => router.push("/dashboard"),
+        },
+        {
+          key: "v",
+          label: "V",
+          description: "Go to Validate",
+          action: () => router.push("/validate"),
+        },
+        { key: "b", label: "B", description: "Go to Bulk", action: () => router.push("/bulk") },
+        {
+          key: "h",
+          label: "H",
+          description: "Go to History",
+          action: () => router.push("/history"),
+        },
+        {
+          key: "k",
+          label: "K",
+          description: "Go to API Keys",
+          action: () => router.push("/api-keys"),
+        },
+        {
+          key: "w",
+          label: "W",
+          description: "Go to Webhooks",
+          action: () => router.push("/webhooks"),
+        },
+        {
+          key: "s",
+          label: "S",
+          description: "Go to Settings",
+          action: () => router.push("/settings"),
+        },
+        {
+          key: "/",
+          label: "/",
+          description: "Focus search or primary input",
+          action: () => {
+            const primaryInput = document.querySelector<HTMLElement>(
+              'input[type="email"], input[type="text"][placeholder*="earch"], input[type="text"][placeholder*="email"]',
+            );
+            primaryInput?.focus();
+          },
+        },
+      ];
+
       // Cmd+K / Ctrl+K toggles command palette (works everywhere, even in inputs)
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
         e.preventDefault();
@@ -120,7 +114,9 @@ export function useKeyboardShortcuts() {
         shortcut.action();
       }
     },
-    [router, shortcuts, showCommandPalette],
+    // router intentionally excluded (stable)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [showCommandPalette],
   );
 
   useEffect(() => {

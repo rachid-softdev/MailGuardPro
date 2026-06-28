@@ -1,4 +1,4 @@
-// =============================================================================
+/* eslint-disable @typescript-eslint/no-unused-vars */ // =============================================================================
 // THEME-1, THEME-2, THEME-3: Dark Mode / Theme System E2E Tests
 // Tests:
 //   - FOUC prevention: data-theme attribute on <html> from inline script

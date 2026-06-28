@@ -1,4 +1,10 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+/* eslint-disable @typescript-eslint/no-unused-vars */ import {
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 
 // Use vi.hoisted for proper hoisting
 const { mockResolve4 } = vi.hoisted(() => ({

@@ -1,4 +1,10 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+/* eslint-disable @typescript-eslint/no-unused-vars */ import {
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 
 // Use vi.hoisted to properly handle hoisting of mock variables
 const { mockPrisma, mockRedis } = vi.hoisted(() => ({

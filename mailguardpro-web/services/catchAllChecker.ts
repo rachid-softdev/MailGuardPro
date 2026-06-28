@@ -72,7 +72,7 @@ export async function checkCatchAll(domain: string): Promise<CheckResult> {
     // Note: True catch-all detection requires actual SMTP connection testing
     // which is slow and can be blocked by firewalls. The MX heuristic above
     // provides a reasonable approximation for most use cases.
-  } catch (error) {
+  } catch {
     return {
       passed: true,
       weight: SCORING_WEIGHTS.catchAll.pass,

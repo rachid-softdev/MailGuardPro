@@ -113,6 +113,8 @@ export default function HistoryPage() {
     } finally {
       setLoading(false);
     }
+    // pagination intentionally excluded (triggers via page change)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     page,
     statusFilter,
@@ -392,8 +394,10 @@ export default function HistoryPage() {
   }, []);
 
   // Clear selection when filters change (new page, new search, new status filter)
+  // selection is stable, would cause loops
   useEffect(() => {
     selection.clear();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, statusFilter, searchQuery]);
 
   return (
