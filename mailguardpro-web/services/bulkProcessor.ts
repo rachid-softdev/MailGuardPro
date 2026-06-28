@@ -60,7 +60,7 @@ export async function processBulkUpload(
   let content: string;
   try {
     content = await file.text();
-  } catch (error) {
+  } catch {
     return {
       success: false,
       errors: ["Failed to read file"],
@@ -76,7 +76,7 @@ export async function processBulkUpload(
       trim: true,
       relax_column_count: true,
     });
-  } catch (error) {
+  } catch {
     return {
       success: false,
       errors: ["Invalid CSV format"],

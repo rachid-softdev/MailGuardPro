@@ -45,7 +45,7 @@ export async function checkMX(email: string): Promise<CheckResult> {
     };
     await setCachedDomainChecks(domain, { mx: result });
     return result;
-  } catch (error) {
+  } catch {
     const result: CheckResult = {
       passed: false,
       weight: SCORING_WEIGHTS.mx.fail,

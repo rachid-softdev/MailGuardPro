@@ -1,4 +1,4 @@
-// =============================================================================
+/* eslint-disable @typescript-eslint/no-unused-vars */ // =============================================================================
 // CRIT-4: Cross-user emailHash unique constraint
 // Tests that UserA and UserB can both validate test@example.com independently,
 // that the SAME user cannot validate the same email twice (dedup preserved),

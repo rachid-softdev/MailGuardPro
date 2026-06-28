@@ -1,4 +1,4 @@
-/**
+/* eslint-disable @typescript-eslint/no-unused-vars */ /**
  * Unit tests for app/api/v1/api-keys/route.ts — GET and POST handlers.
  *
  * Covers:

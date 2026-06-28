@@ -56,12 +56,14 @@ export default function BulkJobDetailPage({ params }: { params: Promise<{ jobId:
 
   useEffect(() => {
     fetchJob();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [jobId]);
 
   useEffect(() => {
     if (job?.status === "COMPLETED") {
       fetchResults();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [jobId, page, statusFilter, debouncedSearch, job?.status]);
 
   const fetchJob = async () => {

@@ -97,7 +97,7 @@ export default function SettingsPage() {
           text: data.error || "Failed to update profile",
         });
       }
-    } catch (error) {
+    } catch {
       setMessage({
         type: "error",
         text: "Failed to save profile due to a network error. Please try again.",
