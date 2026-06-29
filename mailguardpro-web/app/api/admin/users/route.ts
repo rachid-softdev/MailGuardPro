@@ -33,7 +33,10 @@ export async function GET() {
     });
 
     return NextResponse.json(users);
-  } catch (error) {
+  } catch (error: any) {
+    if (error.status) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
     loggerApi.error({ err: error }, "Admin GET users error");
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
@@ -74,7 +77,10 @@ export async function POST(request: Request) {
     });
 
     return NextResponse.json(user, { status: 201 });
-  } catch (error) {
+  } catch (error: any) {
+    if (error.status) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
     loggerApi.error({ err: error }, "Admin POST users error");
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
