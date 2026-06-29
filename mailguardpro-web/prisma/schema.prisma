@@ -1,5 +1,6 @@
 generator client {
   provider = "prisma-client-js"
+  output   = "../node_modules/.prisma/client"
 }
 
 datasource db {
@@ -50,6 +51,7 @@ model User {
   stripeCustomerId     String?   @unique
   stripeSubscriptionId String?
   tokenVersion         Int       @default(0) // Incremented on API key revocation
+  organizationId       String?   @map("organization_id")
 
   accounts    Account[]
   sessions    Session[]
@@ -59,6 +61,7 @@ model User {
   validations       Validation[]
   userRoles         UserRole[]
   deletionSchedule  DeletionSchedule?
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
 }
 
 model Account {
@@ -250,7 +253,7 @@ model ScheduledExport {
 
 model WebhookDelivery {
   id           String   @id @default(uuid()) @db.Uuid
-  webhookId    String   @db.Uuid
+  webhookId    String
   webhook      Webhook  @relation(fields: [webhookId], references: [id], onDelete: Cascade)
   event        String   @db.VarChar(100)
   url          String   @db.VarChar(2048)
@@ -263,4 +266,150 @@ model WebhookDelivery {
   createdAt    DateTime @default(now())
 
   @@index([webhookId, createdAt])
+}
+
+// ================================================================
+// Feature Flags + Entitlements System
+// ================================================================
+
+enum FeatureType {
+  BOOLEAN
+  LIMIT
+  EXPERIMENT
+}
+
+enum DowngradeStrategy {
+  GRACEFUL
+  IMMEDIATE
+  FREEZE
+}
+
+enum SubscriptionStatusEnum {
+  ACTIVE
+  TRIALING
+  PAST_DUE
+  CANCELED
+  INCOMPLETE
+  INCOMPLETE_EXPIRED
+}
+
+enum OverrideScope {
+  ORG
+  USER
+}
+
+model PricingPlan {
+  id            String   @id @default(cuid())
+  key           String   @unique
+  name          String
+  priceMonthly  Int      @default(0) @map("price_monthly")
+  isActive      Boolean  @default(true) @map("is_active")
+  stripePriceId String?  @map("stripe_price_id")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  features      PlanFeature[]
+  subscriptions Subscription[]
+
+  @@map("plans")
+}
+
+model Feature {
+  id          String      @id @default(cuid())
+  key         String      @unique
+  description String?
+  type        FeatureType
+  defaultConfig Json?     @default("{}") @map("default_config")
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  planFeatures        PlanFeature[]
+  entitlementOverrides EntitlementOverride[]
+
+  @@map("features")
+}
+
+model PlanFeature {
+  id          String            @id @default(cuid())
+  planId      String            @map("plan_id")
+  featureId   String            @map("feature_id")
+  enabled     Boolean           @default(false)
+  limitValue  Int?              @map("limit_value")
+  configJson  Json?             @default("{}") @map("config_json")
+  downgradeStrategy DowngradeStrategy @default(IMMEDIATE) @map("downgrade_strategy")
+
+  plan    PricingPlan    @relation(fields: [planId], references: [id], onDelete: Cascade)
+  feature Feature @relation(fields: [featureId], references: [id], onDelete: Cascade)
+
+  @@unique([planId, featureId])
+  @@map("plan_features")
+}
+
+model Organization {
+  id               String   @id @default(cuid())
+  name             String?
+  stripeCustomerId String?  @unique @map("stripe_customer_id")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  subscriptions   Subscription[]
+  usageTracking   UsageTracking[]
+  entitlements    EntitlementOverride[] @relation("orgOverrides")
+  users           User[]
+
+  @@map("organizations")
+}
+
+model Subscription {
+  id                 String               @id @default(cuid())
+  orgId              String               @map("org_id")
+  planKey            String               @map("plan_key")
+  status             SubscriptionStatusEnum
+  stripeSubId        String?              @unique @map("stripe_sub_id")
+  currentPeriodStart DateTime?            @map("current_period_start")
+  currentPeriodEnd   DateTime?            @map("current_period_end")
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  pricingPlan  PricingPlan @relation(fields: [planKey], references: [key], onDelete: Restrict)
+
+  @@unique([orgId, planKey])
+  @@index([orgId])
+  @@index([stripeSubId])
+  @@map("subscriptions")
+}
+
+model EntitlementOverride {
+  id         String         @id @default(cuid())
+  scope      OverrideScope
+  scopeId    String         @map("scope_id")
+  featureKey String         @map("feature_key")
+  enabled    Boolean?
+  limitValue Int?           @map("limit_value")
+  expiresAt  DateTime?      @map("expires_at")
+  reason     String         @default("")
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+
+  feature    Feature        @relation(fields: [featureKey], references: [key], onDelete: Cascade)
+  org        Organization?  @relation("orgOverrides", fields: [scopeId], references: [id], onDelete: Cascade)
+
+  @@index([scope, scopeId, featureKey])
+  @@map("entitlement_overrides")
+}
+
+model UsageTracking {
+  id          String   @id @default(cuid())
+  orgId       String   @map("org_id")
+  featureKey  String   @map("feature_key")
+  usageCount  Int      @default(0) @map("usage_count")
+  periodStart DateTime @map("period_start")
+  periodEnd   DateTime @map("period_end")
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, featureKey, periodStart])
+  @@index([orgId, featureKey, periodEnd])
+  @@map("usage_tracking")
 }

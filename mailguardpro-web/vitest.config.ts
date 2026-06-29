@@ -4,8 +4,13 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   test: {
     environment: "node",
-    include: ["tests/**/*.test.ts"],
+    include: [
+      "tests/**/*.test.ts",
+      "services/**/__tests__/**/*.test.ts",
+      "services/**/__tests__/**/*.test.tsx",
+    ],
     exclude: ["tests/e2e/**", "node_modules/**"],
+    setupFiles: ["./services/feature-flags/__tests__/frontend-setup.ts"],
     coverage: {
       provider: "v8",
       reporter: ["text", "json", "html"],
