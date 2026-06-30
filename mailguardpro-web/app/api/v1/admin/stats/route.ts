@@ -28,17 +28,8 @@ export async function GET() {
     }
 
     // Run counts in parallel for performance
-    const [
-      totalUsers,
-      activeUsers,
-      totalValidations,
-      validationsToday,
-      totalBulkJobs,
-      activeWebhooks,
-      totalApiKeys,
-      usersByPlan,
-      recentUsers,
-    ] = await Promise.all([
+    // Use allSettled so a single failing query doesn't crash the entire dashboard
+    const results = await Promise.allSettled([
       prisma.user.count(),
       prisma.user.count({ where: { isActive: true } }),
       prisma.validation.count(),
@@ -63,6 +54,38 @@ export async function GET() {
       }),
     ]);
 
+    const extractValue = <T>(result: PromiseSettledResult<T>, fallback: T): T =>
+      result.status === "fulfilled" ? result.value : fallback;
+
+    const totalUsers = extractValue(results[0], 0);
+    const activeUsers = extractValue(results[1], 0);
+    const totalValidations = extractValue(results[2], 0);
+    const validationsToday = extractValue(results[3], 0);
+    const totalBulkJobs = extractValue(results[4], 0);
+    const activeWebhooks = extractValue(results[5], 0);
+    const totalApiKeys = extractValue(results[6], 0);
+    const usersByPlanRaw = extractValue<{ plan: string; _count: { id: number } }[]>(results[7], []);
+    const recentUsersRaw = extractValue<
+      {
+        id: string;
+        name: string | null;
+        email: string | null;
+        plan: string;
+        isActive: boolean;
+        createdAt: Date;
+      }[]
+    >(results[8], []);
+
+    // Log individual failures for observability
+    results.forEach((r, i) => {
+      if (r.status === "rejected") {
+        loggerApi.warn(
+          { err: r.reason, queryIndex: i },
+          "Admin stats sub-query failed, using fallback",
+        );
+      }
+    });
+
     return NextResponse.json({
       success: true,
       data: {
@@ -73,11 +96,11 @@ export async function GET() {
         totalBulkJobs,
         activeWebhooks,
         totalApiKeys,
-        usersByPlan: usersByPlan.map((entry: { plan: string; _count: { id: number } }) => ({
+        usersByPlan: usersByPlanRaw.map((entry: { plan: string; _count: { id: number } }) => ({
           plan: entry.plan,
           count: entry._count.id,
         })),
-        recentUsers: recentUsers.map(
+        recentUsers: recentUsersRaw.map(
           (u: {
             id: string;
             name: string | null;

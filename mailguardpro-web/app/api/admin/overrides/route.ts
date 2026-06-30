@@ -13,9 +13,9 @@ const CreateOverrideSchema = z.object({
   scope_id: z.string().min(1, "scope_id is required"),
   feature_key: z.string().min(1, "feature_key is required"),
   enabled: z.boolean().nullable().optional(),
-  limit_value: z.number().int().nullable().optional(),
+  limit_value: z.number().int().min(0).nullable().optional(),
   expires_at: z.string().datetime().nullable().optional(),
-  reason: z.string().min(1, "reason is required (admin)"),
+  reason: z.string().trim().min(1, "reason is required (admin)"),
 });
 
 export async function POST(req: NextRequest) {
