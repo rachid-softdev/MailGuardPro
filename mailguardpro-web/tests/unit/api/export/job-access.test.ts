@@ -232,7 +232,13 @@ describe("Export job access, validation & errors [M-02]", () => {
     expect(body.currentPlan).toBe("FREE");
   });
 
-  it("should return 403 when user plan is insufficient for pdf format", async () => {
+  // NOTE: PDF is no longer produced by the server export route. PR #136 changed
+  // the route so that `format=pdf` is short-circuited with a 400 and a pointer to
+  // the client-side /export-data endpoint — BEFORE any plan/auth check. The
+  // server-side PRO plan-gating for PDF was therefore intentionally removed.
+  // These tests document the CURRENT actual behavior (see flag in report).
+
+  it("should return 400 for pdf format (generated client-side) for a FREE user", async () => {
     setupPassingAuthAndRateLimit("FREE");
     vi.mocked(prisma.bulkJob.findUnique).mockResolvedValue({
       userId: "user-export",
@@ -244,12 +250,13 @@ describe("Export job access, validation & errors [M-02]", () => {
     );
     const response = await GET(req, { params } as any);
 
-    expect(response.status).toBe(403);
+    expect(response.status).toBe(400);
     const body = await response.json();
     expect(body.success).toBe(false);
-    expect(body.error).toBe("Upgrade required");
-    expect(body.requiredPlan).toBe("PRO");
-    expect(body.currentPlan).toBe("FREE");
+    expect(body.error).toBe(
+      "PDF export is generated client-side. Use the /export-data endpoint.",
+    );
+    expect(body.useEndpoint).toBe("/api/v1/bulk/job-123/export-data");
   });
 
   it("should return 403 when user plan is STARTER and requests xlsx (PRO)", async () => {
@@ -437,7 +444,9 @@ describe("Export route remaining uncovered paths", () => {
     );
   });
 
-  it("should allow PRO user to export pdf with correct headers", async () => {
+  // NOTE: PDF is no longer served server-side. Even a PRO user gets a 400
+  // pointing to the client-side /export-data endpoint (see flag in report).
+  it("should return 400 for pdf format even for a PRO user (generated client-side)", async () => {
     setupPassingAuthAndRateLimit("PRO");
     vi.mocked(prisma.bulkJob.findUnique).mockResolvedValue({
       userId: "user-export",
@@ -446,11 +455,13 @@ describe("Export route remaining uncovered paths", () => {
     const { req, params } = buildRequest("job-123", "format=pdf");
     const response = await GET(req, { params } as any);
 
-    expect(response.status).toBe(200);
-    expect(response.headers.get("Content-Type")).toBe("application/pdf");
-    expect(response.headers.get("Content-Disposition")).toBe(
-      'attachment; filename="mailguard-job-123.pdf"',
+    expect(response.status).toBe(400);
+    const body = await response.json();
+    expect(body.success).toBe(false);
+    expect(body.error).toBe(
+      "PDF export is generated client-side. Use the /export-data endpoint.",
     );
+    expect(body.useEndpoint).toBe("/api/v1/bulk/job-123/export-data");
   });
 
   // ────────────────────────────────────────────

@@ -250,7 +250,16 @@ export class WebhookDispatcher {
   // Vérifier une signature webhook entrante (pour les webhooks de Stripe, etc.)
   static verifyIncomingSignature(payload: string, signature: string, secret: string): boolean {
     const expected = crypto.createHmac("sha256", secret).update(payload).digest("hex");
-    return crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected));
+    const sigBuf = Buffer.from(signature);
+    const expBuf = Buffer.from(expected);
+    // timingSafeEqual throws on unequal lengths — guard to avoid crashing on
+    // tampered/truncated signatures and to keep timing-safe behavior.
+    if (sigBuf.length !== expBuf.length) return false;
+    try {
+      return crypto.timingSafeEqual(sigBuf, expBuf);
+    } catch {
+      return false;
+    }
   }
 }
 

@@ -22,12 +22,15 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ jobI
     const { searchParams } = new URL(req.url);
 
     // Validation des query params
+    // NOTE: searchParams.get() returns null (not undefined) when absent.
+    // Zod's .optional() rejects null, so coerce absent params to undefined
+    // so defaults apply and valid requests without filters don't 400.
     const filters = {
-      page: searchParams.get("page"),
-      limit: searchParams.get("limit"),
-      status: searchParams.get("status"),
-      minScore: searchParams.get("minScore"),
-      maxScore: searchParams.get("maxScore"),
+      page: searchParams.get("page") ?? undefined,
+      limit: searchParams.get("limit") ?? undefined,
+      status: searchParams.get("status") ?? undefined,
+      minScore: searchParams.get("minScore") ?? undefined,
+      maxScore: searchParams.get("maxScore") ?? undefined,
     };
 
     const validated = querySchema.safeParse(filters);

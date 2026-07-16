@@ -3,6 +3,7 @@
 
 import type { MxRecord } from "dns";
 import dns from "dns/promises";
+import { isIP } from "net";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { loggerApi } from "@/lib/logger";
@@ -32,6 +33,14 @@ export async function GET(req: NextRequest) {
     if (!validated.success) {
       return NextResponse.json(
         { success: false, error: "Invalid domain parameter" },
+        { status: 400 },
+      );
+    }
+
+    // Protection SSRF : rejeter les IPs directes
+    if (isIP(validated.data.domain)) {
+      return NextResponse.json(
+        { success: false, error: "Domain name required, IP addresses not allowed" },
         { status: 400 },
       );
     }

@@ -15,6 +15,31 @@ import {
 } from "../types";
 import { MockEntitlementRepository } from "./mockRepository";
 
+// ---------------------------------------------------------------------------
+// Mocks required by this suite.
+// serviceFactory statically imports the real prisma/redis clients, which are
+// unavailable in the test environment, so we stub them (mirroring how
+// apiRoutes.test.ts mocks these modules). The Stripe idempotency check also
+// falls through to prisma.stripeEvent after redis is unavailable, so
+// stripeEvent.create must be present.
+// ---------------------------------------------------------------------------
+vi.mock("@/lib/prisma", () => ({
+  prisma: {
+    stripeEvent: { create: vi.fn().mockResolvedValue({}) },
+    user: { findUnique: vi.fn() },
+  },
+}));
+
+vi.mock("@/lib/redis", () => ({
+  redis: {},
+}));
+
+vi.mock("@/services/feature-flags/serviceFactory", () => ({
+  getFeatureGateService: vi.fn(),
+  getDowngradeService: vi.fn(),
+  resetServices: vi.fn(),
+}));
+
 // ---- Mock Cache ----
 class MockCacheService implements ICacheService {
   private store = new Map<string, Record<string, unknown>>();
