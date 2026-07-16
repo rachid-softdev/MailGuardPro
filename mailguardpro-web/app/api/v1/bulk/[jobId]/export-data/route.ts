@@ -27,6 +27,22 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ job
       return NextResponse.json({ success: false, error: "Job not found" }, { status: 404 });
     }
 
+    // Regression #5: /export-data feeds client-side PDF generation, a PRO+
+    // feature. Enforce the plan gate here so it cannot be bypassed client-side.
+    const exportUser = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { plan: true },
+    });
+    const PLAN_ORDER = ["FREE", "STARTER", "PRO", "BUSINESS"];
+    const userPlanIndex = PLAN_ORDER.indexOf((exportUser?.plan as string) || "FREE");
+    const requiredPlanIndex = PLAN_ORDER.indexOf("PRO");
+    if (userPlanIndex < requiredPlanIndex) {
+      return NextResponse.json(
+        { success: false, error: "Upgrade required", requiredPlan: "PRO", currentPlan: exportUser?.plan },
+        { status: 403 },
+      );
+    }
+
     // Get all results
     const results = await prisma.validation.findMany({
       where: { bulkJobId: jobId },

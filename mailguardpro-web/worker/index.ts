@@ -207,7 +207,7 @@ worker.on("completed", (job) => {
   loggerWorker.info({ jobId: job.id, requestId }, "Job completed successfully");
 });
 
-worker.on("failed", (job, err) => {
+worker.on("failed", async (job, err) => {
   if (!job) {
     loggerWorker.error(
       { err: { message: err.message } },
@@ -257,6 +257,23 @@ worker.on("failed", (job, err) => {
           "Failed to update job status to FAILED",
         ),
       );
+
+    // Regression #4: notify users subscribed to bulk_job_failed.
+    const failedUserId = job.data?.userId;
+    if (failedUserId) {
+      try {
+        await WebhookDispatcher.dispatchToUser(failedUserId, WEBHOOK_EVENTS.BULK_JOB_FAILED, {
+          jobId: job.data.jobId,
+          error: err?.message ?? "Bulk job failed after all retries",
+          timestamp: new Date().toISOString(),
+        });
+      } catch (dispatchErr) {
+        loggerWorker.error(
+          { err: dispatchErr, jobId: job.data.jobId },
+          "Failed to dispatch bulk_job_failed webhook",
+        );
+      }
+    }
   }
 });
 
