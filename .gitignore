@@ -41,3 +41,6 @@ playwright-report/
 tsconfig.tsbuildinfo
 *.tsbuildinfo
 
+# Agent working summary (untracked session anchor — not a project doc)
+/summary.md
+
