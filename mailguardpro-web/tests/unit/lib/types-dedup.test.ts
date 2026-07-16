@@ -39,27 +39,29 @@ describe("types deduplication", () => {
 
   it("types from @mailguardpro/types should be assignable to service usage", () => {
     const check: CheckResult = { passed: false, message: "invalid" };
-    const results: ValidationResult[] = [{
-      email: "a@b.com",
-      score: 100,
-      status: "valid",
-      checks: {
-        format: check,
-        mx: check,
-        smtp: check,
-        catchAll: check,
-        disposable: check,
-        generic: check,
-        freeProvider: check,
-        dnsbl: check,
-        spf: check,
-        dmarc: check,
-        typo: check,
+    const results: ValidationResult[] = [
+      {
+        email: "a@b.com",
+        score: 100,
+        status: "valid",
+        checks: {
+          format: check,
+          mx: check,
+          smtp: check,
+          catchAll: check,
+          disposable: check,
+          generic: check,
+          freeProvider: check,
+          dnsbl: check,
+          spf: check,
+          dmarc: check,
+          typo: check,
+        },
+        domain: { name: "b.com", reputation: "good" },
+        processingTimeMs: 50,
+        algoVersion: 1,
       },
-      domain: { name: "b.com", reputation: "good" },
-      processingTimeMs: 50,
-      algoVersion: 1,
-    }];
+    ];
     expect(results).toHaveLength(1);
     expect(results[0].algoVersion).toBe(1);
   });

@@ -25,7 +25,9 @@ vi.mock("@/lib/prisma", () => ({
 }));
 
 vi.mock("@/lib/rateLimits", () => ({
-  checkRateLimitByPlan: vi.fn().mockResolvedValue({ success: true, remaining: 99, resetAt: Date.now() + 60000 }),
+  checkRateLimitByPlan: vi
+    .fn()
+    .mockResolvedValue({ success: true, remaining: 99, resetAt: Date.now() + 60000 }),
 }));
 
 vi.mock("@/services/auditLogger", () => ({
@@ -134,7 +136,9 @@ describe("POST /api/v1/api-keys", () => {
     expect(body.data.key).toBeDefined();
     expect(body.data.keyPrefix).toBe("mg_live_abc");
     expect(prisma.apiKey.create).toHaveBeenCalledWith(
-      expect.objectContaining({ data: expect.objectContaining({ userId: "owner-1", name: "My Key" }) }),
+      expect.objectContaining({
+        data: expect.objectContaining({ userId: "owner-1", name: "My Key" }),
+      }),
     );
   });
 });

@@ -335,9 +335,7 @@ describe("GET /api/v1/webhooks/[id]/deliveries", () => {
   });
 
   it("should clamp limit above 100 down to 100", async () => {
-    const req = createRequest(
-      `${BASE_URL}/api/v1/webhooks/${WEBHOOK_ID}/deliveries?limit=250`,
-    );
+    const req = createRequest(`${BASE_URL}/api/v1/webhooks/${WEBHOOK_ID}/deliveries?limit=250`);
     await GET(req, { params: Promise.resolve({ id: WEBHOOK_ID }) });
 
     expect(mockPrisma.webhookDelivery.findMany).toHaveBeenCalledWith(

@@ -36,7 +36,11 @@ let userState: { stripeCustomerId: string | null; email: string | null; name?: s
 vi.mock("@/lib/stripe", () => ({
   stripe: {
     customers: { create: vi.fn().mockResolvedValue({ id: "cus_new" }) },
-    billingPortal: { sessions: { create: vi.fn().mockResolvedValue({ url: "https://billing.stripe.com/session" }) } },
+    billingPortal: {
+      sessions: {
+        create: vi.fn().mockResolvedValue({ url: "https://billing.stripe.com/session" }),
+      },
+    },
   },
   getPlanFromPriceId: vi.fn(),
   PRICES: {},

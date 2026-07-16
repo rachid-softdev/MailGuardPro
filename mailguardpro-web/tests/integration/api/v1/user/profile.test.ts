@@ -151,8 +151,6 @@ describe("PATCH /api/v1/user/profile", () => {
     });
     const res = await PATCH(req);
     expect(res.status).toBe(200);
-    expect(prisma.user.update).toHaveBeenCalledWith(
-      expect.objectContaining({ data: {} }),
-    );
+    expect(prisma.user.update).toHaveBeenCalledWith(expect.objectContaining({ data: {} }));
   });
 });

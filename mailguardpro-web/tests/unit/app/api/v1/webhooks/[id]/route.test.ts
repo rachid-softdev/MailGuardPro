@@ -167,13 +167,17 @@ describe("PATCH /api/v1/webhooks/[id] (P0/P1)", () => {
 
   it("returns 400 on invalid input (name too long)", async () => {
     mockParseJsonBody.mockReturnValue({ data: { name: "x".repeat(200) }, error: undefined });
-    const res = await PATCH(req("PATCH", { name: "x".repeat(200) }), { params: Promise.resolve({ id: WEBHOOK_ID }) });
+    const res = await PATCH(req("PATCH", { name: "x".repeat(200) }), {
+      params: Promise.resolve({ id: WEBHOOK_ID }),
+    });
     expect(res.status).toBe(400);
   });
 
   it("partially updates and writes an audit log on success", async () => {
     mockParseJsonBody.mockReturnValue({ data: { name: "new" }, error: undefined });
-    const res = await PATCH(req("PATCH", { name: "new" }), { params: Promise.resolve({ id: WEBHOOK_ID }) });
+    const res = await PATCH(req("PATCH", { name: "new" }), {
+      params: Promise.resolve({ id: WEBHOOK_ID }),
+    });
     expect(res.status).toBe(200);
     expect(mockPrisma.webhook.update).toHaveBeenCalled();
     expect(mockLogAudit).toHaveBeenCalledWith(
@@ -191,7 +195,9 @@ describe("PATCH /api/v1/webhooks/[id] (P0/P1)", () => {
       data: { url: "https://new.com" },
       error: undefined,
     });
-    const res = await PATCH(req("PATCH", { url: "https://new.com" }), { params: Promise.resolve({ id: WEBHOOK_ID }) });
+    const res = await PATCH(req("PATCH", { url: "https://new.com" }), {
+      params: Promise.resolve({ id: WEBHOOK_ID }),
+    });
     expect(res.status).toBe(200);
     const updateArg = mockPrisma.webhook.update.mock.calls[0][0];
     expect(updateArg.data.pinnedIps).toContain("9.9.9.9");
@@ -201,7 +207,9 @@ describe("PATCH /api/v1/webhooks/[id] (P0/P1)", () => {
   it("returns 500 on unexpected error", async () => {
     mockParseJsonBody.mockReturnValue({ data: { name: "new" }, error: undefined });
     mockPrisma.webhook.update.mockRejectedValue(new Error("db down"));
-    const res = await PATCH(req("PATCH", { name: "new" }), { params: Promise.resolve({ id: WEBHOOK_ID }) });
+    const res = await PATCH(req("PATCH", { name: "new" }), {
+      params: Promise.resolve({ id: WEBHOOK_ID }),
+    });
     expect(res.status).toBe(500);
   });
 });

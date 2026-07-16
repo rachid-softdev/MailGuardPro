@@ -37,7 +37,11 @@ const {
 vi.mock("@/services/emailValidator", () => ({ validateEmail: mockValidateEmail }));
 vi.mock("@/services/formatChecker", () => ({ checkFormat: mockCheckFormat }));
 vi.mock("@/services/disposableChecker", () => ({ checkDisposable: mockCheckDisposable }));
-vi.mock("@/services/dnsChecker", () => ({ checkMX: vi.fn(), checkSPF: vi.fn(), checkDMARC: vi.fn() }));
+vi.mock("@/services/dnsChecker", () => ({
+  checkMX: vi.fn(),
+  checkSPF: vi.fn(),
+  checkDMARC: vi.fn(),
+}));
 vi.mock("@/services/smtpChecker", () => ({ checkSMTP: vi.fn() }));
 vi.mock("@/services/genericChecker", () => ({ checkGeneric: vi.fn() }));
 vi.mock("@/services/freeProviderChecker", () => ({ checkFreeProvider: vi.fn() }));
@@ -51,24 +55,40 @@ vi.mock("@/services/validationCache", () => ({
 }));
 vi.mock("@/lib/auth", () => ({ auth: vi.fn().mockResolvedValue(null) }));
 vi.mock("@/lib/auth/require-scope", () => ({ hasScope: mockHasScope }));
-vi.mock("@/lib/crypto", () => ({ hashApiKey: mockHashApiKey, hashApiKeyLegacy: mockHashApiKeyLegacy }));
+vi.mock("@/lib/crypto", () => ({
+  hashApiKey: mockHashApiKey,
+  hashApiKeyLegacy: mockHashApiKeyLegacy,
+}));
 vi.mock("@/lib/prisma", () => ({ prisma: mockPrisma }));
 vi.mock("@/lib/logger", () => ({
   loggerApi: { error: vi.fn(), warn: vi.fn(), info: vi.fn() },
   logger: { error: vi.fn(), warn: vi.fn(), info: vi.fn(), child: vi.fn() },
 }));
 vi.mock("@/lib/redis", () => ({
-  checkRateLimit: vi.fn().mockResolvedValue({ success: true, remaining: 100, resetAt: Date.now() + 60000, limit: 100 }),
+  checkRateLimit: vi
+    .fn()
+    .mockResolvedValue({ success: true, remaining: 100, resetAt: Date.now() + 60000, limit: 100 }),
   redis: { get: vi.fn(), set: vi.fn(), setex: vi.fn(), del: vi.fn() },
 }));
 vi.mock("stripe", () => ({ default: vi.fn() }));
 vi.mock("resend", () => ({ Resend: vi.fn() }));
-vi.mock("pino", () => ({ default: vi.fn(() => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), child: vi.fn() })) }));
-vi.mock("@sentry/nextjs", () => ({ init: vi.fn(), captureMessage: vi.fn(), captureException: vi.fn(), setUser: vi.fn() }));
-vi.mock("@/lib/timingSafe", () => ({ enforceTimingSafeResponse: vi.fn().mockResolvedValue(undefined) }));
+vi.mock("pino", () => ({
+  default: vi.fn(() => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), child: vi.fn() })),
+}));
+vi.mock("@sentry/nextjs", () => ({
+  init: vi.fn(),
+  captureMessage: vi.fn(),
+  captureException: vi.fn(),
+  setUser: vi.fn(),
+}));
+vi.mock("@/lib/timingSafe", () => ({
+  enforceTimingSafeResponse: vi.fn().mockResolvedValue(undefined),
+}));
 vi.mock("@/lib/ssrf", () => ({ getClientIp: vi.fn(() => "127.0.0.1") }));
 vi.mock("@/lib/rateLimits", () => ({
-  checkRateLimitByPlan: vi.fn().mockResolvedValue({ success: true, remaining: 100, resetAt: Date.now() + 60000, limit: 20 }),
+  checkRateLimitByPlan: vi
+    .fn()
+    .mockResolvedValue({ success: true, remaining: 100, resetAt: Date.now() + 60000, limit: 20 }),
 }));
 
 import { GET } from "@/app/api/v1/validate/route";
@@ -79,7 +99,9 @@ const VALID_EMAIL = "test@company.com";
 function buildReq(apiKey?: string) {
   const headers: Record<string, string> = {};
   if (apiKey) headers["X-API-Key"] = apiKey;
-  return new NextRequest(new URL(`http://localhost:3000/api/v1/validate?email=${VALID_EMAIL}`), { headers });
+  return new NextRequest(new URL(`http://localhost:3000/api/v1/validate?email=${VALID_EMAIL}`), {
+    headers,
+  });
 }
 
 const activeKeyUser = { id: "user-key", plan: "PRO", isActive: true, credits: 4 };

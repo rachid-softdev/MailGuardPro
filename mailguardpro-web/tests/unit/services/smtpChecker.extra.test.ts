@@ -23,7 +23,11 @@ const { MockSocket, mockResolveMx, mockResolve4, mockResolve6 } = vi.hoisted(() 
     on(event: string, handler: (...args: any[]) => void) {
       if (!this.handlers[event]) this.handlers[event] = [];
       this.handlers[event].push(handler);
-      if (event === "data" && !MockSocket.suppressData && this.responseIndex < this.responses.length) {
+      if (
+        event === "data" &&
+        !MockSocket.suppressData &&
+        this.responseIndex < this.responses.length
+      ) {
         const chunk = this.responses[this.responseIndex++];
         handler(Buffer.from(chunk));
       }

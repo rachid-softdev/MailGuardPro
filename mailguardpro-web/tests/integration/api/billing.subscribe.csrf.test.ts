@@ -12,7 +12,9 @@ vi.mock("@/lib/csrf", () => ({
   validateCsrfOrigin: vi.fn(() => ({ valid: true, error: undefined })),
 }));
 vi.mock("@/lib/auth", () => ({
-  auth: vi.fn(() => Promise.resolve({ user: { id: "user-123", email: "test@example.com", name: "Test User" } })),
+  auth: vi.fn(() =>
+    Promise.resolve({ user: { id: "user-123", email: "test@example.com", name: "Test User" } }),
+  ),
   handlers: { GET: vi.fn(), POST: vi.fn() },
   signIn: vi.fn(),
   signOut: vi.fn(),
@@ -24,7 +26,11 @@ vi.mock("@/lib/stripe", () => ({
     subscriptions: { create: vi.fn() },
   },
   getPlanFromPriceId: vi.fn(),
-  PRICES: { STARTER: "price_starter_monthly", PRO: "price_pro_monthly", BUSINESS: "price_business_monthly" },
+  PRICES: {
+    STARTER: "price_starter_monthly",
+    PRO: "price_pro_monthly",
+    BUSINESS: "price_business_monthly",
+  },
 }));
 vi.mock("@/lib/prisma", () => ({
   prisma: { user: { findUnique: vi.fn(), update: vi.fn().mockResolvedValue({}) } },

@@ -1,19 +1,17 @@
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { mockResolveTxt, mockCheckRateLimit, mockGetClientIp, mockLoggerApi } = vi.hoisted(
-  () => ({
-    mockResolveTxt: vi.fn(),
-    mockCheckRateLimit: vi.fn(() => ({
-      success: true,
-      resetAt: Date.now() + 60000,
-      remaining: 100,
-      limit: 100,
-    })),
-    mockGetClientIp: vi.fn(() => "127.0.0.1"),
-    mockLoggerApi: { error: vi.fn(), warn: vi.fn(), info: vi.fn() },
-  }),
-);
+const { mockResolveTxt, mockCheckRateLimit, mockGetClientIp, mockLoggerApi } = vi.hoisted(() => ({
+  mockResolveTxt: vi.fn(),
+  mockCheckRateLimit: vi.fn(() => ({
+    success: true,
+    resetAt: Date.now() + 60000,
+    remaining: 100,
+    limit: 100,
+  })),
+  mockGetClientIp: vi.fn(() => "127.0.0.1"),
+  mockLoggerApi: { error: vi.fn(), warn: vi.fn(), info: vi.fn() },
+}));
 
 vi.mock("dns/promises", () => ({
   __esModule: true,

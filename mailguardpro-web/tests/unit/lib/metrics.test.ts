@@ -10,11 +10,7 @@ vi.mock("@/lib/logger", () => ({
   loggerWebhook: mockLogger,
 }));
 
-import {
-  createMetricsMiddleware,
-  emitRequestMetric,
-  trackApiRequest,
-} from "@/lib/metrics";
+import { createMetricsMiddleware, emitRequestMetric, trackApiRequest } from "@/lib/metrics";
 
 const labels = { method: "GET", path: "/x", statusCode: 200, plan: "FREE" };
 

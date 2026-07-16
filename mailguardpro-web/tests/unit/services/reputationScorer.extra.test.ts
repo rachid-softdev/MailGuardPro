@@ -35,8 +35,7 @@ describe("reputationScorer — RDAP parsing (P1-15)", () => {
   it("should fall back to ageInDays:365 when only a handle is present", async () => {
     (globalThis.fetch as any).mockResolvedValue({
       ok: true,
-      json: () =>
-        Promise.resolve({ handle: "DOMAIN-123", status: "active" }),
+      json: () => Promise.resolve({ handle: "DOMAIN-123", status: "active" }),
     });
     const result = await getDomainAge("rdap-handle.xyz");
     expect(result.createdAt).toBeUndefined();

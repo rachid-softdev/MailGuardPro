@@ -5,13 +5,14 @@ const mockDispatchToUser = vi.fn();
 const mockWorkerOn = vi.fn();
 let capturedProcessor: ((job: any) => Promise<any>) | null = null;
 
-const mockWorkerCtor = vi.fn().mockImplementation(
-  function MockWorker(_name: string, processor: (job: any) => Promise<any>) {
-    capturedProcessor = processor;
-    this.on = mockWorkerOn;
-    this.close = vi.fn().mockResolvedValue(undefined);
-  },
-);
+const mockWorkerCtor = vi.fn().mockImplementation(function MockWorker(
+  _name: string,
+  processor: (job: any) => Promise<any>,
+) {
+  capturedProcessor = processor;
+  this.on = mockWorkerOn;
+  this.close = vi.fn().mockResolvedValue(undefined);
+});
 
 vi.mock("bullmq", () => ({
   default: { Worker: mockWorkerCtor },
@@ -22,7 +23,9 @@ vi.mock("bullmq", () => ({
 
 vi.mock("ioredis", () => {
   const instance = { quit: vi.fn().mockResolvedValue(undefined), on: vi.fn() };
-  const Redis = function () { return instance; };
+  const Redis = function () {
+    return instance;
+  };
   Redis.prototype = instance;
   return { default: Redis };
 });
@@ -35,7 +38,11 @@ vi.mock("@/lib/prisma", () => ({
 }));
 
 vi.mock("@/lib/redis", () => ({
-  queueRedis: { on: vi.fn(), quit: vi.fn().mockResolvedValue(undefined), publish: vi.fn().mockResolvedValue(1) },
+  queueRedis: {
+    on: vi.fn(),
+    quit: vi.fn().mockResolvedValue(undefined),
+    publish: vi.fn().mockResolvedValue(1),
+  },
 }));
 
 vi.mock("@/lib/emailHash", () => ({
@@ -108,9 +115,7 @@ describe("BULK_JOB_FAILED status on worker failure", () => {
 
     failedHandler(mockJob, new Error("Transient error"));
 
-    const updateCall = mockUpdate.mock.calls.find(
-      ([args]: any) => args.where?.id === "job-456",
-    );
+    const updateCall = mockUpdate.mock.calls.find(([args]: any) => args.where?.id === "job-456");
     expect(updateCall).toBeUndefined();
   });
 

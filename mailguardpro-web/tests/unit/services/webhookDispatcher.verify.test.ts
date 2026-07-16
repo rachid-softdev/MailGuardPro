@@ -33,9 +33,9 @@ describe("WebhookDispatcher.verifyIncomingSignature (P0 security)", () => {
 
   it("returns false for a tampered payload (equal-length signature)", () => {
     const sig = crypto.createHmac("sha256", secret).update(payload).digest("hex");
-    expect(
-      WebhookDispatcher.verifyIncomingSignature('{"event":"HACKED"}', sig, secret),
-    ).toBe(false);
+    expect(WebhookDispatcher.verifyIncomingSignature('{"event":"HACKED"}', sig, secret)).toBe(
+      false,
+    );
   });
 
   it("returns false for a wrong secret (equal-length signature)", () => {
@@ -52,10 +52,12 @@ describe("WebhookDispatcher.verifyIncomingSignature (P0 security)", () => {
   });
 
   it("generateSignature round-trips via verifyIncomingSignature", () => {
-    const body = { event: "bulk_job_completed", timestamp: new Date().toISOString(), data: { a: 1 } };
+    const body = {
+      event: "bulk_job_completed",
+      timestamp: new Date().toISOString(),
+      data: { a: 1 },
+    };
     const sig = crypto.createHmac("sha256", secret).update(JSON.stringify(body)).digest("hex");
-    expect(
-      WebhookDispatcher.verifyIncomingSignature(JSON.stringify(body), sig, secret),
-    ).toBe(true);
+    expect(WebhookDispatcher.verifyIncomingSignature(JSON.stringify(body), sig, secret)).toBe(true);
   });
 });

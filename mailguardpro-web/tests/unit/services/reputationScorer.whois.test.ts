@@ -1,13 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { mockRedisGet, mockRedisSetex, mockResolve4, mockValidateIp, mockLookup } =
-  vi.hoisted(() => ({
+const { mockRedisGet, mockRedisSetex, mockResolve4, mockValidateIp, mockLookup } = vi.hoisted(
+  () => ({
     mockRedisGet: vi.fn(),
     mockRedisSetex: vi.fn(),
     mockResolve4: vi.fn(),
     mockValidateIp: vi.fn(),
     mockLookup: vi.fn(),
-  }));
+  }),
+);
 
 vi.mock("@/lib/redis", () => ({
   redis: { get: mockRedisGet, setex: mockRedisSetex },

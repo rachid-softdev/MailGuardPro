@@ -53,17 +53,18 @@ describe("checkRateLimitByPlan — billing-related behavior", () => {
   });
 
   // ── P2: BUSINESS unlimited → effective limit 5000 for bulk/apiKeys/webhooks ──
-  it.each(["bulk", "apiKeys", "webhooks"] as const)(
-    "should apply the 5000 effective limit for BUSINESS %s",
-    async (action) => {
-      await checkRateLimitByPlan("user-biz", "BUSINESS", action);
-      expect(mockCheckRateLimit).toHaveBeenCalledWith(
-        expect.stringContaining("business"),
-        5000,
-        3600,
-      );
-    },
-  );
+  it.each([
+    "bulk",
+    "apiKeys",
+    "webhooks",
+  ] as const)("should apply the 5000 effective limit for BUSINESS %s", async (action) => {
+    await checkRateLimitByPlan("user-biz", "BUSINESS", action);
+    expect(mockCheckRateLimit).toHaveBeenCalledWith(
+      expect.stringContaining("business"),
+      5000,
+      3600,
+    );
+  });
 
   // ── P1: GAP — `billing` action is configured but never enforced in routes ──
   it.skip("BUG: billing rate-limit action is configured but not wired into subscribe/portal routes", () => {

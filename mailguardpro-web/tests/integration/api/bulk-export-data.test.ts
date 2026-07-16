@@ -27,19 +27,31 @@ function mixedResults() {
       email: "valid@x.com",
       score: 90,
       status: "valid",
-      checksJson: { smtp: { passed: true }, disposable: { passed: true }, format: { passed: true } },
+      checksJson: {
+        smtp: { passed: true },
+        disposable: { passed: true },
+        format: { passed: true },
+      },
     },
     {
       email: "invalid@x.com",
       score: 10,
       status: "invalid",
-      checksJson: { smtp: { passed: false }, disposable: { passed: true }, format: { passed: false } },
+      checksJson: {
+        smtp: { passed: false },
+        disposable: { passed: true },
+        format: { passed: false },
+      },
     },
     {
       email: "risky@x.com",
       score: 55,
       status: "risky",
-      checksJson: { smtp: { passed: false }, disposable: { passed: true }, format: { passed: true } },
+      checksJson: {
+        smtp: { passed: false },
+        disposable: { passed: true },
+        format: { passed: true },
+      },
     },
     {
       email: "unknown@x.com",

@@ -11,10 +11,11 @@ const mockCreatePayload = vi.hoisted(() =>
 );
 
 // Capture the worker processor + event handlers.
-const captured: { processor: ((job: any) => Promise<any>) | null; handlers: Record<string, any> } = {
-  processor: null,
-  handlers: {},
-};
+const captured: { processor: ((job: any) => Promise<any>) | null; handlers: Record<string, any> } =
+  {
+    processor: null,
+    handlers: {},
+  };
 
 const mockWorkerOn = vi.hoisted(() => vi.fn());
 const mockWorkerCtor = vi.hoisted(
@@ -186,7 +187,12 @@ describe("Worker — progress, completion webhook, flush, handlers", () => {
     expect(failedHandler).toBeDefined();
 
     await failedHandler(
-      { data: { userId: "user-1", jobId: undefined }, opts: { attempts: 3 }, attemptsMade: 3, id: "bull" },
+      {
+        data: { userId: "user-1", jobId: undefined },
+        opts: { attempts: 3 },
+        attemptsMade: 3,
+        id: "bull",
+      },
       new Error("boom"),
     );
 
@@ -218,8 +224,8 @@ describe("Worker — progress, completion webhook, flush, handlers", () => {
     mockFindUnique.mockResolvedValue({ emailsJson: emails, processed: 10 });
     await processor!(makeJob({ totalEmails: 12 }));
 
-    const inserted = mockValidationCreateMany.mock.calls.flatMap(
-      (c: any[]) => c[0].data.map((r: any) => r.emailHash),
+    const inserted = mockValidationCreateMany.mock.calls.flatMap((c: any[]) =>
+      c[0].data.map((r: any) => r.emailHash),
     );
     const unique = new Set(inserted);
     expect(unique.size).toBe(inserted.length); // no duplicates

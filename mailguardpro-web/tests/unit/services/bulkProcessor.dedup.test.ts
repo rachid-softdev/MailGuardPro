@@ -1,12 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // Mocks for processBulkUpload: prisma (transaction + queue) and bullmq Queue.
-const {
-  mockPrisma,
-  mockQueueAdd,
-  mockUserUpdateMany,
-  mockBulkJobCreate,
-} = vi.hoisted(() => ({
+const { mockPrisma, mockQueueAdd, mockUserUpdateMany, mockBulkJobCreate } = vi.hoisted(() => ({
   mockUserUpdateMany: vi.fn(),
   mockBulkJobCreate: vi.fn(),
   mockQueueAdd: vi.fn(),

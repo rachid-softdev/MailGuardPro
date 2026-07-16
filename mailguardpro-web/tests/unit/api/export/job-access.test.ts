@@ -253,9 +253,7 @@ describe("Export job access, validation & errors [M-02]", () => {
     expect(response.status).toBe(400);
     const body = await response.json();
     expect(body.success).toBe(false);
-    expect(body.error).toBe(
-      "PDF export is generated client-side. Use the /export-data endpoint.",
-    );
+    expect(body.error).toBe("PDF export is generated client-side. Use the /export-data endpoint.");
     expect(body.useEndpoint).toBe("/api/v1/bulk/job-123/export-data");
   });
 
@@ -458,9 +456,7 @@ describe("Export route remaining uncovered paths", () => {
     expect(response.status).toBe(400);
     const body = await response.json();
     expect(body.success).toBe(false);
-    expect(body.error).toBe(
-      "PDF export is generated client-side. Use the /export-data endpoint.",
-    );
+    expect(body.error).toBe("PDF export is generated client-side. Use the /export-data endpoint.");
     expect(body.useEndpoint).toBe("/api/v1/bulk/job-123/export-data");
   });
 

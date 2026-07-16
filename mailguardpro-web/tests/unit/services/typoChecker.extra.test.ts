@@ -55,7 +55,26 @@ describe("typoChecker — distance guard & failure (P2-29)", () => {
     levImpl.mockImplementation(realLevenshtein);
     // mac.xyz is far from every popular domain
     let min = Infinity;
-    const popular = ["gmail.com", "yahoo.com", "hotmail.com", "outlook.com", "live.com", "icloud.com", "aol.com", "mail.com", "protonmail.com", "zoho.com", "gmx.com", "gmx.net", "yandex.com", "fastmail.com", "tutanota.com", "me.com", "mac.com", "googlemail.com"];
+    const popular = [
+      "gmail.com",
+      "yahoo.com",
+      "hotmail.com",
+      "outlook.com",
+      "live.com",
+      "icloud.com",
+      "aol.com",
+      "mail.com",
+      "protonmail.com",
+      "zoho.com",
+      "gmx.com",
+      "gmx.net",
+      "yandex.com",
+      "fastmail.com",
+      "tutanota.com",
+      "me.com",
+      "mac.com",
+      "googlemail.com",
+    ];
     for (const p of popular) min = Math.min(min, realLevenshtein("mac.xyz", p));
     expect(min).toBeGreaterThan(2);
     const result = await checkTypo("user@mac.xyz");

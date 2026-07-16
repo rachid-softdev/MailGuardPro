@@ -16,7 +16,10 @@ describe("catchAllChecker — exact MX-count boundaries", () => {
 
   it("checkCatchAll: exactly 5 MX records => passed (threshold is >5)", async () => {
     vi.mocked(dns.resolveMx).mockResolvedValue(
-      Array.from({ length: 5 }, (_, i) => ({ priority: (i + 1) * 10, exchange: `mx${i + 1}.example.com` })),
+      Array.from({ length: 5 }, (_, i) => ({
+        priority: (i + 1) * 10,
+        exchange: `mx${i + 1}.example.com`,
+      })),
     );
     const result = await checkCatchAll("example.com");
     expect(result.passed).toBe(true);
@@ -25,7 +28,10 @@ describe("catchAllChecker — exact MX-count boundaries", () => {
 
   it("checkCatchAll: 6 MX records => failed (catch-all likely)", async () => {
     vi.mocked(dns.resolveMx).mockResolvedValue(
-      Array.from({ length: 6 }, (_, i) => ({ priority: (i + 1) * 10, exchange: `mx${i + 1}.example.com` })),
+      Array.from({ length: 6 }, (_, i) => ({
+        priority: (i + 1) * 10,
+        exchange: `mx${i + 1}.example.com`,
+      })),
     );
     const result = await checkCatchAll("example.com");
     expect(result.passed).toBe(false);
@@ -33,7 +39,10 @@ describe("catchAllChecker — exact MX-count boundaries", () => {
 
   it("checkCatchAllQuick: exactly 4 MX records => passed (threshold is >4)", async () => {
     vi.mocked(dns.resolveMx).mockResolvedValue(
-      Array.from({ length: 4 }, (_, i) => ({ priority: (i + 1) * 10, exchange: `mx${i + 1}.example.com` })),
+      Array.from({ length: 4 }, (_, i) => ({
+        priority: (i + 1) * 10,
+        exchange: `mx${i + 1}.example.com`,
+      })),
     );
     const result = await checkCatchAllQuick("example.com");
     expect(result.passed).toBe(true);
@@ -42,7 +51,10 @@ describe("catchAllChecker — exact MX-count boundaries", () => {
 
   it("checkCatchAllQuick: 5 MX records => failed", async () => {
     vi.mocked(dns.resolveMx).mockResolvedValue(
-      Array.from({ length: 5 }, (_, i) => ({ priority: (i + 1) * 10, exchange: `mx${i + 1}.example.com` })),
+      Array.from({ length: 5 }, (_, i) => ({
+        priority: (i + 1) * 10,
+        exchange: `mx${i + 1}.example.com`,
+      })),
     );
     const result = await checkCatchAllQuick("example.com");
     expect(result.passed).toBe(false);

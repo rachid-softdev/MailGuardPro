@@ -28,7 +28,11 @@ const { mockPrisma, mockValidateEmail, mockCheckFormat, mockCheckDisposable } = 
 vi.mock("@/services/emailValidator", () => ({ validateEmail: mockValidateEmail }));
 vi.mock("@/services/formatChecker", () => ({ checkFormat: mockCheckFormat }));
 vi.mock("@/services/disposableChecker", () => ({ checkDisposable: mockCheckDisposable }));
-vi.mock("@/services/dnsChecker", () => ({ checkMX: vi.fn(), checkSPF: vi.fn(), checkDMARC: vi.fn() }));
+vi.mock("@/services/dnsChecker", () => ({
+  checkMX: vi.fn(),
+  checkSPF: vi.fn(),
+  checkDMARC: vi.fn(),
+}));
 vi.mock("@/services/smtpChecker", () => ({ checkSMTP: vi.fn() }));
 vi.mock("@/services/genericChecker", () => ({ checkGeneric: vi.fn() }));
 vi.mock("@/services/freeProviderChecker", () => ({ checkFreeProvider: vi.fn() }));
@@ -49,17 +53,30 @@ vi.mock("@/lib/logger", () => ({
   logger: { error: vi.fn(), warn: vi.fn(), info: vi.fn(), child: vi.fn() },
 }));
 vi.mock("@/lib/redis", () => ({
-  checkRateLimit: vi.fn().mockResolvedValue({ success: true, remaining: 100, resetAt: Date.now() + 60000, limit: 100 }),
+  checkRateLimit: vi
+    .fn()
+    .mockResolvedValue({ success: true, remaining: 100, resetAt: Date.now() + 60000, limit: 100 }),
   redis: { get: vi.fn(), set: vi.fn(), setex: vi.fn(), del: vi.fn() },
 }));
 vi.mock("stripe", () => ({ default: vi.fn() }));
 vi.mock("resend", () => ({ Resend: vi.fn() }));
-vi.mock("pino", () => ({ default: vi.fn(() => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), child: vi.fn() })) }));
-vi.mock("@sentry/nextjs", () => ({ init: vi.fn(), captureMessage: vi.fn(), captureException: vi.fn(), setUser: vi.fn() }));
-vi.mock("@/lib/timingSafe", () => ({ enforceTimingSafeResponse: vi.fn().mockResolvedValue(undefined) }));
+vi.mock("pino", () => ({
+  default: vi.fn(() => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), child: vi.fn() })),
+}));
+vi.mock("@sentry/nextjs", () => ({
+  init: vi.fn(),
+  captureMessage: vi.fn(),
+  captureException: vi.fn(),
+  setUser: vi.fn(),
+}));
+vi.mock("@/lib/timingSafe", () => ({
+  enforceTimingSafeResponse: vi.fn().mockResolvedValue(undefined),
+}));
 vi.mock("@/lib/ssrf", () => ({ getClientIp: vi.fn(() => "127.0.0.1") }));
 vi.mock("@/lib/rateLimits", () => ({
-  checkRateLimitByPlan: vi.fn().mockResolvedValue({ success: true, remaining: 100, resetAt: Date.now() + 60000, limit: 20 }),
+  checkRateLimitByPlan: vi
+    .fn()
+    .mockResolvedValue({ success: true, remaining: 100, resetAt: Date.now() + 60000, limit: 20 }),
 }));
 
 import { GET } from "@/app/api/v1/validate/route";

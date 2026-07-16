@@ -68,7 +68,14 @@ describe("GET /api/admin/users", () => {
   it("returns 200 with the user list for an admin", async () => {
     vi.mocked(auth).mockResolvedValue(ADMIN_SESSION as any);
     vi.mocked(prisma.user.findMany).mockResolvedValue([
-      { id: "u1", name: "A", email: "a@x.com", role: "USER", userRoles: [{ role: "USER" }], createdAt: new Date() },
+      {
+        id: "u1",
+        name: "A",
+        email: "a@x.com",
+        role: "USER",
+        userRoles: [{ role: "USER" }],
+        createdAt: new Date(),
+      },
     ]);
     vi.mocked(prisma.user.count).mockResolvedValue(1);
     const res = await GET(adminGetRequest());
