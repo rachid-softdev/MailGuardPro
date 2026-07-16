@@ -13,7 +13,7 @@ import {
 } from "../services/webhookDispatcher";
 
 // Configuration Redis pour le worker — utilise queueRedis (maxRetriesPerRequest: null)
-const connection = queueRedis;
+const connection = queueRedis as any;
 
 // Type pour les données du job
 interface BulkJobData {

@@ -10,7 +10,7 @@ import { queueRedis } from "@/lib/redis";
 
 // BullMQ queue singleton (reused across all uploads)
 const bulkQueue = new Queue("bulk-validation", {
-  connection: queueRedis,
+  connection: queueRedis as any,
   defaultJobOptions: {
     attempts: 3,
     backoff: {

@@ -98,7 +98,7 @@ export class StripeWebhookHandler {
         throw new Error("STRIPE_SECRET_KEY is required when no Stripe instance is provided");
       }
       this.stripe = new Stripe(secretKey, {
-        apiVersion: "2026-05-27.dahlia",
+        apiVersion: "2026-06-24.dahlia",
         typescript: true,
       });
     }
