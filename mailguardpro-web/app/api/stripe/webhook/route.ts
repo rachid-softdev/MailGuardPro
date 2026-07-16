@@ -157,6 +157,16 @@ export async function POST(req: NextRequest) {
     const ffHandler = await createStripeWebhookHandler();
     const result = await ffHandler.handleWebhookEvent(body, signature);
 
+    // Regression #1: never acknowledge (200) when the handler reports it did
+    // NOT receive/process the event. A transient idempotency/infra failure
+    // must surface as 5xx so Stripe retries instead of silently dropping it.
+    if (!result.received) {
+      return NextResponse.json(
+        { error: result.error ?? "Event processing failed" },
+        { status: 503 },
+      );
+    }
+
     // Audit log for subscription cancellation
     if (event.type === "customer.subscription.deleted" && result.received && !result.deduplicated) {
       try {

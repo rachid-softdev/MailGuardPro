@@ -23,6 +23,7 @@ import { logger } from "@/lib/logger";
 import type { ICacheService } from "./cacheService";
 import type { IEntitlementRepository } from "./entitlementRepository";
 import type { SubscriptionStatus } from "./types";
+import { DowngradeService } from "./downgradeService";
 
 // ---- Price IDs to plan key mapping ----
 // Configure these via env variables or a registry
@@ -204,6 +205,7 @@ export class StripeWebhookHandler {
     );
 
     await this.cache.invalidate(org.id);
+    await this.syncUserPlan(org.id, planKey);
   }
 
   private async handleSubscriptionUpdated(subscription: Stripe.Subscription): Promise<void> {
@@ -237,6 +239,16 @@ export class StripeWebhookHandler {
         current_period_start: periodStart,
         current_period_end: periodEnd,
       });
+
+      // Only re-grant the paid plan to legacy User.plan when the
+      // subscription is actually providing it. A past_due/canceled update
+      // still resolves newPlanKey (price unchanged) but must NOT
+      // re-sync a paid plan — otherwise the trailing
+      // customer.subscription.updated (emited alongside
+      // invoice.payment_failed) would undo the downgrade.
+      if (status === "active" || status === "trialing") {
+        await this.syncUserPlan(org.id, newPlanKey);
+      }
     } else {
       // Just update status
       await this.repo.updateSubscriptionStatus(subscription.id, status);
@@ -270,6 +282,7 @@ export class StripeWebhookHandler {
     );
 
     await this.cache.invalidate(org.id);
+    await this.syncUserPlan(org.id, "FREE");
   }
 
   private async handleInvoicePaymentSucceeded(invoice: Stripe.Invoice): Promise<void> {
@@ -308,6 +321,8 @@ export class StripeWebhookHandler {
         { orgId: org.id, subscriptionId, planKey },
         "StripeWebhook: payment succeeded — period renewed",
       );
+
+      await this.syncUserPlan(org.id, planKey);
     } catch (err) {
       logger.error(
         { err, customerId, subscriptionId },
@@ -325,14 +340,53 @@ export class StripeWebhookHandler {
     const org = await this.resolveOrg(customerId, subscriptionId);
     if (!org) return;
 
+    // Resolve the current billing period end so any freeze/graceful overrides
+    // expire at the right time.
+    let currentPeriodEnd: Date | null = null;
+    try {
+      const subscription = await this.stripe.subscriptions.retrieve(subscriptionId);
+      const sub = subscription as any;
+      currentPeriodEnd = sub.current_period_end ? new Date(sub.current_period_end * 1000) : null;
+    } catch {
+      // Non-fatal: downgrade still proceeds without a period end.
+    }
+
+    // Regression #2: actually downgrade. Apply feature freeze/graceful
+    // overrides via DowngradeService (reads the still-active subscription),
+    // then flip the subscription to past_due and sync legacy User.plan to FREE.
+    try {
+      const downgrade = new DowngradeService(this.repo, this.cache);
+      await downgrade.executeDowngrade(org.id, "FREE", currentPeriodEnd);
+    } catch (err) {
+      logger.error({ err, orgId: org.id, subscriptionId }, "StripeWebhook: downgrade failed");
+    }
+
     await this.repo.updateSubscriptionStatus(subscriptionId, "past_due");
 
     logger.warn(
       { orgId: org.id, subscriptionId, attemptCount: invoice.attempt_count },
-      "StripeWebhook: payment failed — subscription past_due",
+      "StripeWebhook: payment failed — subscription past_due, downgraded",
     );
 
     await this.cache.invalidate(org.id);
+    await this.syncUserPlan(org.id, "FREE");
+  }
+
+  /**
+   * Keep the legacy `User.plan` enum in sync with the feature-flag
+   * `Subscriptions` table. Many routes still gate on User.plan, so it must
+   * reflect the active plan or users lose/gain access incorrectly.
+   */
+  private async syncUserPlan(orgId: string, planKey: string): Promise<void> {
+    try {
+      const { prisma } = await import("@/lib/prisma");
+      await prisma.user.updateMany({
+        where: { organizationId: orgId },
+        data: { plan: planKey as any },
+      });
+    } catch (err) {
+      logger.error({ err, orgId, planKey }, "StripeWebhook: failed to sync legacy User.plan");
+    }
   }
 
   // ================================================================

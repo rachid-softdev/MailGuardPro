@@ -6,12 +6,14 @@ import { GET } from "@/app/api/v1/bulk/[jobId]/export-data/route";
 const mockAuth = vi.hoisted(() => vi.fn());
 const mockJobFindFirst = vi.hoisted(() => vi.fn());
 const mockValidationFindMany = vi.hoisted(() => vi.fn());
+const mockUserFindUnique = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/auth", () => ({ auth: mockAuth }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     bulkJob: { findFirst: mockJobFindFirst },
     validation: { findMany: mockValidationFindMany },
+    user: { findUnique: mockUserFindUnique },
   },
 }));
 
@@ -67,6 +69,8 @@ describe("GET /api/v1/bulk/[jobId]/export-data — route envelope & stats", () =
     vi.clearAllMocks();
     mockAuth.mockResolvedValue({ user: { id: "user-1" } });
     mockJobFindFirst.mockResolvedValue({ id: "job-123", filename: "t.csv" });
+    // Default: PRO plan so the pre-existing stats tests still pass (200).
+    mockUserFindUnique.mockResolvedValue({ plan: "PRO" });
   });
 
   // P1: 401
@@ -131,5 +135,53 @@ describe("GET /api/v1/bulk/[jobId]/export-data — route envelope & stats", () =
     expect(stats.deliverabilityRate).toBe(0);
     expect(highRiskEmails).toEqual([]);
     expect(recommendations).toEqual([]);
+  });
+
+  // ================================================================
+  // REGRESSION #5: PDF plan-gating must be enforced server-side.
+  // /export-data feeds client-side PDF generation, a PRO+ feature.
+  // A user whose plan is below PRO must get 403; PRO/BUSINESS get 200.
+  // ================================================================
+  describe("regression #5 — PRO+ plan gate enforced server-side", () => {
+    it("FREE user → 403 Upgrade required", async () => {
+      mockUserFindUnique.mockResolvedValue({ plan: "FREE" });
+      const res = await GET(req(), { params: Promise.resolve({ jobId: "job-123" }) });
+      expect(res.status).toBe(403);
+      const body = await res.json();
+      expect(body.success).toBe(false);
+      expect(body.requiredPlan).toBe("PRO");
+      expect(body.currentPlan).toBe("FREE");
+      // Data must NOT be fetched for gated users
+      expect(mockValidationFindMany).not.toHaveBeenCalled();
+    });
+
+    it("STARTER user → 403 Upgrade required", async () => {
+      mockUserFindUnique.mockResolvedValue({ plan: "STARTER" });
+      const res = await GET(req(), { params: Promise.resolve({ jobId: "job-123" }) });
+      expect(res.status).toBe(403);
+      const body = await res.json();
+      expect(body.requiredPlan).toBe("PRO");
+      expect(body.currentPlan).toBe("STARTER");
+    });
+
+    it("PRO user (owned job) → 200 with data", async () => {
+      mockUserFindUnique.mockResolvedValue({ plan: "PRO" });
+      mockValidationFindMany.mockResolvedValue(mixedResults());
+      const res = await GET(req(), { params: Promise.resolve({ jobId: "job-123" }) });
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.success).toBe(true);
+      expect(body.data.meta.totalEmails).toBe(4);
+    });
+
+    it("BUSINESS user (owned job) → 200 with data", async () => {
+      mockUserFindUnique.mockResolvedValue({ plan: "BUSINESS" });
+      mockValidationFindMany.mockResolvedValue(mixedResults());
+      const res = await GET(req(), { params: Promise.resolve({ jobId: "job-123" }) });
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.success).toBe(true);
+      expect(body.data.meta.totalEmails).toBe(4);
+    });
   });
 });

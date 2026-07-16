@@ -120,16 +120,14 @@ describe("BULK_JOB_FAILED status on worker failure", () => {
   });
 
   // ─────────────────────────────────────────────────────────────────────────
-  // REGRESSION GUARD (documents current broken behavior — DO NOT RELY ON THIS
-  // AS A FEATURE). See report: PR #136 removed the BULK_JOB_FAILED webhook
-  // dispatch from the worker's `failed` handler. On the final attempt the job
-  // status is correctly set to FAILED, but no BULK_JOB_FAILED webhook is sent
-  // to the user's configured endpoints, even though WEBHOOK_EVENTS.BULK_JOB_FAILED
-  // still exists in the dispatcher. This test pins the CURRENT behavior so the
-  // gap is visible; it should be flipped (expect a dispatch) once the worker is
-  // fixed to notify on final failure.
+  // REGRESSION GUARD (#4): BULK_JOB_FAILED webhook MUST be dispatched on the
+  // FINAL attempt. PR #136 removed the dispatch from the worker's `failed`
+  // handler. The fix re-adds it: on the final attempt (attemptsMade >= attempts)
+  // the worker notifies the user's endpoints via WebhookDispatcher with the
+  // BULK_JOB_FAILED event, carrying the jobId, error and timestamp.
   // ─────────────────────────────────────────────────────────────────────────
-  it("REGRESSION: BULK_JOB_FAILED webhook is NOT dispatched on final attempt", async () => {
+  it("REGRESSION #4: BULK_JOB_FAILED webhook IS dispatched on final attempt", async () => {
+    mockUpdate.mockResolvedValue({});
     mockDispatchToUser.mockResolvedValue({ total: 0, successful: 0, failed: 0 });
 
     const failedHandler = getFailedHandler();
@@ -142,13 +140,38 @@ describe("BULK_JOB_FAILED status on worker failure", () => {
 
     mockDispatchToUser.mockClear();
 
-    failedHandler(mockJob, new Error("SMTP timeout"));
+    // Handler is async: await so the dispatch (which runs after the
+    // prisma.bulkJob.update) actually executes before we assert.
+    await failedHandler(mockJob, new Error("SMTP timeout"));
 
-    // CURRENT (buggy) behavior: webhook must NOT be dispatched.
-    expect(mockDispatchToUser).not.toHaveBeenCalledWith(
+    expect(mockDispatchToUser).toHaveBeenCalledTimes(1);
+    expect(mockDispatchToUser).toHaveBeenCalledWith(
       "user-3",
       "bulk_job_failed",
-      expect.anything(),
+      expect.objectContaining({
+        jobId: "job-789",
+        error: "SMTP timeout",
+        timestamp: expect.any(String),
+      }),
     );
+  });
+
+  it("REGRESSION #4: BULK_JOB_FAILED webhook is NOT dispatched on non-final failure", async () => {
+    mockUpdate.mockResolvedValue({});
+    mockDispatchToUser.mockResolvedValue({ total: 0, successful: 0, failed: 0 });
+
+    const failedHandler = getFailedHandler();
+    const mockJob = {
+      data: { jobId: "job-456", userId: "user-2" },
+      opts: { attempts: 3 },
+      attemptsMade: 1,
+      id: "bull-job-456",
+    };
+
+    mockDispatchToUser.mockClear();
+
+    await failedHandler(mockJob, new Error("Transient error"));
+
+    expect(mockDispatchToUser).not.toHaveBeenCalled();
   });
 });
