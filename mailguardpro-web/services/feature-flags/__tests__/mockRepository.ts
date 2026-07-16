@@ -345,11 +345,7 @@ export class MockEntitlementRepository implements IEntitlementRepository {
     }
   }
 
-  async listPlans(
-    page: number,
-    limit: number,
-    sort?: string,
-  ): Promise<{ data: PlanRow[]; total: number }> {
+  async listPlans(page: number, limit: number): Promise<{ data: PlanRow[]; total: number }> {
     const all = Array.from(this.plans.values());
     return {
       data: all.slice((page - 1) * limit, page * limit),
@@ -357,11 +353,7 @@ export class MockEntitlementRepository implements IEntitlementRepository {
     };
   }
 
-  async listFeatures(
-    page: number,
-    limit: number,
-    sort?: string,
-  ): Promise<{ data: FeatureRow[]; total: number }> {
+  async listFeatures(page: number, limit: number): Promise<{ data: FeatureRow[]; total: number }> {
     const all = Array.from(this.features.values());
     return {
       data: all.slice((page - 1) * limit, page * limit),

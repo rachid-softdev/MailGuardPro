@@ -278,7 +278,7 @@ describe("FeatureGuard", () => {
   });
 
   it("renders nothing (null fallback) when feature is disabled and no fallback", async () => {
-    const { container } = renderWithProvider(
+    renderWithProvider(
       <FeatureGuard feature="AI_SUMMARY">
         <div data-testid="content">Secret Content</div>
       </FeatureGuard>,
@@ -481,7 +481,9 @@ describe("additional frontend edge cases", () => {
 
   it("FeatureGuard with empty children renders nothing (no crash)", async () => {
     renderWithProvider(
-      <FeatureGuard feature="EXPORT_PDF">{/* No children — intentionally empty */}</FeatureGuard>,
+      <FeatureGuard feature="EXPORT_PDF">
+        <div />
+      </FeatureGuard>,
     );
     // Should not crash, simply render nothing
     await waitFor(() => {
