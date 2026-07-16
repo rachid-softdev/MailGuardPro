@@ -363,6 +363,45 @@ describe("Stripe Webhook Route — POST /api/stripe/webhook", () => {
   });
 
   // ================================================================
+  // SECTION 3b: Regression #1 — idempotency/infra failure must NOT be
+  // acknowledged with 200. A transient failure (received: false) must
+  // surface as 503 so Stripe retries instead of silently dropping it.
+  // ================================================================
+  describe("regression #1 — handler failure → 503 (not 200)", () => {
+    it("R1. FF handler returns received:false → 503", async () => {
+      mockConstructEvent.mockReturnValue(
+        makeEvent("customer.subscription.updated", {
+          customer: "cus_test",
+          id: "sub_test",
+          items: { data: [{ price: { id: "price_pro" } }] },
+          status: "active",
+        }),
+      );
+      mockFFHandleEvent.mockResolvedValue({
+        received: false,
+        error: "Service temporarily unavailable",
+      });
+
+      const res = await POST(createRequest("{}"));
+
+      expect(res.status).toBe(503);
+      expect(await res.json()).toEqual({
+        error: "Service temporarily unavailable",
+      });
+    });
+
+    it("R1. FF handler returns received:false without error message → 503 default body", async () => {
+      mockConstructEvent.mockReturnValue(makeEvent("invoice.payment_failed", {}));
+      mockFFHandleEvent.mockResolvedValue({ received: false });
+
+      const res = await POST(createRequest("{}"));
+
+      expect(res.status).toBe(503);
+      expect(await res.json()).toEqual({ error: "Event processing failed" });
+    });
+  });
+
+  // ================================================================
   // SECTION 4: Error recovery
   // ================================================================
   describe("error recovery", () => {
