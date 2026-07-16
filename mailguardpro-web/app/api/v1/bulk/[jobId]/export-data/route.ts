@@ -38,7 +38,12 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ job
     const requiredPlanIndex = PLAN_ORDER.indexOf("PRO");
     if (userPlanIndex < requiredPlanIndex) {
       return NextResponse.json(
-        { success: false, error: "Upgrade required", requiredPlan: "PRO", currentPlan: exportUser?.plan },
+        {
+          success: false,
+          error: "Upgrade required",
+          requiredPlan: "PRO",
+          currentPlan: exportUser?.plan,
+        },
         { status: 403 },
       );
     }

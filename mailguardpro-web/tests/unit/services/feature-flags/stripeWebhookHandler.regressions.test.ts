@@ -136,11 +136,7 @@ describe("Regression #2 — invoice.payment_failed downgrades User.plan to FREE"
     expect(result.received).toBe(true);
 
     // a) DowngradeService.executeDowngrade invoked with FREE target
-    expect(executeDowngradeSpy).toHaveBeenCalledWith(
-      "org_1",
-      "FREE",
-      expect.any(Date),
-    );
+    expect(executeDowngradeSpy).toHaveBeenCalledWith("org_1", "FREE", expect.any(Date));
 
     // b) subscription marked past_due
     expect(repoMock.updateSubscriptionStatus).toHaveBeenCalledWith("sub_1", "past_due");
