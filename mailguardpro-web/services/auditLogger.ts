@@ -131,6 +131,8 @@ export async function getUserAuditLogs(
 
 /**
  * Get audit logs for a specific resource
+ * @param userId Optional scoping by owner. When provided, results are filtered
+ *   to that user to prevent cross-tenant disclosure of audit logs.
  */
 export async function getResourceAuditLogs(
   resource: AuditResource,
@@ -138,12 +140,14 @@ export async function getResourceAuditLogs(
   options?: {
     limit?: number;
     offset?: number;
+    userId?: string;
   },
 ) {
   return prisma.auditLog.findMany({
     where: {
       resource,
       resourceId,
+      ...(options?.userId ? { userId: options.userId } : {}),
     },
     orderBy: { createdAt: "desc" },
     take: options?.limit ?? 50,

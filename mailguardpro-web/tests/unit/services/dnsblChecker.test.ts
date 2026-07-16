@@ -532,4 +532,73 @@ describe("dnsblChecker", () => {
       });
     });
   });
+
+  describe("checkDNSBL — return-code mapping (P1-13)", () => {
+    it("should map return code 127 -> 'source de spam'", async () => {
+      let call = 0;
+      mockResolve4.mockImplementation(() => {
+        call++;
+        if (call === 1) return Promise.resolve(["192.168.1.1"]);
+        return Promise.resolve(["127.0.0.2"]);
+      });
+      const result = await checkDNSBL("blacklisted.com");
+      expect(result.passed).toBe(false);
+      expect(result.message).toBe("IP blacklistée sur Spamhaus Zen");
+      expect(result.detail).toContain("Listé comme source de spam");
+    });
+
+    it("should map return code 64 -> 'sender open relay'", async () => {
+      let call = 0;
+      mockResolve4.mockImplementation(() => {
+        call++;
+        if (call === 1) return Promise.resolve(["192.168.1.1"]);
+        return Promise.resolve(["64.0.0.2"]);
+      });
+      const result = await checkDNSBL("blacklisted.com");
+      expect(result.passed).toBe(false);
+      expect(result.detail).toContain("Listé comme sender open relay");
+    });
+
+    it("should map return code 2 -> 'domainpike'", async () => {
+      let call = 0;
+      mockResolve4.mockImplementation(() => {
+        call++;
+        if (call === 1) return Promise.resolve(["192.168.1.1"]);
+        return Promise.resolve(["2.0.0.2"]);
+      });
+      const result = await checkDNSBL("blacklisted.com");
+      expect(result.passed).toBe(false);
+      expect(result.detail).toContain("Listé comme domainpike");
+    });
+
+    it("should map an unknown return code -> 'Listé (code: X)'", async () => {
+      let call = 0;
+      mockResolve4.mockImplementation(() => {
+        call++;
+        if (call === 1) return Promise.resolve(["192.168.1.1"]);
+        return Promise.resolve(["99.0.0.2"]);
+      });
+      const result = await checkDNSBL("blacklisted.com");
+      expect(result.passed).toBe(false);
+      expect(result.detail).toContain("Listé (code: 99)");
+    });
+  });
+
+  describe("checkDNSBL — multi-IP (P2-36)", () => {
+    it("should report the 2nd IP when only it is blacklisted", async () => {
+      let call = 0;
+      mockResolve4.mockImplementation(() => {
+        call++;
+        if (call === 1) return Promise.resolve(["1.1.1.1", "2.2.2.2"]);
+        // calls 2..6: ip1's 5 DNSBL lookups -> not listed (NXDOMAIN)
+        if (call >= 2 && call <= 6) return Promise.reject(new Error("NXDOMAIN"));
+        // call 7: ip2's 1st DNSBL -> listed 127
+        return Promise.resolve(["127.0.0.2"]);
+      });
+      const result = await checkDNSBL("multi.com");
+      expect(result.passed).toBe(false);
+      expect(result.detail).toContain("2.2.2.2");
+      expect(result.detail).toContain("zen.spamhaus.org");
+    });
+  });
 });

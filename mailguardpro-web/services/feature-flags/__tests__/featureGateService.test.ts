@@ -2,12 +2,25 @@
 // FeatureGateService — Comprehensive Test Suite
 // ================================================================
 
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { ICacheService } from "../cacheService";
 import { FeatureGateService } from "../featureGateService";
 import { FeatureNotAvailableError, hashExperimentBucket, LimitReachedError } from "../types";
-import type { MockedRedis } from "./mockRepository";
 import { MockEntitlementRepository } from "./mockRepository";
+
+// The StripeWebhookHandler idempotency check falls through to prisma.stripeEvent
+// when redis is unavailable; the real prisma client cannot be loaded in tests,
+// so we stub it. This makes the idempotency path resolve to "new".
+vi.mock("@/lib/prisma", () => ({
+  prisma: {
+    stripeEvent: { create: vi.fn().mockResolvedValue({}) },
+    user: { findUnique: vi.fn() },
+  },
+}));
+
+vi.mock("@/lib/redis", () => ({
+  redis: {},
+}));
 
 // ---- Mock Cache Service ----
 class MockCacheService implements ICacheService {

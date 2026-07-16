@@ -11,6 +11,7 @@ import { prisma } from "@/lib/prisma";
 import { checkRateLimitByPlan, type Plan } from "@/lib/rateLimits";
 import { parseJsonBody } from "@/lib/request";
 import { resolveWebhookIps, validateWebhookUrlWithDns } from "@/lib/ssrf";
+import { AuditAction, AuditResource, logAudit } from "@/services/auditLogger";
 
 const updateWebhookSchema = z.object({
   url: z.string().url().optional(),
@@ -72,6 +73,16 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     await prisma.webhook.update({
       where: { id },
       data: { deletedAt: now },
+    });
+
+    // Audit log
+    void logAudit({
+      userId: session.user.id,
+      action: AuditAction.WEBHOOK_DELETED,
+      resource: AuditResource.WEBHOOK,
+      resourceId: id,
+      ipAddress: req.headers.get("x-forwarded-for") || undefined,
+      metadata: { webhookName: webhook.name, url: webhook.url.replace(/\?.*$/, "") },
     });
 
     return NextResponse.json({
@@ -174,6 +185,16 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const updated = await prisma.webhook.update({
       where: { id },
       data: updateData,
+    });
+
+    // Audit log
+    void logAudit({
+      userId: session.user.id,
+      action: AuditAction.WEBHOOK_UPDATED,
+      resource: AuditResource.WEBHOOK,
+      resourceId: id,
+      ipAddress: req.headers.get("x-forwarded-for") || undefined,
+      metadata: { webhookName: updated.name, url: updated.url, changes: updateData },
     });
 
     return NextResponse.json({

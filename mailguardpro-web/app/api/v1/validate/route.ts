@@ -250,9 +250,12 @@ export async function GET(req: NextRequest) {
     if (user) {
       try {
         // === STEP 1: Short transaction — credit deduction + pending record ===
+        // BUSINESS is an unlimited plan: bypass the credit gate so users are
+        // never blocked, while still recording usage via the decrement.
+        const isUnlimited = plan === "BUSINESS";
         const pendingValidation = await prisma.$transaction(async (tx: TxPrismaClient) => {
           const deduction = await tx.user.updateMany({
-            where: { id: user.id, credits: { gte: 1 } },
+            where: { id: user.id, ...(isUnlimited ? {} : { credits: { gte: 1 } }) },
             data: { credits: { decrement: 1 } },
           });
           if (deduction.count === 0) {

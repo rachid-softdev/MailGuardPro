@@ -4,7 +4,7 @@
 // Total: 36 existing + 67 new + 10 categories = ~250+ tests
 // ================================================================
 
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { ICacheService } from "../cacheService";
 import { FeatureGateService } from "../featureGateService";
 import {
@@ -14,6 +14,31 @@ import {
   SubscriptionExpiredError,
 } from "../types";
 import { MockEntitlementRepository } from "./mockRepository";
+
+// ---------------------------------------------------------------------------
+// Mocks required by this suite.
+// serviceFactory statically imports the real prisma/redis clients, which are
+// unavailable in the test environment, so we stub them (mirroring how
+// apiRoutes.test.ts mocks these modules). The Stripe idempotency check also
+// falls through to prisma.stripeEvent after redis is unavailable, so
+// stripeEvent.create must be present.
+// ---------------------------------------------------------------------------
+vi.mock("@/lib/prisma", () => ({
+  prisma: {
+    stripeEvent: { create: vi.fn().mockResolvedValue({}) },
+    user: { findUnique: vi.fn() },
+  },
+}));
+
+vi.mock("@/lib/redis", () => ({
+  redis: {},
+}));
+
+vi.mock("@/services/feature-flags/serviceFactory", () => ({
+  getFeatureGateService: vi.fn(),
+  getDowngradeService: vi.fn(),
+  resetServices: vi.fn(),
+}));
 
 // ---- Mock Cache ----
 class MockCacheService implements ICacheService {
@@ -375,7 +400,7 @@ describe("error type validation", () => {
 // ================================================================
 describe("getAllEntitlements cache behavior", () => {
   it("returns cached data that may be stale after consume", async () => {
-    const { gate, cache } = createFixture();
+    const { gate } = createFixture();
 
     // Populate cache
     await gate.getAllEntitlements("org-free");
@@ -1116,7 +1141,6 @@ describe("downgradeService execute", () => {
     const futureEnd = new Date(Date.now() + 86400000 * 30);
     const svc = new DowngradeService(repo, cache);
 
-    const overrideCountBefore = repo.overrides.length;
     await svc.executeDowngrade("org-pro", "FREE", futureEnd);
 
     // EXPORT_PDF should NOT have an override (immediate strategy)
@@ -1155,29 +1179,6 @@ describe("downgradeService execute", () => {
 // ================================================================
 // 25. Stripe webhook — event-specific scenarios
 // ================================================================
-/**
- * Helper: create a mock Stripe instance that returns a given event.
- */
-function mockStripeForEvent(event: any, customer?: any) {
-  return {
-    webhooks: { constructEvent: vi.fn(() => event) },
-    customers: {
-      retrieve: vi
-        .fn()
-        .mockResolvedValue(
-          customer ?? { deleted: false, name: "Test Org", email: "test@example.com" },
-        ),
-    },
-    subscriptions: {
-      retrieve: vi.fn().mockResolvedValue({
-        current_period_start: Math.floor(Date.now() / 1000),
-        current_period_end: Math.floor(Date.now() / 1000) + 86400 * 30,
-        items: { data: [{ price: { id: "price_pro" } }] },
-      }),
-    },
-  } as any;
-}
-
 describe("Stripe webhook event handlers", () => {
   /**
    * Build a TestStripeWebhookHandler subclass that bypasses the idempotency
@@ -1185,8 +1186,11 @@ describe("Stripe webhook event handlers", () => {
    */
   async function createTestHandler(repo: any, cache: any, mockStripe: any, secret = "test_secret") {
     const mod = await import("../stripeWebhookHandler");
+    // @ts-expect-error base class declares checkIdempotency as private; override for test isolation
     class TestHandler extends mod.StripeWebhookHandler {
-      protected async checkIdempotency(_eventId: string): Promise<"new" | "duplicate" | "error"> {
+      protected override async checkIdempotency(
+        _eventId: string,
+      ): Promise<"new" | "duplicate" | "error"> {
         return "new";
       }
     }
@@ -1941,7 +1945,7 @@ describe("CacheService LRU & edge cases", () => {
 describe("serviceFactory extended", () => {
   it("getFeatureGateService returns instance with expected methods", async () => {
     // Can't instantiate real factory (needs DB), so we verify the module exports
-    const mod = await import("../serviceFactory");
+    await import("../serviceFactory");
     // We can create a FeatureGateService directly with mock repo/cache
     const { gate } = createFixture();
     expect(gate.hasFeature).toBeDefined();
@@ -1970,7 +1974,7 @@ describe("serviceFactory extended", () => {
 
   it("resetServices creates new instances", async () => {
     const mod = await import("../serviceFactory");
-    const { getCacheService, resetCacheService } = await import("../cacheService");
+    const { resetCacheService } = await import("../cacheService");
     // Since the factory uses getCacheService singleton, we test the singleton reset behavior
     // resetServices just nulls the gate/downgrade singletons
     expect(mod.resetServices).toBeDefined();
@@ -2065,7 +2069,7 @@ describe("types & error classes", () => {
 describe("concurrent cache stampede", () => {
   it("Multiple concurrent getAllEntitlements all miss cache", async () => {
     const { gate } = createFixture();
-    const promises = Array.from({ length: 10 }, (_, i) => gate.getAllEntitlements("org-pro"));
+    const promises = Array.from({ length: 10 }, (_, _i) => gate.getAllEntitlements("org-pro"));
     const results = await Promise.all(promises);
     for (const r of results) {
       expect(r.plan).toBe("active");
@@ -2162,8 +2166,11 @@ describe("security scenarios", () => {
   it("Unknown priceId maps to FREE via webhook handler", async () => {
     const { StripeWebhookHandler } = await import("../stripeWebhookHandler");
     // Subclass to bypass idempotency (same pattern as existing tests)
+    // @ts-expect-error base class declares checkIdempotency as private; override for test isolation
     class TestHandler extends StripeWebhookHandler {
-      protected async checkIdempotency(_eventId: string): Promise<"new" | "duplicate" | "error"> {
+      protected override async checkIdempotency(
+        _eventId: string,
+      ): Promise<"new" | "duplicate" | "error"> {
         return "new";
       }
     }
@@ -2280,8 +2287,11 @@ describe("StripeWebhookHandler — getPlanKeyFromPriceId", () => {
     secret = "test_secret",
   ) {
     const { StripeWebhookHandler } = await import("../stripeWebhookHandler");
+    // @ts-expect-error base class declares checkIdempotency as private; override for test isolation
     class IdempotencyBypassHandler extends StripeWebhookHandler {
-      protected async checkIdempotency(_eventId: string): Promise<"new" | "duplicate" | "error"> {
+      protected override async checkIdempotency(
+        _eventId: string,
+      ): Promise<"new" | "duplicate" | "error"> {
         return "new";
       }
     }
@@ -2399,8 +2409,11 @@ describe("StripeWebhookHandler — mapStripeStatus", () => {
     secret = "test_secret",
   ) {
     const { StripeWebhookHandler } = await import("../stripeWebhookHandler");
+    // @ts-expect-error base class declares checkIdempotency as private; override for test isolation
     class IdempotencyBypassHandler extends StripeWebhookHandler {
-      protected async checkIdempotency(_eventId: string): Promise<"new" | "duplicate" | "error"> {
+      protected override async checkIdempotency(
+        _eventId: string,
+      ): Promise<"new" | "duplicate" | "error"> {
         return "new";
       }
     }
@@ -2571,8 +2584,11 @@ describe("StripeWebhookHandler — resolveOrg", () => {
     secret = "test_secret",
   ) {
     const { StripeWebhookHandler } = await import("../stripeWebhookHandler");
+    // @ts-expect-error base class declares checkIdempotency as private; override for test isolation
     class IdempotencyBypassHandler extends StripeWebhookHandler {
-      protected async checkIdempotency(_eventId: string): Promise<"new" | "duplicate" | "error"> {
+      protected override async checkIdempotency(
+        _eventId: string,
+      ): Promise<"new" | "duplicate" | "error"> {
         return "new";
       }
     }
@@ -3072,8 +3088,11 @@ describe("StripeWebhookHandler — idempotency and event edge cases", () => {
     idempotencyResult: "new" | "duplicate" | "error" = "new",
   ) {
     const { StripeWebhookHandler } = await import("../stripeWebhookHandler");
+    // @ts-expect-error base class declares checkIdempotency as private; override for test isolation
     class TestHandler extends StripeWebhookHandler {
-      protected async checkIdempotency(_eventId: string): Promise<"new" | "duplicate" | "error"> {
+      protected override async checkIdempotency(
+        _eventId: string,
+      ): Promise<"new" | "duplicate" | "error"> {
         return idempotencyResult;
       }
     }
@@ -3180,8 +3199,11 @@ describe("StripeWebhookHandler — idempotency and event edge cases", () => {
       } as any;
 
       const { StripeWebhookHandler } = await import("../stripeWebhookHandler");
+      // @ts-expect-error base class declares checkIdempotency as private; override for test isolation
       class TestHandler extends StripeWebhookHandler {
-        protected async checkIdempotency(_eventId: string): Promise<"new" | "duplicate" | "error"> {
+        protected override async checkIdempotency(
+          _eventId: string,
+        ): Promise<"new" | "duplicate" | "error"> {
           return "new";
         }
       }
@@ -3235,8 +3257,11 @@ describe("StripeWebhookHandler — idempotency and event edge cases", () => {
       } as any;
 
       const { StripeWebhookHandler } = await import("../stripeWebhookHandler");
+      // @ts-expect-error base class declares checkIdempotency as private; override for test isolation
       class TestHandler extends StripeWebhookHandler {
-        protected async checkIdempotency(_eventId: string): Promise<"new" | "duplicate" | "error"> {
+        protected override async checkIdempotency(
+          _eventId: string,
+        ): Promise<"new" | "duplicate" | "error"> {
           return "new";
         }
       }
@@ -3442,7 +3467,6 @@ describe("BUG: targetFeatureKey always returned [] — strategy fix", () => {
     const { DowngradeService } = await import("../downgradeService");
     const repo = new MockEntitlementRepository();
     const cache = new MockCacheService();
-    const gate = new FeatureGateService(repo, cache);
 
     repo.addPlan("FREE", "Free Plan");
     repo.addPlan("PRO", "Pro Plan", 2900);
@@ -3505,7 +3529,6 @@ describe("BUG: targetFeatureKey always returned [] — strategy fix", () => {
     const { DowngradeService } = await import("../downgradeService");
     const repo = new MockEntitlementRepository();
     const cache = new MockCacheService();
-    const gate = new FeatureGateService(repo, cache);
 
     repo.addPlan("FREE", "Free Plan");
     repo.addPlan("PRO", "Pro Plan", 2900);
@@ -3702,7 +3725,7 @@ describe("mock repository correctness", () => {
 
   it("createOverride then getOverrides returns consistent data", async () => {
     const repo = new MockEntitlementRepository();
-    const ov = await repo.createOverride({
+    await repo.createOverride({
       scope: "user",
       scope_id: "user-99",
       feature_key: "FEATURE_Y",
@@ -3871,8 +3894,11 @@ describe("Stripe customer with special characters", () => {
     secret = "test_secret",
   ) {
     const { StripeWebhookHandler } = await import("../stripeWebhookHandler");
+    // @ts-expect-error base class declares checkIdempotency as private; override for test isolation
     class TestHandler extends StripeWebhookHandler {
-      protected async checkIdempotency(_eventId: string): Promise<"new" | "duplicate" | "error"> {
+      protected override async checkIdempotency(
+        _eventId: string,
+      ): Promise<"new" | "duplicate" | "error"> {
         return "new";
       }
     }
@@ -4479,8 +4505,11 @@ describe("cross-component story tests — sequential operations", () => {
     repo.organizations.get("org-webhook")!.stripe_customer_id = "cus_story";
 
     // Simulate Stripe webhook creating a PRO subscription
+    // @ts-expect-error base class declares checkIdempotency as private; override for test isolation
     class BypassHandler extends StripeWebhookHandler {
-      protected async checkIdempotency(_id: string): Promise<"new" | "duplicate" | "error"> {
+      protected override async checkIdempotency(
+        _id: string,
+      ): Promise<"new" | "duplicate" | "error"> {
         return "new";
       }
     }
@@ -4655,8 +4684,11 @@ describe("cross-component story tests — sequential operations", () => {
     expect(fail.success).toBe(false);
 
     // Step 3: Stripe payment_succeeded webhook renews the period
+    // @ts-expect-error base class declares checkIdempotency as private; override for test isolation
     class BypassHandler extends StripeWebhookHandler {
-      protected async checkIdempotency(_id: string): Promise<"new" | "duplicate" | "error"> {
+      protected override async checkIdempotency(
+        _id: string,
+      ): Promise<"new" | "duplicate" | "error"> {
         return "new";
       }
     }
@@ -4850,7 +4882,7 @@ describe("Unicode normalization — feature key variants", () => {
   });
 
   it("zero-width characters in keys handled without crash", async () => {
-    const { gate, repo } = unicodeSetup();
+    const { gate } = unicodeSetup();
     const zeroWidthKeys = [
       "FEAT\u200BURE", // zero-width space
       "FEAT\u200CURE", // zero-width non-joiner
@@ -4867,7 +4899,7 @@ describe("Unicode normalization — feature key variants", () => {
   });
 
   it("RTL override characters in keys handled safely", async () => {
-    const { gate, repo } = unicodeSetup();
+    const { gate } = unicodeSetup();
     const rtlKeys = [
       "\u202EFEATURE", // RTL override prefix
       "FEATURE\u202E", // RTL override suffix
@@ -4907,7 +4939,6 @@ describe("Unicode normalization — feature key variants", () => {
   it("surrogate pairs and 4-byte Unicode work in keys", async () => {
     const { gate, repo } = unicodeSetup();
     const emoji = "😀🎉🚀💯🔥"; // surrogate pair emojis
-    const astral = "𠀀𠀁𠀂"; // CJK Extension B (supplementary plane)
 
     repo.addFeature(emoji, "boolean");
     repo.addPlanFeature("PRO", emoji, true);
@@ -4974,8 +5005,11 @@ describe("env var edge cases — constructor behaviors", () => {
       repo.addOrg("org-no-prices");
       repo.organizations.get("org-no-prices")!.stripe_customer_id = "cus_no_prices";
 
+      // @ts-expect-error base class declares checkIdempotency as private; override for test isolation
       class TestHandler extends StripeWebhookHandler {
-        protected async checkIdempotency(_id: string): Promise<"new" | "duplicate" | "error"> {
+        protected override async checkIdempotency(
+          _id: string,
+        ): Promise<"new" | "duplicate" | "error"> {
           return "new";
         }
       }
@@ -5041,8 +5075,11 @@ describe("env var edge cases — constructor behaviors", () => {
       repo.addOrg("org-empty-map");
       repo.organizations.get("org-empty-map")!.stripe_customer_id = "cus_empty_map";
 
+      // @ts-expect-error base class declares checkIdempotency as private; override for test isolation
       class TestHandler extends StripeWebhookHandler {
-        protected async checkIdempotency(_id: string): Promise<"new" | "duplicate" | "error"> {
+        protected override async checkIdempotency(
+          _id: string,
+        ): Promise<"new" | "duplicate" | "error"> {
           return "new";
         }
       }
@@ -5108,8 +5145,6 @@ describe("dual idempotency consistency — route.ts vs stripeWebhookHandler.ts",
 
     // Both implementations use the same logic — we verify via code review by
     // checking that the Redis key pattern matches in both files
-    const routePath = "app/api/stripe/webhook/route.ts";
-    const handlerPath = "services/feature-flags/stripeWebhookHandler.ts";
 
     // This is a compile-time check — we verify the source uses the same pattern
     // by reading the actual source (already verified above)
@@ -5173,7 +5208,7 @@ describe("dual idempotency consistency — route.ts vs stripeWebhookHandler.ts",
     ];
 
     for (const error of nonP2002Errors) {
-      const isP2002 = error?.code === "P2002";
+      const isP2002 = "code" in error && error.code === "P2002";
       expect(isP2002).toBe(false);
     }
   });
@@ -5454,7 +5489,6 @@ describe("very large datasets — scale stress testing", () => {
 
     // Add features for PRO plan (first 2000)
     for (let i = 0; i < 2000; i++) {
-      const type = i % 3 === 0 ? "boolean" : i % 3 === 1 ? "limit" : "experiment";
       repo.addPlanFeature("PRO", `FEATURE_${i}`, i % 2 === 0, i % 3 === 1 ? (i * 10) % 1000 : null);
     }
 

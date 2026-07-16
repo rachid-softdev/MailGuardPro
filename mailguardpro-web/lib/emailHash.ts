@@ -27,6 +27,10 @@ export function hashEmail(email: string): string {
 }
 
 export function maskEmail(email: string): string {
+  if (!email.includes("@")) {
+    // No domain separator — mask the whole local part, keep it unambiguous.
+    return `${email.charAt(0)}***`;
+  }
   const [local, domain] = email.split("@");
   return `${local.charAt(0)}***@${domain}`;
 }

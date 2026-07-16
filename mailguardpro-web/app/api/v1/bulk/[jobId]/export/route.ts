@@ -62,6 +62,19 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ jobI
 
     const format = validated.data.format as ExportFormat;
 
+    // PDF is generated client-side via /export-data — the server export service
+    // cannot produce it and would throw. Return a clear, non-500 response.
+    if (format === "pdf") {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "PDF export is generated client-side. Use the /export-data endpoint.",
+          useEndpoint: `/api/v1/bulk/${jobId}/export-data`,
+        },
+        { status: 400 },
+      );
+    }
+
     // Authentification
     const session = await auth();
     if (!session?.user) {

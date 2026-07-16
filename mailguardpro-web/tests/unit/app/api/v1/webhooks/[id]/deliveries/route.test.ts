@@ -334,6 +334,24 @@ describe("GET /api/v1/webhooks/[id]/deliveries", () => {
     expect(body.pagination.page).toBe(1);
   });
 
+  it("should clamp limit above 100 down to 100", async () => {
+    const req = createRequest(`${BASE_URL}/api/v1/webhooks/${WEBHOOK_ID}/deliveries?limit=250`);
+    await GET(req, { params: Promise.resolve({ id: WEBHOOK_ID }) });
+
+    expect(mockPrisma.webhookDelivery.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ take: 100 }),
+    );
+  });
+
+  it("should clamp limit of 0 up to 1", async () => {
+    const req = createRequest(`${BASE_URL}/api/v1/webhooks/${WEBHOOK_ID}/deliveries?limit=0`);
+    await GET(req, { params: Promise.resolve({ id: WEBHOOK_ID }) });
+
+    const call = mockPrisma.webhookDelivery.findMany.mock.calls[0][0];
+    expect(call.take).toBe(1);
+    expect(call.skip).toBe(0);
+  });
+
   it("should include deliveries data in response (with date serialization)", async () => {
     const now = new Date("2026-06-01T12:00:00Z");
     const deliveries = [

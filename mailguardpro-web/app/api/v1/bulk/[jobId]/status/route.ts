@@ -20,7 +20,16 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ job
     }
 
     // Récupérer le statut
-    const status = await getBulkJobStatus(jobId, session.user.id);
+    let status;
+    try {
+      status = await getBulkJobStatus(jobId, session.user.id);
+    } catch (error) {
+      // requireJobOwnership throws JOB_NOT_FOUND for unknown/non-owned jobs
+      if (error instanceof Error && error.message === "JOB_NOT_FOUND") {
+        return NextResponse.json({ success: false, error: "Job not found" }, { status: 404 });
+      }
+      throw error;
+    }
 
     if (!status) {
       return NextResponse.json({ success: false, error: "Job not found" }, { status: 404 });
