@@ -44,10 +44,10 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Generate Prisma Client
-        run: pnpm exec prisma generate
+        run: pnpm --filter mailguardpro-web exec prisma generate
 
       - name: Build application
-        run: pnpm run build
+        run: pnpm --filter mailguardpro-web run build
         env:
           DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
           REDIS_URL: ${{ secrets.STAGING_REDIS_URL }}
@@ -97,10 +97,10 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Generate Prisma Client
-        run: pnpm exec prisma generate
+        run: pnpm --filter mailguardpro-web exec prisma generate
 
       - name: Build application
-        run: pnpm run build
+        run: pnpm --filter mailguardpro-web run build
         env:
           DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
           REDIS_URL: ${{ secrets.PRODUCTION_REDIS_URL }}
@@ -108,7 +108,7 @@ jobs:
           AUTH_URL: https://mailguard.pro
 
       - name: Run database migrations
-        run: pnpm exec prisma migrate deploy
+        run: pnpm --filter mailguardpro-web exec prisma migrate deploy
         env:
           DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
 
@@ -127,10 +127,14 @@ jobs:
             sudo systemctl restart mailguard-pro
 
       - name: Notify Slack
-        if: always()
+        # Only run when the secret is configured; silently skip otherwise
+        # so a missing SLACK_WEBHOOK doesn't fail the deploy.
+        if: ${{ env.SLACK_WEBHOOK != '' }}
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
         uses: slackapi/slack-github-action@45a88b9581bfab2566dc881e2cd66d334e621e2c # v3.0.3
         with:
-          webhook: ${{ secrets.SLACK_WEBHOOK }}
+          webhook: ${{ env.SLACK_WEBHOOK }}
           webhook-type: incoming-webhook
           payload: |
             {"text": "Deploy ${{ job.status == 'success' && 'succeeded' || job.status == 'failure' && 'failed' || 'cancelled' }}: ${{ github.repository }}@${{ github.sha }}"}
