@@ -61,6 +61,8 @@ vi.mock("@/services/auditLogger", () => ({
 
 vi.mock("@/services/feature-flags/stripeWebhookHandler", () => ({
   createStripeWebhookHandler: mockCreateStripeWebhookHandler,
+  // Real handler exposes handleVerifiedEvent; the route now calls it with the
+  // already-verified event instead of re-verifying via handleWebhookEvent.
 }));
 
 // ================================================================
@@ -114,7 +116,7 @@ describe("Stripe Webhook Route — POST /api/stripe/webhook", () => {
     mockRedisSet.mockResolvedValue("OK");
     mockConstructEvent.mockReturnValue(makeEvent("unhandled.type", {}));
     mockCreateStripeWebhookHandler.mockResolvedValue({
-      handleWebhookEvent: mockFFHandleEvent,
+      handleVerifiedEvent: mockFFHandleEvent,
     });
     mockFFHandleEvent.mockResolvedValue({ received: true });
     mockPrismaFindFirst.mockResolvedValue(null);
@@ -239,7 +241,7 @@ describe("Stripe Webhook Route — POST /api/stripe/webhook", () => {
   // SECTION 3: FF handler — primary event processor
   // ================================================================
   describe("FF handler integration", () => {
-    it("10. FF handler called for subscription events", async () => {
+    it("10. FF handler called for subscription events (verified event passed through)", async () => {
       mockConstructEvent.mockReturnValue(
         makeEvent("customer.subscription.updated", {
           customer: "cus_test",
@@ -254,7 +256,26 @@ describe("Stripe Webhook Route — POST /api/stripe/webhook", () => {
       expect(res.status).toBe(200);
       expect(mockCreateStripeWebhookHandler).toHaveBeenCalledTimes(1);
       expect(mockFFHandleEvent).toHaveBeenCalledTimes(1);
-      expect(mockFFHandleEvent).toHaveBeenCalledWith(expect.any(String), "valid_sig");
+      // The already-verified event object is passed, NOT (body, signature).
+      expect(mockFFHandleEvent).toHaveBeenCalledWith(
+        expect.objectContaining({ type: "customer.subscription.updated", id: expect.any(String) }),
+      );
+    });
+
+    it("10b. signature verified once — route does NOT re-verify in FF path", async () => {
+      mockConstructEvent.mockReturnValue(
+        makeEvent("customer.subscription.updated", {
+          customer: "cus_test",
+          id: "sub_test",
+          items: { data: [{ price: { id: "price_pro" } }] },
+          status: "active",
+        }),
+      );
+
+      await POST(createRequest("{}"));
+
+      // Only the route's own verification; the handler must not re-verify.
+      expect(mockConstructEvent).toHaveBeenCalledTimes(1);
     });
 
     it("11. FF handler failure → 500 (primary handler, not optional)", async () => {

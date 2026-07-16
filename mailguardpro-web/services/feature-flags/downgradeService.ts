@@ -107,8 +107,24 @@ export class DowngradeService {
 
     const targetMap = new Map(targetFeatures.map((f) => [f.feature_key, f]));
 
+    // Fetch existing org overrides once so a repeated executeDowngrade call
+    // (e.g. multiple payment_failed before the subscription flips to past_due)
+    // does NOT create duplicate overrides for the same feature.
+    const existingOverrides = await this.repo.getOverrides("org", orgId);
+    const now = new Date();
+    const activeOverriddenKeys = new Set(
+      existingOverrides
+        .filter((ov) => !ov.expires_at || new Date(ov.expires_at) > now)
+        .map((ov) => ov.feature_key),
+    );
+
     // Create overrides for features that need freezing
     for (const current of currentFeatures) {
+      // Skip if an active (non-expired) override already exists for this feature.
+      if (activeOverriddenKeys.has(current.feature_key)) {
+        continue;
+      }
+
       const target = targetMap.get(current.feature_key);
       // Use current feature's downgrade strategy — target may not exist (feature removed)
       // or may have a different strategy than the current plan defines.

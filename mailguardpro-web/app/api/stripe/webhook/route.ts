@@ -155,7 +155,10 @@ export async function POST(req: NextRequest) {
   // ================================================================
   try {
     const ffHandler = await createStripeWebhookHandler();
-    const result = await ffHandler.handleWebhookEvent(body, signature);
+    // The signature was already verified at the top of this route (line ~76),
+    // so we pass the verified `event` straight to the handler and avoid a
+    // redundant second signature verification.
+    const result = await ffHandler.handleVerifiedEvent(event);
 
     // Regression #1: never acknowledge (200) when the handler reports it did
     // NOT receive/process the event. A transient idempotency/infra failure
