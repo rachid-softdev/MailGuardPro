@@ -239,7 +239,16 @@ export class StripeWebhookHandler {
         current_period_start: periodStart,
         current_period_end: periodEnd,
       });
-      await this.syncUserPlan(org.id, newPlanKey);
+
+      // Only re-grant the paid plan to legacy User.plan when the
+      // subscription is actually providing it. A past_due/canceled update
+      // still resolves newPlanKey (price unchanged) but must NOT
+      // re-sync a paid plan — otherwise the trailing
+      // customer.subscription.updated (emited alongside
+      // invoice.payment_failed) would undo the downgrade.
+      if (status === "active" || status === "trialing") {
+        await this.syncUserPlan(org.id, newPlanKey);
+      }
     } else {
       // Just update status
       await this.repo.updateSubscriptionStatus(subscription.id, status);
