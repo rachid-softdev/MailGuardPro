@@ -32,7 +32,7 @@ export async function GET(_req: NextRequest) {
     }
 
     const webhooks = await prisma.webhook.findMany({
-      where: { userId: session.user.id },
+      where: { userId: session.user.id, deletedAt: null },
       orderBy: { createdAt: "desc" },
       select: {
         id: true,

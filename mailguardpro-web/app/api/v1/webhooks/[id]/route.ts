@@ -82,7 +82,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
       resource: AuditResource.WEBHOOK,
       resourceId: id,
       ipAddress: req.headers.get("x-forwarded-for") || undefined,
-      metadata: { webhookName: webhook.name, url: webhook.url },
+      metadata: { webhookName: webhook.name, url: webhook.url.replace(/\?.*$/, "") },
     });
 
     return NextResponse.json({

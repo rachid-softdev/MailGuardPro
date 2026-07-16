@@ -61,3 +61,16 @@ describe("WebhookDispatcher.verifyIncomingSignature (P0 security)", () => {
     expect(WebhookDispatcher.verifyIncomingSignature(JSON.stringify(body), sig, secret)).toBe(true);
   });
 });
+
+describe("WebhookDispatcher.dispatchToUser (soft-delete regression)", () => {
+  it("queries only non-deleted webhooks (deletedAt: null)", async () => {
+    // Regression: webhook DELETE became a soft delete (sets deletedAt). If the
+    // dispatch query omits the deletedAt: null filter, deleted webhooks keep firing.
+    mockPrisma.webhook.findMany.mockResolvedValueOnce([]);
+    await WebhookDispatcher.dispatchToUser("u1", "email.received", {});
+    expect(mockPrisma.webhook.findMany).toHaveBeenCalledTimes(1);
+    const where = mockPrisma.webhook.findMany.mock.calls[0][0].where;
+    expect(where).toMatchObject({ userId: "u1", isActive: true, deletedAt: null });
+    expect(where.events).toEqual({ has: "email.received" });
+  });
+});

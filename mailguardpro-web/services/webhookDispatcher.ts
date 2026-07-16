@@ -191,6 +191,7 @@ export class WebhookDispatcher {
       where: {
         userId,
         isActive: true,
+        deletedAt: null,
         events: { has: event },
       },
     });
