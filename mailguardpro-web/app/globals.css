@@ -1,8 +1,46 @@
 @import url("https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@600;700;800&display=swap");
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+@custom-variant dark (&:where([data-theme="dark"] *));
+
+@theme inline {
+  --font-display: "Syne", sans-serif;
+  --font-mono: "DM Mono", monospace;
+
+  --color-accent: var(--accent);
+  --color-accent-light: var(--accent-light);
+  --color-accent-dark: var(--accent-dark);
+
+  --color-score-critical: var(--score-critical);
+  --color-score-poor: var(--score-poor);
+  --color-score-medium: var(--score-medium);
+  --color-score-good: var(--score-good);
+  --color-score-excellent: var(--score-excellent);
+
+  --color-status-valid: var(--status-valid);
+  --color-status-invalid: var(--status-invalid);
+  --color-status-risky: var(--status-risky);
+  --color-status-unknown: var(--status-unknown);
+
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+  --radius-xl: var(--radius-xl);
+  --radius-2xl: var(--radius-2xl);
+
+  --shadow-xs: var(--shadow-xs);
+  --shadow-sm: var(--shadow-sm);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
+  --shadow-xl: var(--shadow-xl);
+
+  --animate-fade-up: fadeUp 0.5s ease forwards;
+  --animate-skeleton: skeleton 1.5s ease-in-out infinite;
+  --animate-shimmer: shimmer 1.5s ease-in-out infinite;
+  --animate-pulse-dot: pulse-dot 2s ease-in-out infinite;
+  --animate-spin-slow: spin 0.6s linear infinite;
+}
 
 :root {
   /* ==================== TYPOGRAPHY ==================== */

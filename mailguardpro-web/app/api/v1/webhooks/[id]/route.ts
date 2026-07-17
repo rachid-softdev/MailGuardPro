@@ -14,7 +14,7 @@ import { resolveWebhookIps, validateWebhookUrlWithDns } from "@/lib/ssrf";
 import { AuditAction, AuditResource, logAudit } from "@/services/auditLogger";
 
 const updateWebhookSchema = z.object({
-  url: z.string().url().optional(),
+  url: z.url().optional(),
   events: z.array(z.string()).min(1).optional(),
   name: z.string().min(1).max(100).optional(),
   isActive: z.boolean().optional(),
@@ -136,7 +136,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     // Validate input with Zod
     const validation = updateWebhookSchema.safeParse(body);
     if (!validation.success) {
-      loggerApi.warn({ errors: validation.error.errors }, "Input validation failed");
+      loggerApi.warn({ errors: validation.error.issues }, "Input validation failed");
       return NextResponse.json({ success: false, error: "Invalid input" }, { status: 400 });
     }
 

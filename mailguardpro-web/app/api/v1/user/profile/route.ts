@@ -70,7 +70,7 @@ export async function PATCH(req: NextRequest) {
     if (bodyError) return bodyError;
     const validation = updateProfileSchema.safeParse(body);
     if (!validation.success) {
-      loggerApi.warn({ errors: validation.error.errors }, "Input validation failed");
+      loggerApi.warn({ errors: validation.error.issues }, "Input validation failed");
       return NextResponse.json({ success: false, error: "Invalid input" }, { status: 400 });
     }
     const { name } = validation.data;

@@ -14,7 +14,7 @@ const CreateOverrideSchema = z.object({
   feature_key: z.string().min(1, "feature_key is required"),
   enabled: z.boolean().nullable().optional(),
   limit_value: z.number().int().min(0).nullable().optional(),
-  expires_at: z.string().datetime().nullable().optional(),
+  expires_at: z.iso.datetime().nullable().optional(),
   reason: z.string().trim().min(1, "reason is required (admin)"),
 });
 
