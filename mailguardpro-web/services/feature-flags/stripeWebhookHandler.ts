@@ -106,8 +106,10 @@ export class StripeWebhookHandler {
   }
 
   /**
-   * Main entry point — verify signature, check idempotency, route event.
-   * Returns a result object suitable for HTTP response.
+   * Main entry point — verify signature, then route the verified event.
+   * Kept for backward compatibility: callers that have NOT already verified
+   * the Stripe signature use this. Prefer `handleVerifiedEvent` when the
+   * signature was verified upstream (avoids a redundant re-verification).
    */
   async handleWebhookEvent(body: string, signature: string): Promise<StripeWebhookResult> {
     // 1. Verify signature
@@ -119,7 +121,16 @@ export class StripeWebhookHandler {
       return { received: false, error: "Invalid signature" };
     }
 
-    // 2. Idempotency check
+    return this.handleVerifiedEvent(event);
+  }
+
+  /**
+   * Handle an already signature-verified Stripe event: idempotency check +
+   * event routing. Exposed so callers that verify the signature upstream
+   * (e.g. the webhook route) can skip the redundant re-verification.
+   */
+  async handleVerifiedEvent(event: Stripe.Event): Promise<StripeWebhookResult> {
+    // 1. Idempotency check
     const eventId = event.id;
     const idempotent = await this.checkIdempotency(eventId);
     if (idempotent === "duplicate") {
@@ -130,7 +141,7 @@ export class StripeWebhookHandler {
       return { received: false, error: "Service temporarily unavailable" };
     }
 
-    // 3. Route event
+    // 2. Route event
     try {
       switch (event.type) {
         case "customer.subscription.created":
@@ -161,6 +172,14 @@ export class StripeWebhookHandler {
         { err, eventId, eventType: event.type },
         "StripeWebhook: event processing failed",
       );
+      // Release the idempotency marker so a transient failure does NOT mark
+      // the event as consumed — Stripe's retry will reprocess it. Wrapped so a
+      // release failure can never mask the original processing error.
+      try {
+        await this.releaseIdempotency(eventId);
+      } catch (releaseErr) {
+        logger.warn({ releaseErr, eventId }, "StripeWebhook: failed to release idempotency marker");
+      }
       throw err; // Let caller handle — Stripe will retry
     }
 
@@ -468,6 +487,30 @@ export class StripeWebhookHandler {
       if (err?.code === "P2002") return "duplicate";
       logger.error({ err }, "StripeWebhook: idempotency check failed");
       return "error";
+    }
+  }
+
+  /**
+   * Release an idempotency marker so a transient processing failure does NOT
+   * mark the event as consumed. Mirrors `checkIdempotency` in reverse: deletes
+   * the Redis key and the PostgreSQL `stripeEvent` row. Non-fatal — any
+   * failure is swallowed so it never masks the original processing error.
+   */
+  private async releaseIdempotency(eventId: string): Promise<void> {
+    // Redis: delete the NX marker regardless of whether it was the active layer.
+    try {
+      const { redis } = await import("@/lib/redis");
+      await redis.del(`stripe:event:${eventId}`);
+    } catch {
+      // Redis unreachable — fall through to the PG cleanup attempt.
+    }
+
+    // PostgreSQL fallback: delete the stripeEvent row created by checkIdempotency.
+    try {
+      const { prisma } = await import("@/lib/prisma");
+      await prisma.stripeEvent.deleteMany({ where: { id: eventId } });
+    } catch (err) {
+      logger.warn({ err, eventId }, "StripeWebhook: failed to release PG idempotency row");
     }
   }
 }
