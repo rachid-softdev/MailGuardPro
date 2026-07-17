@@ -11,7 +11,7 @@ const AddFeatureSchema = z.object({
   featureKey: z.string().min(1, "featureKey is required"),
   enabled: z.boolean().default(false),
   limitValue: z.number().int().min(0).nullable().optional(),
-  configJson: z.record(z.unknown()).nullable().optional(),
+  configJson: z.record(z.string(), z.unknown()).nullable().optional(),
   downgradeStrategy: z.enum(["graceful", "immediate", "freeze"]).default("immediate"),
 });
 

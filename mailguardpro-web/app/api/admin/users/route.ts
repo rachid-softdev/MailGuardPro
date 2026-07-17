@@ -11,7 +11,7 @@ import { prisma } from "@/lib/prisma";
 const VALID_ROLES = ["USER", "ADMIN"] as const;
 
 const CreateUserSchema = z.object({
-  email: z.string().email("Invalid email"),
+  email: z.email({ message: "Invalid email" }),
   name: z.string().optional(),
   roles: z.array(z.enum(VALID_ROLES)).min(1, "At least one role is required").default(["USER"]),
 });

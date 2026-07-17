@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
     });
 
     if (!queryValidation.success) {
-      loggerApi.warn({ errors: queryValidation.error.errors }, "Input validation failed");
+      loggerApi.warn({ errors: queryValidation.error.issues }, "Input validation failed");
       return NextResponse.json(
         {
           success: false,

@@ -16,7 +16,7 @@ import { validateWebhookUrlWithDns } from "@/lib/ssrf";
 import { AuditAction, AuditResource, logAudit } from "@/services/auditLogger";
 
 const createWebhookSchema = z.object({
-  url: z.string().url(),
+  url: z.url(),
   name: z.string().min(1).max(100),
   events: z.array(z.string()).min(1),
 });
@@ -92,7 +92,7 @@ export async function POST(req: NextRequest) {
     const validation = createWebhookSchema.safeParse(body);
 
     if (!validation.success) {
-      loggerApi.warn({ errors: validation.error.errors }, "Input validation failed");
+      loggerApi.warn({ errors: validation.error.issues }, "Input validation failed");
       return NextResponse.json(
         {
           success: false,

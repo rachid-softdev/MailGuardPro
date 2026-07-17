@@ -24,7 +24,7 @@ import { checkFormat } from "@/services/formatChecker";
 
 // Schema de validation
 const validateQuerySchema = z.object({
-  email: z.string().email().min(1).max(254),
+  email: z.email().min(1).max(254),
 });
 
 // Helper pour extraire l'utilisateur (session ou API key)
