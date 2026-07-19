@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Tooltip } from "@/components/ui/Tooltip";
+import { Button, Card } from "@/components/ui";
 import { logger } from "@/lib/logger";
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -318,7 +319,7 @@ export default function WebhookDeliveriesPage() {
       </div>
 
       {/* Filters */}
-      <div className="card mb-6">
+      <Card variant="default" padding="md" className="mb-6">
         <div className="flex items-center gap-4 flex-wrap">
           {/* Webhook filter */}
           <div className="flex items-center gap-2">
@@ -365,7 +366,7 @@ export default function WebhookDeliveriesPage() {
             </span>
           )}
         </div>
-      </div>
+      </Card>
 
       {/* Error state */}
       {error && (
@@ -374,20 +375,21 @@ export default function WebhookDeliveriesPage() {
             <AlertCircle className="w-4 h-4" />
             {error}
           </span>
-          <button
+          <Button
             onClick={handleRetry}
-            className="btn btn-ghost btn-sm"
+            variant="ghost"
+            size="sm"
             aria-label="Retry loading deliveries"
           >
             <RefreshCw className="w-4 h-4 mr-1" />
             Retry
-          </button>
+          </Button>
         </div>
       )}
 
       {/* Loading skeleton */}
       {loading && (
-        <div className="card overflow-hidden">
+        <Card variant="default" padding="md" className="overflow-hidden">
           <div className="divide-y divide-[var(--border)]">
             {[1, 2, 3, 4, 5].map((i) => (
               <div key={i} className="flex items-center gap-4 p-4 animate-skeleton">
@@ -400,12 +402,12 @@ export default function WebhookDeliveriesPage() {
               </div>
             ))}
           </div>
-        </div>
+        </Card>
       )}
 
       {/* Empty state */}
       {!loading && !error && deliveries.length === 0 && (
-        <div className="card text-center py-12">
+        <Card variant="default" padding="md" className="text-center py-12">
           <div className="w-12 h-12 bg-[var(--bg-subtle)] rounded-full flex items-center justify-center mx-auto mb-4">
             <Clock className="w-6 h-6 text-[var(--text-muted)]" />
           </div>
@@ -413,12 +415,12 @@ export default function WebhookDeliveriesPage() {
           <p className="text-sm text-[var(--text-muted)] mt-1">
             Deliveries will appear here when your webhooks receive events
           </p>
-        </div>
+        </Card>
       )}
 
       {/* Table */}
       {!loading && !error && deliveries.length > 0 && (
-        <div className="card overflow-hidden">
+        <Card variant="default" padding="md" className="overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
@@ -464,26 +466,28 @@ export default function WebhookDeliveriesPage() {
                 Page {pagination.page} of {pagination.totalPages}
               </span>
               <div className="flex items-center gap-2">
-                <button
+                <Button
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                   disabled={page <= 1}
-                  className="btn btn-ghost btn-sm"
+                  variant="ghost"
+                  size="sm"
                   aria-label="Previous page"
                 >
                   <ChevronLeft className="w-4 h-4" />
-                </button>
-                <button
+                </Button>
+                <Button
                   onClick={() => setPage((p) => p + 1)}
                   disabled={page >= (pagination.totalPages || 1)}
-                  className="btn btn-ghost btn-sm"
+                  variant="ghost"
+                  size="sm"
                   aria-label="Next page"
                 >
                   <ChevronRight className="w-4 h-4" />
-                </button>
+                </Button>
               </div>
             </div>
           )}
-        </div>
+        </Card>
       )}
     </div>
   );

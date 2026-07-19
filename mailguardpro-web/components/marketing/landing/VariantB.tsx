@@ -3,6 +3,13 @@
 import Link from "next/link";
 import EmailDemo from "@/components/marketing/EmailDemo";
 import { ScoreCircle } from "@/components/validator/ScoreCircle";
+import { Button, Card, SectionHeader } from "@/components/ui";
+
+const ArrowIcon = (
+  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+  </svg>
+);
 
 export function VariantB() {
   return (
@@ -22,20 +29,12 @@ export function VariantB() {
               leads, no wasted campaigns.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-              <Link href="/validate" className="btn btn-accent btn-lg">
+              <Button href="/validate" variant="accent" size="lg" rightIcon={ArrowIcon}>
                 Try Free — No Credit Card
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M13 7l5 5m0 0l-5 5m5-5H6"
-                  />
-                </svg>
-              </Link>
-              <Link href="/pricing" className="btn btn-ghost btn-md">
+              </Button>
+              <Button href="/pricing" variant="ghost" size="md">
                 View pricing
-              </Link>
+              </Button>
             </div>
             {/* Social proof bar */}
             <div className="mt-6 flex items-center justify-center gap-2 text-sm text-[var(--text-muted)]">
@@ -56,21 +55,20 @@ export function VariantB() {
           </div>
 
           {/* Interactive demo */}
-          <div className="mt-16 card max-w-xl mx-auto">
+          <Card className="mt-16 max-w-xl mx-auto" variant="default">
             <EmailDemo />
-          </div>
+          </Card>
         </div>
       </section>
 
       {/* Features — same cards, slightly different positioning (Bulk first, then Quality, then Export) */}
       <section className="py-20 border-t border-[var(--border)]">
         <div className="max-w-[var(--container-lg)] mx-auto px-6">
-          <h2 className="text-3xl font-display font-bold text-center mb-12">
-            Everything you need to clean your list
-          </h2>
+          <SectionHeader title="Everything you need to clean your list" />
+
           <div className="grid md:grid-cols-3 gap-8">
             {/* Feature 1 — Bulk Processing (first in Variant B) */}
-            <div className="card flex flex-col">
+            <Card variant="interactive" className="flex flex-col">
               <div className="flex-1">
                 <div className="w-12 h-12 bg-[var(--accent-light)] rounded-lg mb-4 flex items-center justify-center">
                   <svg
@@ -135,10 +133,10 @@ export function VariantB() {
                   </span>
                 </div>
               </div>
-            </div>
+            </Card>
 
             {/* Feature 2 — Quality Score */}
-            <div className="card relative overflow-hidden">
+            <Card variant="interactive" className="relative overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-br from-[var(--accent)]/[0.03] to-transparent pointer-events-none" />
               <div className="relative z-10">
                 <div className="flex items-center gap-4 mb-4">
@@ -153,7 +151,7 @@ export function VariantB() {
                       <path
                         strokeLinecap="round"
                         strokeLinejoin="round"
-                        d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z"
+                        d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475.345L11.48 3.5z"
                       />
                     </svg>
                   </div>
@@ -181,10 +179,10 @@ export function VariantB() {
                   <span>Includes typo detection &amp; disposable email identification</span>
                 </div>
               </div>
-            </div>
+            </Card>
 
             {/* Feature 3 — Export */}
-            <div className="card">
+            <Card variant="interactive">
               <div className="w-12 h-12 bg-[var(--accent-light)] rounded-lg mb-4 flex items-center justify-center">
                 <svg
                   className="w-6 h-6 text-[var(--accent)]"
@@ -271,7 +269,7 @@ export function VariantB() {
                   .pdf
                 </div>
               </div>
-            </div>
+            </Card>
           </div>
         </div>
       </section>
@@ -286,7 +284,7 @@ export function VariantB() {
             </p>
           </div>
           <div className="grid md:grid-cols-2 gap-8 max-w-3xl mx-auto">
-            <div className="card">
+            <Card variant="default">
               <svg
                 className="w-6 h-6 text-[var(--accent)] mb-3"
                 fill="currentColor"
@@ -308,8 +306,8 @@ export function VariantB() {
                   <p className="text-xs text-[var(--text-muted)]">CTO, SendFlow</p>
                 </div>
               </div>
-            </div>
-            <div className="card">
+            </Card>
+            <Card variant="default">
               <svg
                 className="w-6 h-6 text-[var(--accent)] mb-3"
                 fill="currentColor"
@@ -332,7 +330,7 @@ export function VariantB() {
                   </p>
                 </div>
               </div>
-            </div>
+            </Card>
           </div>
         </div>
       </section>

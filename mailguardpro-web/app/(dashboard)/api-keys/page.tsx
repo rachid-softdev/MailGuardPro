@@ -3,6 +3,7 @@
 import { Check, Copy, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Modal } from "@/components/ui/Modal";
+import { Button, Card } from "@/components/ui";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { useOnlineStatusSync } from "@/hooks/useOnlineStatusSync";
@@ -128,19 +129,24 @@ export default function ApiKeysPage() {
             Manage your API keys for programmatic access
           </p>
         </div>
-        <button
-          className="btn btn-primary self-start sm:self-auto"
+        <Button
+          variant="primary"
+          className="self-start sm:self-auto"
           onClick={() => setShowCreateModal(true)}
           aria-haspopup="dialog"
           aria-expanded={showCreateModal}
           aria-controls="modal-create-api-key"
         >
           Create New Key
-        </button>
+        </Button>
       </div>
 
       {/* Warning */}
-      <div className="card mb-8 bg-[var(--accent-light)] border-[var(--accent)]">
+      <Card
+        variant="default"
+        padding="md"
+        className="mb-8 bg-[var(--accent-light)] border-[var(--accent)]"
+      >
         <div className="flex items-start gap-3">
           <svg
             className="w-5 h-5 text-[var(--accent)] mt-0.5"
@@ -163,10 +169,10 @@ export default function ApiKeysPage() {
             </p>
           </div>
         </div>
-      </div>
+      </Card>
 
       {/* Keys List */}
-      <div className="card">
+      <Card variant="default" padding="md">
         <h2 className="text-lg font-display font-semibold mb-4">Your API Keys</h2>
 
         {errorMessage && (
@@ -261,12 +267,14 @@ export default function ApiKeysPage() {
                       {formatDate(key.createdAt)}
                     </td>
                     <td className="py-3 px-4 text-right">
-                      <button
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-[var(--status-invalid)]"
                         onClick={() => setDeleteTarget(key)}
-                        className="btn btn-ghost btn-sm text-[var(--status-invalid)]"
                       >
                         Delete
-                      </button>
+                      </Button>
                     </td>
                   </tr>
                 ))}
@@ -289,7 +297,7 @@ export default function ApiKeysPage() {
             <p className="text-sm mt-1">Create your first API key to get started</p>
           </div>
         )}
-      </div>
+      </Card>
 
       {/* Create Modal */}
       <Modal
@@ -329,8 +337,9 @@ export default function ApiKeysPage() {
             <p className="text-sm text-[var(--text-muted)] mb-4">
               Make sure to copy this key now. You won&apos;t be able to see it again!
             </p>
-            <button
-              className="btn btn-primary w-full"
+            <Button
+              variant="primary"
+              className="w-full"
               onClick={() => {
                 navigator.clipboard.writeText(newKey);
                 setNewKey(null);
@@ -339,7 +348,7 @@ export default function ApiKeysPage() {
               }}
             >
               Copy & Close
-            </button>
+            </Button>
           </div>
         ) : (
           <>
@@ -354,22 +363,24 @@ export default function ApiKeysPage() {
               />
             </div>
             <div className="flex gap-3">
-              <button
-                className="btn btn-ghost flex-1"
+              <Button
+                variant="ghost"
+                className="flex-1"
                 onClick={() => {
                   setShowCreateModal(false);
                   setNewKeyName("");
                 }}
               >
                 Cancel
-              </button>
-              <button
-                className="btn btn-primary flex-1"
+              </Button>
+              <Button
+                variant="primary"
+                className="flex-1"
                 onClick={createKey}
                 disabled={creating || !newKeyName.trim()}
               >
                 {creating ? "Creating..." : "Create Key"}
-              </button>
+              </Button>
             </div>
           </>
         )}
@@ -388,13 +399,13 @@ export default function ApiKeysPage() {
           will have 5 seconds to undo this action.
         </p>
         <div className="flex gap-3">
-          <button className="btn btn-ghost flex-1" onClick={() => setDeleteTarget(null)}>
+          <Button variant="ghost" className="flex-1" onClick={() => setDeleteTarget(null)}>
             Cancel
-          </button>
-          <button className="btn btn-danger flex-1" onClick={handleDeleteConfirm}>
+          </Button>
+          <Button variant="danger" className="flex-1" onClick={handleDeleteConfirm}>
             <Trash2 className="w-4 h-4 mr-1.5" />
             Delete
-          </button>
+          </Button>
         </div>
       </Modal>
     </div>

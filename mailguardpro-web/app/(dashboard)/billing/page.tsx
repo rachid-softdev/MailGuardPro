@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Tooltip } from "@/components/ui/Tooltip";
+import { Button, Card } from "@/components/ui";
 import { logger } from "@/lib/logger";
 
 // --- Types ---
@@ -208,23 +209,23 @@ export default function BillingPage() {
           <div className="h-8 w-48 animate-skeleton rounded mb-2" />
           <div className="h-4 w-72 animate-skeleton rounded" />
         </div>
-        <div className="card mb-8">
+        <Card variant="default" padding="md" className="mb-8">
           <div className="space-y-4">
             <div className="h-6 w-32 animate-skeleton rounded" />
             <div className="h-4 w-64 animate-skeleton rounded" />
             <div className="h-2 w-full animate-skeleton rounded" />
           </div>
-        </div>
+        </Card>
         <div className="grid md:grid-cols-2 gap-6">
           {[...Array(4)].map((_, i) => (
-            <div key={i} className="card">
+            <Card key={i} variant="default" padding="md">
               <div className="h-6 w-24 animate-skeleton rounded mb-4" />
               <div className="space-y-2">
                 {[...Array(4)].map((_, j) => (
                   <div key={j} className="h-4 w-full animate-skeleton rounded" />
                 ))}
               </div>
-            </div>
+            </Card>
           ))}
         </div>
       </div>
@@ -239,15 +240,15 @@ export default function BillingPage() {
           <h1 className="text-3xl font-display font-bold mb-2">Billing</h1>
           <p className="text-[var(--text-secondary)]">Manage your subscription and billing</p>
         </div>
-        <div className="card">
+        <Card variant="default" padding="md">
           <div className="text-center py-8">
             <CreditCard className="mx-auto mb-4 text-[var(--text-muted)]" size={48} />
             <p className="text-[var(--text-muted)] mb-4">{error}</p>
-            <button onClick={() => void fetchData()} className="btn btn-primary btn-md">
+            <Button onClick={() => void fetchData()} variant="primary" size="md">
               Retry
-            </button>
+            </Button>
           </div>
-        </div>
+        </Card>
       </div>
     );
   }
@@ -260,12 +261,12 @@ export default function BillingPage() {
           <h1 className="text-3xl font-display font-bold mb-2">Billing</h1>
           <p className="text-[var(--text-secondary)]">Manage your subscription and billing</p>
         </div>
-        <div className="card">
+        <Card variant="default" padding="md">
           <div className="text-center py-8">
             <CreditCard className="mx-auto mb-4 text-[var(--text-muted)]" size={48} />
             <p className="text-[var(--text-muted)]">No billing information available.</p>
           </div>
-        </div>
+        </Card>
       </div>
     );
   }
@@ -297,7 +298,7 @@ export default function BillingPage() {
       {/* === Current Plan + Usage === */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
         {/* Current Plan Card */}
-        <div className="card lg:col-span-2">
+        <Card variant="default" padding="md" className="lg:col-span-2">
           <div className="flex items-start justify-between mb-6">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-lg bg-[var(--accent)]/10 flex items-center justify-center">
@@ -339,10 +340,10 @@ export default function BillingPage() {
               ))}
             </ul>
           </div>
-        </div>
+        </Card>
 
         {/* Usage Card */}
-        <div className="card">
+        <Card variant="default" padding="md">
           <h2 className="text-lg font-display font-semibold mb-4">Monthly Usage</h2>
 
           {usage ? (
@@ -397,7 +398,7 @@ export default function BillingPage() {
               <p className="text-sm">Usage data unavailable</p>
             </div>
           )}
-        </div>
+        </Card>
       </div>
 
       {/* === Plan Comparison === */}
@@ -408,9 +409,11 @@ export default function BillingPage() {
             const isCurrentPlan = plan.name === currentPlan;
             const Icon = plan.icon;
             return (
-              <div
+              <Card
                 key={plan.name}
-                className={`card relative flex flex-col transition-all duration-200 ${
+                variant="default"
+                padding="md"
+                className={`relative flex flex-col transition-all duration-200 ${
                   isCurrentPlan
                     ? "border-2 border-[var(--accent)] ring-1 ring-[var(--accent)]"
                     : "hover:border-[var(--border-strong)] hover:shadow-[var(--shadow-md)] cursor-pointer"
@@ -474,28 +477,32 @@ export default function BillingPage() {
 
                 {/* CTA */}
                 {isCurrentPlan ? (
-                  <div
-                    className="btn btn-sm w-full btn-ghost cursor-default"
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-full cursor-default"
                     onClick={(e) => e.stopPropagation()}
                   >
                     Current Plan
-                  </div>
+                  </Button>
                 ) : (
-                  <div
-                    className="btn btn-sm w-full btn-primary"
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    className="w-full"
                     onClick={(e) => e.stopPropagation()}
                   >
                     {plan.monthlyPrice === "€0" ? "Downgrade" : "Upgrade"}
-                  </div>
+                  </Button>
                 )}
-              </div>
+              </Card>
             );
           })}
         </div>
       </div>
 
       {/* === Billing Management === */}
-      <div className="card">
+      <Card variant="default" padding="md">
         <h2 className="text-lg font-display font-semibold mb-4">Billing Management</h2>
         <div className="space-y-4">
           {/* Payment method row */}
@@ -509,30 +516,32 @@ export default function BillingPage() {
                 </p>
               </div>
             </div>
-            <button
+            <Button
               onClick={() => void openStripePortal()}
               disabled={portalLoading}
-              className="btn btn-ghost btn-sm"
+              variant="ghost"
+              size="sm"
             >
               {portalLoading ? "Opening..." : "Update"}
-            </button>
+            </Button>
           </div>
 
           {/* Portal button */}
-          <button
+          <Button
             onClick={() => void openStripePortal()}
             disabled={portalLoading}
-            className="btn btn-primary btn-md"
+            variant="primary"
+            size="md"
           >
             {portalLoading ? "Opening..." : "Manage in Stripe"}
-          </button>
+          </Button>
 
           <p className="text-sm text-[var(--text-muted)]">
             Open the Stripe customer portal to update your payment method, view invoices, change
             your subscription plan, or cancel your subscription.
           </p>
         </div>
-      </div>
+      </Card>
     </div>
   );
 }

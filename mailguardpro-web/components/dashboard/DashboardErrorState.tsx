@@ -1,4 +1,5 @@
 import { AlertCircle } from "lucide-react";
+import { Button } from "@/components/ui";
 
 interface DashboardErrorStateProps {
   message: string;
@@ -12,9 +13,9 @@ export function DashboardErrorState({ message, onRetry }: DashboardErrorStatePro
         <AlertCircle className="w-12 h-12 text-[var(--status-invalid)] mb-4" />
         <h2 className="text-xl font-display font-bold mb-2">Failed to load dashboard</h2>
         <p className="text-sm text-[var(--text-muted)] mb-6 max-w-md">{message}</p>
-        <button onClick={onRetry} className="btn btn-accent" type="button">
+        <Button onClick={onRetry} variant="accent" type="button">
           Try Again
-        </button>
+        </Button>
       </div>
     </div>
   );

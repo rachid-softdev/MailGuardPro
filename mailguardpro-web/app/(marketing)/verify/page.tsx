@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import { Button, Card } from "@/components/ui";
 
 export default function VerifyPage() {
   const searchParams = useSearchParams();
@@ -81,7 +82,7 @@ export default function VerifyPage() {
           </Link>
         </div>
 
-        <div className="card">
+        <Card variant="default" padding="md">
           {status === "loading" && (
             <div className="text-center py-8">
               <div className="w-12 h-12 border-4 border-[var(--accent)] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
@@ -131,12 +132,12 @@ export default function VerifyPage() {
               </div>
               <h2 className="text-xl font-display font-bold mb-2">Verification Failed</h2>
               <p className="text-[var(--text-secondary)] mb-4">{message}</p>
-              <button onClick={handleResend} className="btn btn-primary">
+              <Button onClick={handleResend} variant="primary">
                 Resend Verification Email
-              </button>
+              </Button>
             </div>
           )}
-        </div>
+        </Card>
 
         <p className="text-center text-sm text-[var(--text-muted)] mt-4">
           <Link href="/login" className="hover:underline">

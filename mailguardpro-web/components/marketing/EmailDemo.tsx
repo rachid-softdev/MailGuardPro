@@ -3,6 +3,7 @@
 import { useCallback, useState } from "react";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { ScoreCircle } from "@/components/validator/ScoreCircle";
+import { Button, Input } from "@/components/ui";
 
 interface CheckItem {
   name: string;
@@ -45,28 +46,24 @@ export default function EmailDemo() {
       <p className="text-[var(--text-muted)] mb-4">Enter an email to see the score</p>
 
       <div className="flex gap-2 max-w-md mx-auto">
-        <input
+        <Input
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           placeholder="Enter an email address"
-          className="input flex-1"
+          className="flex-1"
           disabled={loading}
         />
-        <button
-          className="btn btn-accent min-w-[100px]"
+        <Button
+          variant="accent"
+          size="md"
+          className="min-w-[100px]"
           onClick={handleAnalyze}
-          disabled={loading || !email}
+          disabled={!email}
+          loading={loading}
         >
-          {loading ? (
-            <span className="flex items-center gap-2">
-              <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              <span>Checking</span>
-            </span>
-          ) : (
-            "Analyze"
-          )}
-        </button>
+          Analyze
+        </Button>
       </div>
 
       {/* Loading skeleton */}

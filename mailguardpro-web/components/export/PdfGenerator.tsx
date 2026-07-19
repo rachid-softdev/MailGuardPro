@@ -4,6 +4,7 @@ import DOMPurify from "dompurify";
 import { useState } from "react";
 import { sanitizeForHtml } from "@/lib/emailSanitizer";
 import { logger } from "@/lib/logger";
+import { Button } from "@/components/ui";
 
 interface ValidationResult {
   email: string;
@@ -65,9 +66,9 @@ export function PdfGenerator({ jobId }: Props) {
 
   return (
     <div className="inline-flex flex-col items-end gap-1">
-      <button onClick={generatePdf} disabled={generating} className="btn btn-primary">
+      <Button onClick={generatePdf} disabled={generating}>
         {generating ? "Generating..." : "Export PDF"}
-      </button>
+      </Button>
       {error && <p className="text-xs text-[var(--status-invalid)]">{error}</p>}
     </div>
   );

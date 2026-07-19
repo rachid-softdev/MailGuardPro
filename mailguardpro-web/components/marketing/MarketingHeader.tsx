@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { Tooltip } from "@/components/ui/Tooltip";
+import { Button } from "@/components/ui";
 
 export function MarketingHeader() {
   return (
@@ -50,12 +51,12 @@ export function MarketingHeader() {
           </Tooltip>
         </nav>
         <div className="flex items-center gap-3">
-          <Link href="/login" className="btn btn-ghost btn-sm">
+          <Button href="/login" variant="ghost" size="sm">
             Log in
-          </Link>
-          <Link href="/login" className="btn btn-accent btn-sm">
+          </Button>
+          <Button href="/login" variant="accent" size="sm">
             Start free
-          </Link>
+          </Button>
         </div>
       </div>
     </header>

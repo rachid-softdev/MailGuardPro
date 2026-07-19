@@ -14,6 +14,7 @@ import {
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { NotificationBell } from "@/components/ui/NotificationBell";
+import { Button } from "@/components/ui";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { signOutAction } from "./actions";
@@ -99,7 +100,9 @@ export function Sidebar({ credits, onClose }: SidebarProps) {
               </span>
             </Tooltip>
             <form action={signOutAction}>
-              <button className="btn btn-ghost btn-sm">Sign out</button>
+              <Button variant="ghost" size="sm">
+                Sign out
+              </Button>
             </form>
           </div>
         </div>
