@@ -1,8 +1,14 @@
 {
   "compilerOptions": {
-    "types": ["node"],
+    "types": [
+      "node"
+    ],
     "target": "ES2022",
-    "lib": ["dom", "dom.iterable", "es2022"],
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "es2022"
+    ],
     "allowJs": true,
     "skipLibCheck": true,
     "strict": true,
@@ -20,8 +26,12 @@
       }
     ],
     "paths": {
-      "@/*": ["./*"],
-      ".prisma/client/*": ["./node_modules/.prisma/client/*"]
+      "@/*": [
+        "./*"
+      ],
+      ".prisma/client/*": [
+        "./node_modules/.prisma/client/*"
+      ]
     },
     "ignoreDeprecations": "6.0",
     "noImplicitReturns": true,
@@ -36,7 +46,13 @@
     "**/*.ts",
     "**/*.tsx",
     ".next/types/**/*.ts",
-    ".next/dev/types/**/*.ts"
+    ".next/dev/types/**/*.ts",
+    ".next/dev/dev/types/**/*.ts"
   ],
-  "exclude": ["node_modules", "tests", "scripts", "prisma"]
+  "exclude": [
+    "node_modules",
+    "tests",
+    "scripts",
+    "prisma"
+  ]
 }

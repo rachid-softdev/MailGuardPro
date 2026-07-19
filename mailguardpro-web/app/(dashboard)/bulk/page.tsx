@@ -1,7 +1,7 @@
 "use client";
+import { Button, Card } from "@/components/ui";
 
 import { formatDistanceToNow } from "date-fns";
-import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useOnlineStatusSync } from "@/hooks/useOnlineStatusSync";
 import { usePolling } from "@/hooks/usePolling";
@@ -226,9 +226,9 @@ export default function BulkPage() {
                 className="hidden"
                 onChange={handleFileSelect}
               />
-              <button className="btn btn-primary" onClick={() => fileInputRef.current?.click()}>
+              <Button variant="primary" onClick={() => fileInputRef.current?.click()}>
                 Select CSV File
-              </button>
+              </Button>
               <details className="text-left mt-4 text-xs text-[var(--text-muted)]">
                 <summary className="cursor-pointer hover:text-[var(--text-secondary)] transition-colors">
                   CSV format guide
@@ -264,7 +264,7 @@ export default function BulkPage() {
       </div>
 
       {/* Jobs List */}
-      <div className="card">
+      <Card variant="default" padding="md">
         <h2 className="text-lg font-display font-semibold mb-4">Recent Jobs</h2>
 
         {loading ? (
@@ -394,22 +394,22 @@ export default function BulkPage() {
                     </td>
                     <td className="py-3 px-4 text-right">
                       {job.status === "COMPLETED" && (
-                        <Link href={`/bulk/${job.id}`} className="btn btn-ghost btn-sm">
+                        <Button href={`/bulk/${job.id}`} variant="ghost" size="sm">
                           View Results
-                        </Link>
+                        </Button>
                       )}
                       {job.status === "PROCESSING" && (
-                        <button
+                        <Button
                           onClick={() => {
                             // Restart polling for this job (cancel any current, switch)
                             cancel();
                             setPollingJobId(null);
                             setTimeout(() => setPollingJobId(job.id), 0);
                           }}
-                          className="btn btn-ghost btn-sm"
+                          variant="ghost" size="sm"
                         >
                           Refresh
-                        </button>
+                        </Button>
                       )}
                     </td>
                   </tr>
@@ -435,7 +435,7 @@ export default function BulkPage() {
             No bulk jobs yet. Upload a CSV file above to get started!
           </div>
         )}
-      </div>
+      </Card>
     </div>
   );
 }

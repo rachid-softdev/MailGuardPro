@@ -5,6 +5,7 @@ import { Component, ReactNode } from "react";
 // environment and uses pino/browser in production builds (no transport needed).
 import { logger } from "@/lib/logger";
 import { captureException } from "@/lib/sentry";
+import { Button, Card } from "@/components/ui";
 
 interface Props {
   children: ReactNode;
@@ -40,7 +41,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
       return (
         <div className="min-h-screen flex items-center justify-center p-4 bg-[var(--bg-base)]">
-          <div className="card max-w-md text-center">
+          <Card variant="default" padding="md" className="max-w-md text-center">
             <div className="w-16 h-16 bg-[var(--status-invalid)]/10 rounded-full flex items-center justify-center mx-auto mb-4">
               <svg
                 className="w-8 h-8 text-[var(--status-invalid)]"
@@ -61,17 +62,17 @@ export class ErrorBoundary extends Component<Props, State> {
               {this.state.error?.message || "An unexpected error occurred"}
             </p>
             <div className="flex gap-3 justify-center">
-              <button
-                className="btn btn-primary"
+              <Button
+                variant="primary"
                 onClick={() => (window.location.href = "/dashboard")}
               >
                 Go to Dashboard
-              </button>
-              <button className="btn btn-ghost" onClick={() => this.setState({ hasError: false })}>
+              </Button>
+              <Button variant="ghost" onClick={() => this.setState({ hasError: false })}>
                 Try Again
-              </button>
+              </Button>
             </div>
-          </div>
+          </Card>
         </div>
       );
     }
@@ -84,7 +85,7 @@ export class ErrorBoundary extends Component<Props, State> {
 export function ErrorFallback({ message = "Something went wrong" }: { message?: string }) {
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-[var(--bg-base)]">
-      <div className="card max-w-md text-center">
+      <Card variant="default" padding="md" className="max-w-md text-center">
         <div className="w-16 h-16 bg-[var(--status-invalid)]/10 rounded-full flex items-center justify-center mx-auto mb-4">
           <svg
             className="w-8 h-8 text-[var(--status-invalid)]"
@@ -102,10 +103,10 @@ export function ErrorFallback({ message = "Something went wrong" }: { message?: 
         </div>
         <h2 className="text-xl font-display font-bold mb-2">Oops!</h2>
         <p className="text-[var(--text-muted)] mb-4">{message}</p>
-        <button className="btn btn-primary" onClick={() => window.location.reload()}>
+        <Button variant="primary" onClick={() => window.location.reload()}>
           Reload Page
-        </button>
-      </div>
+        </Button>
+      </Card>
     </div>
   );
 }

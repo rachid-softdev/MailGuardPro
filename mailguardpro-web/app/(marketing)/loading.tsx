@@ -1,4 +1,6 @@
 // Loading skeleton for marketing/landing pages
+import { Card } from "@/components/ui";
+
 export default function MarketingLoading() {
   return (
     <div className="min-h-screen">
@@ -36,7 +38,7 @@ export default function MarketingLoading() {
             </div>
 
             {/* Demo placeholder skeleton */}
-            <div className="card max-w-xl mx-auto">
+            <Card variant="default" padding="md" className="max-w-xl mx-auto">
               <div className="text-center py-8">
                 <div className="h-4 w-48 bg-[var(--bg-subtle)] rounded animate-pulse mx-auto mb-4" />
                 <div className="flex gap-2 max-w-md mx-auto">
@@ -44,7 +46,7 @@ export default function MarketingLoading() {
                   <div className="w-20 h-10 bg-[var(--bg-subtle)] rounded animate-pulse" />
                 </div>
               </div>
-            </div>
+            </Card>
           </div>
         </div>
       </section>
@@ -55,12 +57,12 @@ export default function MarketingLoading() {
           <div className="h-8 w-56 bg-[var(--bg-subtle)] rounded animate-pulse mx-auto mb-12" />
           <div className="grid md:grid-cols-3 gap-8">
             {[...Array(3)].map((_, i) => (
-              <div key={i} className="card">
+              <Card key={i} variant="default" padding="md">
                 <div className="w-12 h-12 bg-[var(--bg-subtle)] rounded-lg mb-4 animate-pulse" />
                 <div className="h-6 w-3/4 bg-[var(--bg-subtle)] rounded animate-pulse mb-2" />
                 <div className="h-4 w-full bg-[var(--bg-subtle)] rounded animate-pulse" />
                 <div className="h-4 w-2/3 bg-[var(--bg-subtle)] rounded animate-pulse mt-1" />
-              </div>
+              </Card>
             ))}
           </div>
         </div>

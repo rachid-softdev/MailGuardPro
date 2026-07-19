@@ -11,6 +11,7 @@ import {
   Webhook,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
+import { Button, Card } from "@/components/ui";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -92,7 +93,7 @@ interface StatCardProps {
 
 function StatCard({ icon, label, value, accentColor = "var(--accent)" }: StatCardProps) {
   return (
-    <div className="card border-t-2" style={{ borderTopColor: accentColor }}>
+    <Card variant="default" padding="md" className="border-t-2" style={{ borderTopColor: accentColor }}>
       <div className="flex items-start justify-between mb-1">
         <p className="text-xs text-[var(--text-muted)] uppercase ">{label}</p>
         <span className="text-[var(--text-muted)]" aria-hidden="true">
@@ -100,7 +101,7 @@ function StatCard({ icon, label, value, accentColor = "var(--accent)" }: StatCar
         </span>
       </div>
       <p className="text-3xl font-display font-bold">{value}</p>
-    </div>
+    </Card>
   );
 }
 
@@ -110,10 +111,10 @@ function StatCard({ icon, label, value, accentColor = "var(--accent)" }: StatCar
 
 function StatCardSkeleton() {
   return (
-    <div className="card">
+    <Card variant="default" padding="md">
       <div className="h-3 w-20 bg-[var(--bg-subtle)] animate-skeleton rounded mb-3" />
       <div className="h-8 w-16 bg-[var(--bg-subtle)] animate-skeleton rounded" />
-    </div>
+    </Card>
   );
 }
 
@@ -156,10 +157,10 @@ function ErrorBanner({ message, onRetry }: { message: string; onRetry: () => voi
   return (
     <div className="mb-6 px-4 py-3 rounded-lg bg-[var(--status-invalid)]/10 border border-[var(--status-invalid)]/30 text-sm text-[var(--status-invalid)] flex items-center justify-between">
       <span>{message}</span>
-      <button onClick={onRetry} className="btn btn-ghost btn-sm">
+      <Button onClick={onRetry} variant="ghost" size="sm">
         <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
         Retry
-      </button>
+      </Button>
     </div>
   );
 }
@@ -238,7 +239,7 @@ export default function AdminPage() {
         </div>
 
         {/* Plan distribution skeleton */}
-        <div className="card mb-8">
+        <Card variant="default" padding="md" className="mb-8">
           <div className="h-5 w-40 bg-[var(--bg-subtle)] animate-skeleton rounded mb-4" />
           <div className="space-y-2">
             {[1, 2, 3, 4].map((i) => (
@@ -249,15 +250,15 @@ export default function AdminPage() {
               </div>
             ))}
           </div>
-        </div>
+        </Card>
 
         {/* Recent users skeleton */}
-        <div className="card">
+        <Card variant="default" padding="md">
           <div className="h-5 w-40 bg-[var(--bg-subtle)] animate-skeleton rounded mb-4" />
           {Array.from({ length: 5 }).map((_, i) => (
             <TableRowSkeleton key={i} cols={4} />
           ))}
-        </div>
+        </Card>
       </div>
     );
   }
@@ -289,10 +290,10 @@ export default function AdminPage() {
         </div>
         <div className="flex flex-col items-center justify-center py-24 text-[var(--text-muted)]">
           <p className="text-base">No data available.</p>
-          <button onClick={fetchStats} className="btn btn-ghost mt-4">
+          <Button onClick={fetchStats} variant="ghost" className="mt-4">
             <RefreshCw className="w-4 h-4 mr-2" />
             Reload
-          </button>
+          </Button>
         </div>
       </div>
     );
@@ -341,7 +342,7 @@ export default function AdminPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
         {/* Users by Plan */}
-        <div className="card">
+        <Card variant="default" padding="md">
           <h2 className="text-lg font-display font-semibold mb-4">Users by Plan</h2>
           {stats.usersByPlan.length > 0 ? (
             <div className="space-y-3">
@@ -366,10 +367,10 @@ export default function AdminPage() {
           ) : (
             <p className="text-sm text-[var(--text-muted)]">No user data available.</p>
           )}
-        </div>
+        </Card>
 
         {/* Quick stats */}
-        <div className="card">
+        <Card variant="default" padding="md">
           <h2 className="text-lg font-display font-semibold mb-4">System Overview</h2>
           <div className="space-y-3">
             <StatRow label="Bulk Jobs" value={stats.totalBulkJobs} />
@@ -378,12 +379,12 @@ export default function AdminPage() {
             <StatRow label="Total Users" value={stats.totalUsers} />
             <StatRow label="Active Users" value={stats.activeUsers} />
           </div>
-        </div>
+        </Card>
       </div>
 
       {/* Recent Users */}
-      <div className="card">
-        <h2 className="text-lg font-display font-semibold mb-4">Recent Users</h2>
+        <Card variant="default" padding="md">
+          <h2 className="text-lg font-display font-semibold mb-4">Recent Users</h2>
         {stats.recentUsers.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -433,7 +434,7 @@ export default function AdminPage() {
         ) : (
           <p className="text-sm text-[var(--text-muted)]">No users found.</p>
         )}
-      </div>
+      </Card>
     </div>
   );
 }

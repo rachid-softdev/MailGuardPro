@@ -1,4 +1,5 @@
 "use client";
+import { Button, Card } from "@/components/ui";
 
 import { Bell, Info } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -233,19 +234,19 @@ export default function WebhooksPage() {
             Receive real-time notifications when events occur
           </p>
         </div>
-        <button
-          className="btn btn-primary self-start sm:self-auto"
+        <Button
+          variant="primary" className="self-start sm:self-auto"
           onClick={() => setShowCreateModal(true)}
           aria-haspopup="dialog"
           aria-expanded={showCreateModal}
           aria-controls="modal-add-webhook"
         >
           Add Webhook
-        </button>
+        </Button>
       </div>
 
       {/* Info */}
-      <div className="card mb-8">
+      <Card variant="default" padding="md" className="mb-8">
         <h3 className="font-medium mb-2">Available Events</h3>
         <p className="text-xs text-[var(--text-muted)] mb-3">
           Each webhook can subscribe to one or more event types. Hover for details.
@@ -261,7 +262,7 @@ export default function WebhooksPage() {
             </span>
           ))}
         </div>
-      </div>
+      </Card>
 
       {/* Error Message */}
       {errorMessage && (
@@ -271,7 +272,7 @@ export default function WebhooksPage() {
       )}
 
       {/* Webhooks List */}
-      <div className="card">
+      <Card variant="default" padding="md">
         <h2 className="text-lg font-display font-semibold mb-4">Your Webhooks</h2>
 
         {loading ? (
@@ -325,27 +326,27 @@ export default function WebhooksPage() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2 ml-4">
-                  <button
+                  <Button
                     onClick={() => handleTestWebhook(webhook)}
-                    className="btn btn-ghost btn-sm"
+                    variant="ghost" size="sm"
                     aria-haspopup="dialog"
                     aria-expanded={showTestModal && testWebhook?.id === webhook.id}
                     aria-controls="modal-test-webhook"
                   >
                     Test
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     onClick={() => toggleWebhook(webhook.id, webhook.isActive)}
-                    className="btn btn-ghost btn-sm"
+                    variant="ghost" size="sm"
                   >
                     {webhook.isActive ? "Disable" : "Enable"}
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     onClick={() => deleteWebhook(webhook)}
-                    className="btn btn-ghost btn-sm text-[var(--status-invalid)]"
+                    variant="ghost" size="sm" className="text-[var(--status-invalid)]"
                   >
                     Delete
-                  </button>
+                  </Button>
                 </div>
               </div>
             ))}
@@ -359,7 +360,7 @@ export default function WebhooksPage() {
             <p className="text-sm mt-1">Add a webhook to receive notifications</p>
           </div>
         )}
-      </div>
+      </Card>
 
       {/* Create Modal */}
       <Modal
@@ -431,22 +432,22 @@ export default function WebhooksPage() {
         </div>
 
         <div className="flex gap-3 mt-6">
-          <button
-            className="btn btn-ghost flex-1"
+          <Button
+            variant="ghost" className="flex-1"
             onClick={() => {
               setShowCreateModal(false);
               resetForm();
             }}
           >
             Cancel
-          </button>
-          <button
-            className="btn btn-primary flex-1"
+          </Button>
+          <Button
+            variant="primary" className="flex-1"
             onClick={createWebhook}
             disabled={creating || !formUrl || !formName || formEvents.length === 0}
           >
             {creating ? "Creating..." : "Create Webhook"}
-          </button>
+          </Button>
         </div>
       </Modal>
 
@@ -485,8 +486,8 @@ export default function WebhooksPage() {
               </div>
             ) : null}
 
-            <button
-              className="btn btn-primary w-full mt-4"
+            <Button
+              variant="primary" className="w-full mt-4"
               onClick={() => {
                 setShowTestModal(false);
                 setTestWebhook(null);
@@ -494,7 +495,7 @@ export default function WebhooksPage() {
               }}
             >
               Close
-            </button>
+            </Button>
           </>
         )}
       </Modal>
@@ -510,15 +511,15 @@ export default function WebhooksPage() {
           Are you sure you want to delete <strong>{deleteTarget?.name}</strong>?
         </p>
         <div className="flex gap-3">
-          <button className="btn btn-ghost flex-1" onClick={() => setDeleteTarget(null)}>
+          <Button variant="ghost" className="flex-1" onClick={() => setDeleteTarget(null)}>
             Cancel
-          </button>
-          <button
-            className="btn btn-ghost flex-1 text-[var(--status-invalid)]"
+          </Button>
+          <Button
+            variant="ghost" className="flex-1 text-[var(--status-invalid)]"
             onClick={handleDeleteConfirm}
           >
             Delete
-          </button>
+          </Button>
         </div>
       </Modal>
     </div>

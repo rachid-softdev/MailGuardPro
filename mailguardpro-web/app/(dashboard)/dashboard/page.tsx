@@ -17,6 +17,7 @@ import { DashboardErrorState } from "@/components/dashboard/DashboardErrorState"
 import { DashboardSkeleton } from "@/components/dashboard/DashboardSkeleton";
 import { QuickValidate } from "@/components/dashboard/QuickValidate";
 import { StatusBadge } from "@/components/ui/StatusBadge";
+import { Button, Card } from "@/components/ui";
 import { usePolling } from "@/hooks/usePolling";
 
 // ---------------------------------------------------------------------------
@@ -109,7 +110,7 @@ function ValidationByDayChart({ data }: { data: DayData[] }) {
   const maxCount = Math.max(...data.map((d) => d.count), 1);
 
   return (
-    <div className="card">
+    <Card variant="default" padding="md">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-sm font-semibold uppercase  text-[var(--text-muted)]">
           Validations by Day
@@ -162,7 +163,7 @@ function ValidationByDayChart({ data }: { data: DayData[] }) {
           );
         })}
       </div>
-    </div>
+    </Card>
   );
 }
 
@@ -183,7 +184,7 @@ function StatusDistribution({ data }: { data: StatusData[] }) {
   );
 
   return (
-    <div className="card">
+    <Card variant="default" padding="md">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-sm font-semibold uppercase  text-[var(--text-muted)]">
           Validations by Status
@@ -229,7 +230,7 @@ function StatusDistribution({ data }: { data: StatusData[] }) {
           );
         })}
       </div>
-    </div>
+    </Card>
   );
 }
 
@@ -246,7 +247,7 @@ function ScoreDistributionChart({ data }: { data: ScoreDist[] }) {
   ];
 
   return (
-    <div className="card">
+    <Card variant="default" padding="md">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-sm font-semibold uppercase  text-[var(--text-muted)]">
           Score Distribution
@@ -280,13 +281,13 @@ function ScoreDistributionChart({ data }: { data: ScoreDist[] }) {
           ))}
         </div>
       )}
-    </div>
+    </Card>
   );
 }
 
 function RecentActivityFeed({ activities }: { activities: ActivityItem[] }) {
   return (
-    <div className="card">
+    <Card variant="default" padding="md">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-sm font-semibold uppercase  text-[var(--text-muted)]">
           Recent Activity
@@ -325,7 +326,7 @@ function RecentActivityFeed({ activities }: { activities: ActivityItem[] }) {
           <p className="text-xs mt-1">Start validating emails to see activity here</p>
         </div>
       )}
-    </div>
+    </Card>
   );
 }
 
@@ -487,12 +488,12 @@ export default function DashboardPage() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
           <h2 className="text-lg font-display font-semibold">Quick Validate</h2>
           <div className="flex items-center gap-2">
-            <Link href="/validate" className="btn btn-accent btn-sm">
+            <Button href="/validate" variant="accent" size="sm">
               Full Validator
-            </Link>
-            <Link href="/bulk" className="btn btn-primary btn-sm">
+            </Button>
+            <Button href="/bulk" variant="primary" size="sm">
               Bulk Upload
-            </Link>
+            </Button>
           </div>
         </div>
         <QuickValidate />
@@ -500,8 +501,10 @@ export default function DashboardPage() {
 
       {/* ---- KPI Cards (merged with trend data) ---- */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <div
-          className="card animate-fade-slide-up"
+        <Card
+          variant="default"
+          padding="md"
+          className="animate-fade-slide-up"
           style={{ "--i": 0, backgroundColor: "var(--accent-light)" } as React.CSSProperties}
           title="Total validations performed this month. Resets on the 1st of each month."
         >
@@ -514,10 +517,12 @@ export default function DashboardPage() {
             </span>
           </div>
           <p className="text-xs text-[var(--text-muted)] mt-1">validations this month</p>
-        </div>
+        </Card>
 
-        <div
-          className="card animate-fade-slide-up"
+        <Card
+          variant="default"
+          padding="md"
+          className="animate-fade-slide-up"
           style={{ "--i": 1 } as React.CSSProperties}
           title="Average quality score across all validations. 80+ is highly deliverable."
         >
@@ -550,9 +555,14 @@ export default function DashboardPage() {
               }}
             />
           </div>
-        </div>
+        </Card>
 
-        <div className="card animate-fade-slide-up" style={{ "--i": 2 } as React.CSSProperties}>
+        <Card
+          variant="default"
+          padding="md"
+          className="animate-fade-slide-up"
+          style={{ "--i": 2 } as React.CSSProperties}
+        >
           <p className="text-xs text-[var(--text-muted)] mb-1">Valid Rate</p>
           <div className="flex items-baseline gap-2">
             <p className="text-3xl font-display font-bold text-[var(--status-valid)]">
@@ -572,10 +582,12 @@ export default function DashboardPage() {
               />
             ))}
           </div>
-        </div>
+        </Card>
 
-        <div
-          className="card bg-[var(--bg-elevated)] border border-[var(--border-strong)] animate-fade-slide-up"
+        <Card
+          variant="default"
+          padding="md"
+          className="bg-[var(--bg-elevated)] border border-[var(--border-strong)] animate-fade-slide-up"
           style={{ "--i": 3 } as React.CSSProperties}
         >
           <p className="text-xs text-[var(--text-muted)] mb-1">Lifetime Total</p>
@@ -583,7 +595,7 @@ export default function DashboardPage() {
             {stats.totalValidated}
           </p>
           <p className="text-xs text-[var(--text-muted)] mt-1">total validated</p>
-        </div>
+        </Card>
       </div>
 
       {/* ---- Charts + Activity grid (merged 2×2) ---- */}
@@ -595,7 +607,7 @@ export default function DashboardPage() {
       </div>
 
       {/* ---- Collapsible: Recent Bulk Jobs ---- */}
-      <div className="card mb-8">
+      <Card variant="default" padding="md" className="mb-8">
         <button
           onClick={() => setJobsOpen((prev) => !prev)}
           className="w-full flex items-center justify-between py-1"
@@ -676,7 +688,7 @@ export default function DashboardPage() {
             )}
           </div>
         )}
-      </div>
+      </Card>
     </div>
   );
 }

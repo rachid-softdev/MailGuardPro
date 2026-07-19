@@ -1,4 +1,6 @@
 // Loading skeleton for validate page
+import { Card } from "@/components/ui";
+
 export default function ValidatePageLoading() {
   return (
     <div className="min-h-screen bg-[var(--bg-base)] p-6">
@@ -14,7 +16,7 @@ export default function ValidatePageLoading() {
         </div>
 
         {/* Results skeleton */}
-        <div className="card">
+        <Card variant="default" padding="md">
           <div className="flex flex-col lg:flex-row gap-8">
             {/* Left: Score */}
             <div className="flex flex-col items-center justify-center lg:w-1/3">
@@ -41,7 +43,7 @@ export default function ValidatePageLoading() {
               </div>
             </div>
           </div>
-        </div>
+        </Card>
       </div>
     </div>
   );

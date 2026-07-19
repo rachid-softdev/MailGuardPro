@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Modal } from "@/components/ui/Modal";
+import { Button, Card } from "@/components/ui";
 import { useUndoDelete } from "@/hooks/useUndoDelete";
 import { logger } from "@/lib/logger";
 
@@ -143,7 +144,7 @@ export default function SettingsPage() {
             <div key={i} className="h-8 w-20 animate-skeleton rounded" />
           ))}
         </div>
-        <div className="card">
+        <Card variant="default" padding="md">
           <div className="space-y-4">
             <div className="h-4 w-16 animate-skeleton rounded mb-2" />
             <div className="h-10 w-full animate-skeleton rounded" />
@@ -151,7 +152,7 @@ export default function SettingsPage() {
             <div className="h-10 w-full animate-skeleton rounded" />
             <div className="h-10 w-32 animate-skeleton rounded" />
           </div>
-        </div>
+        </Card>
       </div>
     );
   }
@@ -182,7 +183,7 @@ export default function SettingsPage() {
 
       {/* Profile Tab */}
       {activeTab === "profile" && (
-        <div className="animate-fade-slide-up card max-w-2xl">
+        <Card variant="default" padding="md" className="animate-fade-slide-up max-w-2xl">
           <h2 className="text-lg font-display font-semibold mb-6">Profile Information</h2>
 
           {message && (
@@ -218,16 +219,16 @@ export default function SettingsPage() {
               </p>
             </div>
 
-            <button onClick={saveProfile} disabled={saving} className="btn btn-primary">
+            <Button onClick={saveProfile} disabled={saving} variant="primary">
               {saving ? "Saving..." : "Save Changes"}
-            </button>
+            </Button>
           </div>
-        </div>
+        </Card>
       )}
 
       {/* Billing Tab */}
       {activeTab === "billing" && (
-        <div className="animate-fade-slide-up card max-w-2xl">
+        <Card variant="default" padding="md" className="animate-fade-slide-up max-w-2xl">
           <h2 className="text-lg font-display font-semibold mb-6">Billing & Subscription</h2>
 
           <div className="space-y-6">
@@ -242,21 +243,21 @@ export default function SettingsPage() {
               <span className="badge badge-accent">{user?.plan || "FREE"}</span>
             </div>
 
-            <button onClick={openStripePortal} className="btn btn-primary">
+            <Button onClick={openStripePortal} variant="primary">
               Manage Billing
-            </button>
+            </Button>
 
             <p className="text-sm text-[var(--text-muted)]">
               Open the Stripe customer portal to update your payment method, view invoices, or
               change your subscription plan.
             </p>
           </div>
-        </div>
+        </Card>
       )}
 
       {/* API Tab */}
       {activeTab === "api" && (
-        <div className="animate-fade-slide-up card max-w-2xl">
+        <Card variant="default" padding="md" className="animate-fade-slide-up max-w-2xl">
           <h2 className="text-lg font-display font-semibold mb-6">API Access</h2>
 
           <div className="space-y-4">
@@ -264,16 +265,16 @@ export default function SettingsPage() {
               Manage your API keys to access MailGuard Pro programmatically.
             </p>
 
-            <a href="/api-keys" className="btn btn-primary inline-block">
+            <Button href="/api-keys" variant="primary" className="inline-block">
               Manage API Keys
-            </a>
+            </Button>
           </div>
-        </div>
+        </Card>
       )}
 
       {/* Danger Tab */}
       {activeTab === "danger" && (
-        <div className="animate-fade-slide-up card max-w-2xl border-[var(--status-invalid)]">
+        <Card variant="default" padding="md" className="animate-fade-slide-up max-w-2xl border-[var(--status-invalid)]">
           <h2 className="text-lg font-display font-semibold mb-6 text-[var(--status-invalid)]">
             Danger Zone
           </h2>
@@ -291,9 +292,9 @@ export default function SettingsPage() {
                 Schedule deletion of your account and all associated data. You will have 5 seconds
                 to undo this action.
               </p>
-              <button onClick={deleteAccount} className="btn btn-danger mt-4">
+              <Button onClick={deleteAccount} variant="danger" className="mt-4">
                 Delete My Account
-              </button>
+              </Button>
             </div>
           </div>
 
@@ -309,15 +310,15 @@ export default function SettingsPage() {
               permanently deleted after the undo window expires.
             </p>
             <div className="flex justify-end gap-3">
-              <button onClick={() => setDeleteConfirmOpen(false)} className="btn btn-ghost">
+              <Button onClick={() => setDeleteConfirmOpen(false)} variant="ghost">
                 Cancel
-              </button>
-              <button onClick={handleDeleteConfirm} className="btn btn-danger">
+              </Button>
+              <Button onClick={handleDeleteConfirm} variant="danger">
                 Delete Forever
-              </button>
+              </Button>
             </div>
           </Modal>
-        </div>
+        </Card>
       )}
     </div>
   );

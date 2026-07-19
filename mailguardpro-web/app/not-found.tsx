@@ -1,7 +1,7 @@
 "use client";
 
 import { FileQuestion, Home } from "lucide-react";
-import Link from "next/link";
+import { Button } from "@/components/ui";
 
 export default function NotFound() {
   return (
@@ -19,10 +19,10 @@ export default function NotFound() {
         <p className="text-[var(--text-secondary)] mb-8 leading-relaxed">
           The page you&apos;re looking for doesn&apos;t exist or has been moved.
         </p>
-        <Link href="/" className="btn btn-accent btn-lg inline-flex items-center gap-2">
+        <Button href="/" variant="accent" size="lg" className="inline-flex items-center gap-2">
           <Home className="w-5 h-5" />
           Go Home
-        </Link>
+        </Button>
       </div>
     </div>
   );

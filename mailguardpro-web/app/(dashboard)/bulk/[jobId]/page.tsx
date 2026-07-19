@@ -5,6 +5,7 @@ import { AlertCircle, AlertTriangle, ArrowLeft, Filter, Search } from "lucide-re
 import Link from "next/link";
 import { use, useEffect, useState } from "react";
 import { PdfGenerator } from "@/components/export/PdfGenerator";
+import { Button, Card } from "@/components/ui";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { ScoreCircle } from "@/components/validator/ScoreCircle";
 import { useDebounce } from "@/hooks/useDebounce";
@@ -129,11 +130,11 @@ export default function BulkJobDetailPage({ params }: { params: Promise<{ jobId:
         {/* Stats skeleton */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
           {[...Array(4)].map((_, i) => (
-            <div key={i} className="card">
+            <Card key={i} variant="default" padding="md">
               <div className="h-3 w-16 bg-[var(--bg-subtle)] rounded animate-skeleton mb-2" />
               <div className="h-8 w-12 bg-[var(--bg-subtle)] rounded animate-skeleton mb-1" />
               <div className="h-3 w-20 bg-[var(--bg-subtle)] rounded animate-skeleton" />
-            </div>
+            </Card>
           ))}
         </div>
       </div>
@@ -150,7 +151,7 @@ export default function BulkJobDetailPage({ params }: { params: Promise<{ jobId:
           <ArrowLeft className="w-4 h-4" />
           Back to Bulk
         </Link>
-        <div className="card text-center py-12">
+        <Card variant="default" padding="md" className="text-center py-12">
           <div className="w-16 h-16 bg-[var(--status-invalid)]/10 rounded-full flex items-center justify-center mx-auto mb-4">
             <Search className="w-8 h-8 text-[var(--status-invalid)]" />
           </div>
@@ -158,10 +159,10 @@ export default function BulkJobDetailPage({ params }: { params: Promise<{ jobId:
           <p className="text-[var(--text-muted)] mb-4">
             {error || "This job does not exist or has been removed."}
           </p>
-          <Link href="/bulk" className="btn btn-primary">
+          <Button href="/bulk" variant="primary">
             Back to Bulk Jobs
-          </Link>
-        </div>
+          </Button>
+        </Card>
       </div>
     );
   }
@@ -205,12 +206,12 @@ export default function BulkJobDetailPage({ params }: { params: Promise<{ jobId:
 
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
-        <div className="card">
+        <Card variant="default" padding="md">
           <p className="text-xs text-[var(--text-muted)] font-medium uppercase  mb-1">Total</p>
           <p className="text-2xl font-display font-bold">{job.totalEmails.toLocaleString()}</p>
           <p className="text-xs text-[var(--text-muted)] mt-1">emails processed</p>
-        </div>
-        <div className="card">
+        </Card>
+        <Card variant="default" padding="md">
           <p className="text-xs text-[var(--text-muted)] font-medium uppercase  mb-1">Valid</p>
           <p className="text-2xl font-display font-bold text-[var(--status-valid)]">
             {job.validCount.toLocaleString()}
@@ -218,8 +219,8 @@ export default function BulkJobDetailPage({ params }: { params: Promise<{ jobId:
           <p className="text-xs text-[var(--text-muted)] mt-1">
             {job.totalEmails > 0 ? `${Math.round((job.validCount / job.totalEmails) * 100)}%` : "—"}
           </p>
-        </div>
-        <div className="card">
+        </Card>
+        <Card variant="default" padding="md">
           <p className="text-xs text-[var(--text-muted)] font-medium uppercase  mb-1">Invalid</p>
           <p className="text-2xl font-display font-bold text-[var(--status-invalid)]">
             {job.invalidCount.toLocaleString()}
@@ -229,16 +230,16 @@ export default function BulkJobDetailPage({ params }: { params: Promise<{ jobId:
               ? `${Math.round((job.invalidCount / job.totalEmails) * 100)}%`
               : "—"}
           </p>
-        </div>
-        <div className="card">
+        </Card>
+        <Card variant="default" padding="md">
           <p className="text-xs text-[var(--text-muted)] font-medium uppercase  mb-1">Avg Score</p>
           <p className="text-2xl font-display font-bold">{job.avgScore}</p>
           <p className="text-xs text-[var(--text-muted)] mt-1">/ 100</p>
-        </div>
+        </Card>
       </div>
 
       {/* Score circle visual */}
-      <div className="card mb-8">
+      <Card variant="default" padding="md" className="mb-8">
         <div className="flex items-center gap-6">
           <ScoreCircle score={job.avgScore} size="lg" />
           <div>
@@ -257,11 +258,11 @@ export default function BulkJobDetailPage({ params }: { params: Promise<{ jobId:
             )}
           </div>
         </div>
-      </div>
+      </Card>
 
       {/* Results section (only for completed jobs) */}
       {job.status === "COMPLETED" && (
-        <div className="card">
+        <Card variant="default" padding="md">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-display font-semibold">Results</h2>
           </div>
@@ -305,15 +306,17 @@ export default function BulkJobDetailPage({ params }: { params: Promise<{ jobId:
             <div className="text-center py-8 text-[var(--text-muted)]">
               <AlertCircle className="w-12 h-12 mx-auto mb-3 text-[var(--status-invalid)]" />
               <p className="text-[var(--status-invalid)] font-medium">Could not load results</p>
-              <button
+              <Button
+                variant="ghost"
+                size="sm"
+                className="mt-2"
                 onClick={() => {
                   setResultsError(false);
                   fetchResults();
                 }}
-                className="btn btn-ghost btn-sm mt-2"
               >
                 Retry
-              </button>
+              </Button>
             </div>
           ) : resultsLoading ? (
             <div className="overflow-x-auto">
@@ -428,20 +431,22 @@ export default function BulkJobDetailPage({ params }: { params: Promise<{ jobId:
                     {Math.min(results.page * results.limit, results.total)} of {results.total}
                   </p>
                   <div className="flex gap-2">
-                    <button
+                    <Button
+                      variant="ghost"
+                      size="sm"
                       onClick={() => setPage((p) => Math.max(1, p - 1))}
                       disabled={page <= 1}
-                      className="btn btn-ghost btn-sm"
                     >
                       Previous
-                    </button>
-                    <button
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
                       onClick={() => setPage((p) => Math.min(results.totalPages, p + 1))}
                       disabled={page >= results.totalPages}
-                      className="btn btn-ghost btn-sm"
                     >
                       Next
-                    </button>
+                    </Button>
                   </div>
                 </div>
               )}
@@ -451,24 +456,26 @@ export default function BulkJobDetailPage({ params }: { params: Promise<{ jobId:
               <Search className="w-12 h-12 mx-auto mb-3 text-[var(--text-muted)]" />
               <p>No results match your filters.</p>
               {(statusFilter || searchQuery) && (
-                <button
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="mt-2"
                   onClick={() => {
                     setStatusFilter("");
                     setSearchQuery("");
                   }}
-                  className="btn btn-ghost btn-sm mt-2"
                 >
                   Clear filters
-                </button>
+                </Button>
               )}
             </div>
           )}
-        </div>
+        </Card>
       )}
 
       {/* Processing state */}
       {job.status === "PROCESSING" && (
-        <div className="card text-center py-12">
+        <Card variant="default" padding="md" className="text-center py-12">
           <div className="w-12 h-12 border-4 border-[var(--accent)] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
           <h3 className="text-lg font-display font-semibold mb-2">Processing...</h3>
           <p className="text-[var(--text-muted)]">
@@ -482,12 +489,12 @@ export default function BulkJobDetailPage({ params }: { params: Promise<{ jobId:
               />
             </div>
           </div>
-        </div>
+        </Card>
       )}
 
       {/* Failed state */}
       {job.status === "FAILED" && (
-        <div className="card text-center py-12">
+        <Card variant="default" padding="md" className="text-center py-12">
           <div className="w-16 h-16 bg-[var(--status-invalid)]/10 rounded-full flex items-center justify-center mx-auto mb-4">
             <AlertTriangle className="w-8 h-8 text-[var(--status-invalid)]" />
           </div>
@@ -495,10 +502,10 @@ export default function BulkJobDetailPage({ params }: { params: Promise<{ jobId:
           <p className="text-[var(--text-muted)] mb-4">
             This job did not complete successfully. Please try uploading the file again.
           </p>
-          <Link href="/bulk" className="btn btn-primary">
+          <Button href="/bulk" variant="primary">
             Back to Bulk Jobs
-          </Link>
-        </div>
+          </Button>
+        </Card>
       )}
     </div>
   );

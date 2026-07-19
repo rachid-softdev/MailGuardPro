@@ -1,8 +1,8 @@
 "use client";
 
 import { Loader2, X } from "lucide-react";
-import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Button, Card } from "@/components/ui";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { ScoreCircle } from "@/components/validator/ScoreCircle";
 import { useDebounce } from "@/hooks/useDebounce";
@@ -65,7 +65,7 @@ export function QuickValidate() {
   }, []);
 
   return (
-    <div className="card">
+    <Card variant="default" padding="md">
       <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
         <div className="flex-1 w-full">
           <div className="relative">
@@ -106,9 +106,9 @@ export function QuickValidate() {
             </div>
           )}
 
-          <Link href="/validate" className="btn btn-ghost btn-sm whitespace-nowrap">
+          <Button href="/validate" variant="ghost" size="sm" className="whitespace-nowrap">
             Full details
-          </Link>
+          </Button>
         </div>
       </div>
 
@@ -118,6 +118,6 @@ export function QuickValidate() {
           Did you mean: <span className="text-[var(--accent)] font-mono">{result.suggestion}</span>?
         </p>
       )}
-    </div>
+    </Card>
   );
 }

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { signIn } from "next-auth/react";
 import { useState } from "react";
+import { Button, Card, Input } from "@/components/ui";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -43,30 +44,57 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-[calc(100vh-73px)] p-6">
+    <div className="flex items-center justify-center min-h-[calc(100vh-73px)] px-4 py-10">
       <div className="w-full max-w-md">
-        {/* Logo */}
-        <div className="text-center mb-8">
-          <Link href="/" className="inline-flex items-center gap-2">
-            <div className="w-10 h-10 bg-[var(--accent)] rounded-xl" />
-            <span className="font-display text-2xl font-bold">MailGuard Pro</span>
-          </Link>
-        </div>
+        {/* Brand */}
+        <Link href="/" className="flex items-center justify-center gap-2.5 mb-8">
+          <span className="flex h-10 w-10 items-center justify-center rounded-[var(--radius-md)] bg-[var(--accent)] text-[var(--text-inverted)] shadow-[0_4px_12px_var(--accent-glow)]">
+            <svg
+              className="h-5 w-5"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+              <path d="m9 12 2 2 4-4" />
+            </svg>
+          </span>
+          <span className="font-display text-2xl font-bold tracking-tight">MailGuard Pro</span>
+        </Link>
 
-        {/* Card */}
-        <div className="card">
-          <h1 className="text-2xl font-display font-bold text-center mb-6">Sign in</h1>
+        <Card variant="default" padding="lg">
+          <div className="text-center mb-7">
+            <h1 className="font-display text-2xl font-bold tracking-tight">Sign in</h1>
+            <p className="mt-1.5 text-sm text-[var(--text-secondary)]">
+              Welcome back. Secure your inbox in seconds.
+            </p>
+          </div>
 
-          {/* Error Message */}
+          {/* Error */}
           {error && (
-            <div className="mb-4 px-4 py-3 rounded-lg bg-[var(--status-invalid)]/10 border border-[var(--status-invalid)]/30 text-sm text-[var(--status-invalid)]">
-              {error}
+            <div className="mb-5 flex items-start gap-2 rounded-[var(--radius-md)] border border-[var(--status-invalid)] bg-[var(--status-invalid-bg)] px-4 py-3 text-sm text-[var(--status-invalid)]">
+              <svg
+                className="mt-0.5 h-4 w-4 shrink-0"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <circle cx="12" cy="12" r="10" />
+                <path d="M12 8v4M12 16h.01" />
+              </svg>
+              <span>{error}</span>
             </div>
           )}
 
           {/* Google */}
-          <button onClick={handleGoogle} disabled={!!loading} className="btn btn-ghost w-full mb-6">
-            <svg className="w-5 h-5" viewBox="0 0 24 24">
+          <Button onClick={handleGoogle} disabled={!!loading} variant="secondary" className="w-full">
+            <svg className="h-5 w-5" viewBox="0 0 24 24">
               <path
                 fill="currentColor"
                 d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -85,74 +113,83 @@ export default function LoginPage() {
               />
             </svg>
             Continue with Google
-          </button>
+          </Button>
 
           {/* Divider */}
-          <div className="flex items-center gap-4 mb-6">
-            <div className="flex-1 h-px bg-[var(--border)]" />
-            <span className="text-xs text-[var(--text-muted)] uppercase ">or</span>
-            <div className="flex-1 h-px bg-[var(--border)]" />
+          <div className="my-6 flex items-center gap-4">
+            <div className="h-px flex-1 bg-[var(--border)]" />
+            <span className="text-xs font-medium uppercase tracking-wide text-[var(--text-muted)]">
+              or
+            </span>
+            <div className="h-px flex-1 bg-[var(--border)]" />
           </div>
 
-          {/* Magic Link */}
+          {/* Magic link */}
           {sent ? (
-            <div className="text-center py-4">
-              <div className="w-12 h-12 bg-[var(--accent-light)] rounded-full flex items-center justify-center mx-auto mb-4">
+            <div className="text-center py-2">
+              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-[var(--accent-light)] text-[var(--accent)]">
                 <svg
-                  className="w-6 h-6 text-[var(--accent)]"
-                  fill="none"
+                  className="h-6 w-6"
                   viewBox="0 0 24 24"
+                  fill="none"
                   stroke="currentColor"
+                  strokeWidth={2}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-                  />
+                  <path d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                 </svg>
               </div>
-              <h3 className="font-display font-semibold mb-2">Check your inbox</h3>
-              <p className="text-sm text-[var(--text-secondary)] mb-1">
-                A magic link has been sent to
-              </p>
-              <p className="text-sm font-mono text-[var(--text-primary)]">{email}</p>
-              <p className="text-xs text-[var(--text-muted)] mt-4">
-                Didn&apos;t receive it? Check your spam folder or{" "}
-                <button
-                  onClick={() => setSent(false)}
-                  className="text-[var(--accent)] hover:underline font-medium"
-                >
-                  try a different email
-                </button>
-              </p>
+              <h3 className="font-display text-lg font-semibold">Check your inbox</h3>
+              <p className="mt-1 text-sm text-[var(--text-secondary)]">We sent a magic link to</p>
+              <p className="mt-1 text-sm font-mono text-[var(--text-primary)]">{email}</p>
+              <button
+                onClick={() => setSent(false)}
+                className="mt-4 text-sm font-medium text-[var(--accent)] hover:underline"
+              >
+                Use a different email
+              </button>
             </div>
           ) : (
             <form onSubmit={handleMagicLink}>
-              <label className="block text-sm font-medium mb-2">Email address</label>
-              <input
+              <label className="mb-2 block text-sm font-medium">Email address</label>
+              <Input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
-                className="input mb-4"
+                className="mb-4"
                 required
                 disabled={sent}
               />
-              <button
+              <Button
                 type="submit"
                 disabled={!!loading || !email}
-                className="btn btn-primary w-full"
+                variant="accent"
+                className="w-full"
               >
                 {loading === "magic" ? "Sending..." : "Send magic link"}
-              </button>
+              </Button>
             </form>
           )}
 
-          <p className="mt-6 text-xs text-center text-[var(--text-muted)]">
-            By continuing, you agree to our Terms of Service
+          <p className="mt-6 text-center text-xs text-[var(--text-muted)]">
+            By continuing, you agree to our{" "}
+            <Link
+              href="/terms"
+              className="font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+            >
+              Terms of Service
+            </Link>
           </p>
-        </div>
+        </Card>
+
+        <p className="mt-6 text-center text-sm text-[var(--text-secondary)]">
+          New to MailGuard Pro?{" "}
+          <Link href="/" className="font-medium text-[var(--accent)] hover:underline">
+            Learn more
+          </Link>
+        </p>
       </div>
     </div>
   );

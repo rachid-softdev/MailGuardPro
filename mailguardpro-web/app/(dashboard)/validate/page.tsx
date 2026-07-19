@@ -4,6 +4,7 @@ import { Check, Search, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { ScoreCircle } from "@/components/validator/ScoreCircle";
+import { Button, Card } from "@/components/ui";
 import { useDebounce } from "@/hooks/useDebounce";
 
 interface ValidationResult {
@@ -135,15 +136,17 @@ export default function ValidatePage() {
               </div>
             </div>
             <div className="flex gap-2 sm:gap-3 shrink-0">
-              <button
+              <Button
                 type="submit"
                 disabled={loading || !email}
-                className="btn btn-accent btn-lg flex-1 sm:flex-initial"
+                variant="accent"
+                size="lg"
+                className="flex-1 sm:flex-initial"
               >
                 {loading ? "Analyzing..." : "Analyze"}
-              </button>
+              </Button>
               {result && (
-                <button
+                <Button
                   type="button"
                   onClick={() => {
                     setEmail("");
@@ -153,24 +156,30 @@ export default function ValidatePage() {
                       abortControllerRef.current.abort();
                     }
                   }}
-                  className="btn btn-ghost btn-lg flex-1 sm:flex-initial"
+                  variant="ghost"
+                  size="lg"
+                  className="flex-1 sm:flex-initial"
                 >
                   Clear
-                </button>
+                </Button>
               )}
             </div>
           </div>
         </form>
 
         {error && (
-          <div className="animate-fade-slide-in card border-[var(--status-invalid)] bg-[var(--status-invalid-bg)] p-4 mb-8">
+          <Card
+            variant="default"
+            padding="sm"
+            className="animate-fade-slide-in border-[var(--status-invalid)] bg-[var(--status-invalid-bg)] mb-8"
+          >
             <p className="text-[var(--status-invalid)]">{error}</p>
-          </div>
+          </Card>
         )}
 
         {/* Loading skeleton */}
         {loading && !result && (
-          <div className="card">
+          <Card variant="default" padding="md">
             <div className="flex flex-col lg:flex-row gap-8">
               {/* Left: Score skeleton */}
               <div className="flex flex-col items-center justify-center lg:w-1/3">
@@ -196,12 +205,12 @@ export default function ValidatePage() {
                 </div>
               </div>
             </div>
-          </div>
+          </Card>
         )}
 
         {/* Results */}
         {result && (
-          <div className="card">
+          <Card variant="default" padding="md">
             <div className="flex flex-col lg:flex-row gap-8">
               {/* Left: Score */}
               <div className="flex flex-col items-center justify-center lg:w-1/3">
@@ -248,12 +257,12 @@ export default function ValidatePage() {
                 </div>
               </div>
             </div>
-          </div>
+          </Card>
         )}
 
         {/* Empty state */}
         {!result && !loading && !error && (
-          <div className="card text-center py-12">
+          <Card variant="default" padding="md" className="text-center py-12">
             <div className="flex flex-col items-center gap-4">
               <Search
                 size={48}
@@ -304,7 +313,7 @@ export default function ValidatePage() {
                 disposable inbox databases to produce a single quality score.
               </p>
             </div>
-          </div>
+          </Card>
         )}
       </div>
     </div>

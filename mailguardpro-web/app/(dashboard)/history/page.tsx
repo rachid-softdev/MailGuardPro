@@ -1,4 +1,5 @@
 "use client";
+import { Button, Card } from "@/components/ui";
 
 import { format, formatDistanceToNow } from "date-fns";
 import {
@@ -408,7 +409,7 @@ export default function HistoryPage() {
       </div>
 
       {/* Filters */}
-      <div className="card mb-6">
+      <Card variant="default" padding="md" className="mb-6">
         <div className="flex flex-col gap-4">
           {/* Row 1: Search + Status + Export */}
           <div className="flex flex-col md:flex-row gap-4">
@@ -442,10 +443,10 @@ export default function HistoryPage() {
 
               {/* Export button */}
               <div className="relative" ref={exportRef}>
-                <button
+                <Button
                   onClick={() => setExportOpen((prev) => !prev)}
                   disabled={exportLoading}
-                  className="btn btn-ghost btn-sm gap-1.5"
+                  variant="ghost" size="sm" className="gap-1.5"
                   aria-haspopup="menu"
                   aria-expanded={exportOpen}
                   aria-controls="export-menu"
@@ -456,7 +457,7 @@ export default function HistoryPage() {
                     <Download className="w-4 h-4" />
                   )}
                   Export
-                </button>
+                </Button>
 
                 {exportOpen && (
                   <div
@@ -573,7 +574,7 @@ export default function HistoryPage() {
             )}
           </div>
         </div>
-      </div>
+      </Card>
 
       {/* Error state */}
       {fetchError && (
@@ -605,7 +606,7 @@ export default function HistoryPage() {
       )}
 
       {/* Results */}
-      <div className="card">
+      <Card variant="default" padding="md">
         {loading ? (
           <div className="divide-y divide-[var(--border)]">
             {[1, 2, 3, 4].map((i) => (
@@ -633,24 +634,24 @@ export default function HistoryPage() {
                   >
                     Deselect all
                   </button>
-                  <button
+                  <Button
                     onClick={() => handleBatchExport()}
-                    className="btn btn-ghost btn-sm gap-1.5"
+                    variant="ghost" size="sm" className="gap-1.5"
                   >
                     <Download className="w-3.5 h-3.5" />
                     Export
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     onClick={() => setConfirmDelete(true)}
-                    className="btn btn-ghost btn-sm gap-1.5 text-[var(--status-invalid)]"
+                    variant="ghost" size="sm" className="gap-1.5 text-[var(--status-invalid)]"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                     Delete
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     onClick={() => setConfirmRevalidate(true)}
                     disabled={batchValidating}
-                    className="btn btn-accent btn-sm"
+                    variant="accent" size="sm"
                   >
                     {batchValidating ? (
                       <>
@@ -660,7 +661,7 @@ export default function HistoryPage() {
                     ) : (
                       `Revalidate (${selection.count})`
                     )}
-                  </button>
+                  </Button>
                 </div>
               </div>
             )}
@@ -747,14 +748,14 @@ export default function HistoryPage() {
                         })}
                       </td>
                       <td className="py-3 px-4 text-right">
-                        <button
+                        <Button
                           onClick={() =>
                             router.push(`/validate?email=${encodeURIComponent(validation.email)}`)
                           }
-                          className="btn btn-ghost btn-sm"
+                          variant="ghost" size="sm"
                         >
                           Revalidate
-                        </button>
+                        </Button>
                       </td>
                     </tr>
                   ))}
@@ -771,23 +772,23 @@ export default function HistoryPage() {
                   {pagination.total} results
                 </p>
                 <div className="flex gap-2">
-                  <button
+                  <Button
                     onClick={() => handlePageChange(pagination.page - 1)}
                     disabled={pagination.page <= 1}
-                    className="btn btn-ghost btn-sm disabled:opacity-40 disabled:cursor-not-allowed"
+                    variant="ghost" size="sm" className="disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     Previous
-                  </button>
+                  </Button>
                   <span className="px-3 py-1 text-sm">
                     Page {pagination.page} of {pagination.totalPages}
                   </span>
-                  <button
+                  <Button
                     onClick={() => handlePageChange(pagination.page + 1)}
                     disabled={pagination.page >= pagination.totalPages}
-                    className="btn btn-ghost btn-sm disabled:opacity-40 disabled:cursor-not-allowed"
+                    variant="ghost" size="sm" className="disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     Next
-                  </button>
+                  </Button>
                 </div>
               </div>
             )}
@@ -804,17 +805,17 @@ export default function HistoryPage() {
                 : "Validated emails will appear here"}
             </p>
             {(searchQuery || statusFilter) && (
-              <button onClick={() => router.replace("/history")} className="btn btn-ghost">
+              <Button onClick={() => router.replace("/history")} variant="ghost">
                 Clear filters
-              </button>
+              </Button>
             )}
           </div>
         )}
-      </div>
+      </Card>
 
       {/* Scheduled Exports */}
       {scheduledExports.length > 0 && (
-        <div className="card mt-6">
+        <Card variant="default" padding="md" className="mt-6">
           <div className="flex items-center gap-2 px-4 py-3 border-b border-[var(--border)]">
             <CalendarClock className="w-4 h-4 text-[var(--text-muted)]" />
             <h2 className="text-sm font-semibold text-[var(--text-primary)]">Scheduled Exports</h2>
@@ -840,10 +841,10 @@ export default function HistoryPage() {
                     </p>
                   </div>
                 </div>
-                <button
+                <Button
                   onClick={() => handleDeleteSchedule(schedule.id)}
                   disabled={deletingSchedule === schedule.id}
-                  className="btn btn-ghost btn-sm text-[var(--status-invalid)] hover:bg-[var(--status-invalid)]/10"
+                  variant="ghost" size="sm" className="text-[var(--status-invalid)] hover:bg-[var(--status-invalid)]/10"
                   aria-label="Delete scheduled export"
                 >
                   {deletingSchedule === schedule.id ? (
@@ -851,11 +852,11 @@ export default function HistoryPage() {
                   ) : (
                     <Trash2 className="w-3.5 h-3.5" />
                   )}
-                </button>
+                </Button>
               </div>
             ))}
           </div>
-        </div>
+        </Card>
       )}
 
       {/* Credit cost confirmation modal */}
@@ -874,16 +875,16 @@ export default function HistoryPage() {
           from your account. This action cannot be undone once processed.
         </p>
         <div className="flex justify-end gap-2">
-          <button onClick={() => setConfirmRevalidate(false)} className="btn btn-secondary btn-sm">
+          <Button onClick={() => setConfirmRevalidate(false)} variant="secondary" size="sm">
             Cancel
-          </button>
-          <button
+          </Button>
+          <Button
             onClick={handleBatchRevalidate}
             disabled={batchValidating}
-            className="btn btn-accent btn-sm"
+            variant="accent" size="sm"
           >
             Revalidate ({selection.count})
-          </button>
+          </Button>
         </div>
       </Modal>
 
@@ -899,13 +900,13 @@ export default function HistoryPage() {
           {selection.count > 1 ? "s" : ""}? This action cannot be undone.
         </p>
         <div className="flex justify-end gap-2">
-          <button onClick={() => setConfirmDelete(false)} className="btn btn-secondary btn-sm">
+          <Button onClick={() => setConfirmDelete(false)} variant="secondary" size="sm">
             Cancel
-          </button>
-          <button
+          </Button>
+          <Button
             onClick={handleBatchDelete}
             disabled={deleteLoading}
-            className="btn btn-danger btn-sm"
+            variant="danger" size="sm"
           >
             {deleteLoading ? (
               <>
@@ -915,7 +916,7 @@ export default function HistoryPage() {
             ) : (
               `Delete (${selection.count})`
             )}
-          </button>
+          </Button>
         </div>
       </Modal>
     </div>
