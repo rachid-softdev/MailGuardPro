@@ -29,7 +29,7 @@
     "ci:release": "pnpm changeset version \u0026\u0026 pnpm install --no-frozen-lockfile \u0026\u0026 pnpm build \u0026\u0026 pnpm changeset tag"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.4.16",
+    "@biomejs/biome": "^2.5.5",
     "@commitlint/cli": "^21.0.2",
     "@commitlint/config-conventional": "^21.0.2",
     "@playwright/test": "^1.61.1",
