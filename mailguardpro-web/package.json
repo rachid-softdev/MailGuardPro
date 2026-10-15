@@ -57,7 +57,7 @@
     "stripe": "^22.3.0",
     "tailwind-merge": "^3.6.0",
     "uuid": "^14.0.0",
-    "whois": "^2.16.1",
+    "whois": "^2.16.2",
     "zod": "^4.0.0"
   },
   "devDependencies": {
