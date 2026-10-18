@@ -14,7 +14,7 @@
 import { describe, expect, it } from "vitest";
 import type { ICacheService } from "../cacheService";
 import { FeatureGateService } from "../featureGateService";
-import { FEATURES, getPlanRank, getTopPlanKey, PLANS, PLAN_FEATURE_MAP } from "../planMatrix";
+import { FEATURES, getPlanRank, getTopPlanKey, PLAN_FEATURE_MAP, PLANS } from "../planMatrix";
 import { FeatureNotAvailableError } from "../types";
 import { MockEntitlementRepository } from "./mockRepository";
 
@@ -206,7 +206,7 @@ describe("plan matrix — limits", () => {
   it("BULK_VALIDATE limit matches the matrix per plan", async () => {
     const { gate } = createMatrixFixture();
     const expectedLimits: Record<string, number | null> = {
-      FREE: 3,
+      FREE: null, // not granted — bulk is a paid feature
       STARTER: 5000,
       PRO: 50000,
       BUSINESS: null, // unlimited
@@ -247,15 +247,23 @@ describe("plan matrix — limits", () => {
     }
   });
 
+  it("FREE has no BULK_VALIDATE access (bulk is a paid feature)", async () => {
+    const { gate } = createMatrixFixture();
+    expect(await gate.hasFeature("org-free", "BULK_VALIDATE")).toBe(false);
+    await expect(gate.assertFeature("org-free", "BULK_VALIDATE")).rejects.toThrow(
+      FeatureNotAvailableError,
+    );
+  });
+
   it("consume is blocked at the plan limit for lower plans, unlimited for BUSINESS", async () => {
     const { gate } = createMatrixFixture();
 
-    // FREE: limit 3 — 4th consume fails
+    // STARTER: TEAM_MEMBERS limit 3 — 4th consume fails
     for (let i = 0; i < 3; i++) {
-      const ok = await gate.consume("org-free", "BULK_VALIDATE", 1);
+      const ok = await gate.consume("org-starter", "TEAM_MEMBERS", 1);
       expect(ok.success).toBe(true);
     }
-    const blocked = await gate.consume("org-free", "BULK_VALIDATE", 1);
+    const blocked = await gate.consume("org-starter", "TEAM_MEMBERS", 1);
     expect(blocked.success).toBe(false);
     if (!blocked.success) expect(blocked.error).toBe("LIMIT_REACHED");
 
@@ -285,7 +293,7 @@ describe("plan matrix — getAllEntitlements (frontend payload)", () => {
   it("entitlements limits match the matrix per plan", async () => {
     const { gate } = createMatrixFixture();
     const expectedLimits: Record<string, Record<string, number | null>> = {
-      FREE: { BULK_VALIDATE: 3, TEAM_MEMBERS: 1 },
+      FREE: { BULK_VALIDATE: null, TEAM_MEMBERS: 1 },
       STARTER: { BULK_VALIDATE: 5000, TEAM_MEMBERS: 3 },
       PRO: { BULK_VALIDATE: 50000, TEAM_MEMBERS: 10 },
       BUSINESS: { BULK_VALIDATE: null, TEAM_MEMBERS: null },

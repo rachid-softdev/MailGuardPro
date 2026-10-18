@@ -4,7 +4,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { loggerApi } from "@/lib/logger";
+import { PLAN_BULK_MAX_ROWS, PLAN_INCLUDED_CREDITS } from "@/lib/plans";
 import { prisma } from "@/lib/prisma";
+import type { Plan } from "@/lib/rateLimits";
 
 export async function GET(_req: NextRequest) {
   try {
@@ -67,29 +69,25 @@ export async function GET(_req: NextRequest) {
       0,
     );
 
-    // Limites selon le plan
-    const planLimits: Record<string, { credits: number; bulkMax: number }> = {
-      FREE: { credits: 100, bulkMax: 0 },
-      STARTER: { credits: 5000, bulkMax: 10000 },
-      PRO: { credits: 50000, bulkMax: 100000 },
-      BUSINESS: { credits: -1, bulkMax: -1 }, // Illimité
-    };
-
-    const limits = planLimits[user?.plan || "FREE"];
+    // Limites selon le plan — source unique : lib/plans.ts
+    const plan = (user?.plan as Plan) || "FREE";
+    const included = PLAN_INCLUDED_CREDITS[plan] ?? PLAN_INCLUDED_CREDITS.FREE;
+    const bulkMax = PLAN_BULK_MAX_ROWS[plan] ?? PLAN_BULK_MAX_ROWS.FREE;
 
     return NextResponse.json({
       success: true,
       data: {
-        plan: user?.plan || "FREE",
+        plan,
         credits: {
           remaining: user?.credits || 0,
           thisMonth: thisMonthValidations,
-          included: limits.credits,
+          included,
         },
         bulk: {
           totalEmails: totalBulkEmails,
           totalProcessed,
-          maxBatch: limits.bulkMax,
+          // -1 = unlimited (API contract, mirrors credits.included)
+          maxBatch: plan === "BUSINESS" ? -1 : bulkMax,
         },
         apiKeys: user?._count.apiKeys || 0,
         webhooks: user?._count.webhooks || 0,

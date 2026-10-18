@@ -31,9 +31,9 @@ describe("POST /api/v1/validate/bulk — route envelope", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockCsrf.mockReturnValue({ valid: true });
-    mockAuth.mockResolvedValue({ user: { id: "user-1", plan: "FREE" } });
+    mockAuth.mockResolvedValue({ user: { id: "user-1", plan: "STARTER" } });
     mockRateLimit.mockResolvedValue(successRate);
-    mockUserFindUnique.mockResolvedValue({ credits: 100, plan: "FREE" });
+    mockUserFindUnique.mockResolvedValue({ credits: 500, plan: "STARTER" });
     mockProcess.mockResolvedValue({ success: true, jobId: "job-xyz", totalEmails: 2 });
   });
 
@@ -89,6 +89,16 @@ describe("POST /api/v1/validate/bulk — route envelope", () => {
     mockRateLimit.mockResolvedValue({ success: false, limit: 1, resetAt: Date.now() + 1000 });
     const res = await POST(csvRequest("email\na@b.com"));
     expect(res.status).toBe(429);
+  });
+
+  // P1: 403 FREE plan cannot bulk (paid feature)
+  it("should return 403 for the FREE plan (bulk requires a paid plan)", async () => {
+    mockUserFindUnique.mockResolvedValueOnce({ credits: 100, plan: "FREE" });
+    const res = await POST(csvRequest("email\na@b.com"));
+    expect(res.status).toBe(403);
+    const body = await res.json();
+    expect(body.error).toContain("paid plans");
+    expect(mockProcess).not.toHaveBeenCalled();
   });
 
   // P1: 500 when processor throws

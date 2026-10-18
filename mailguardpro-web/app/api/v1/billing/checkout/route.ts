@@ -5,8 +5,9 @@
 // plan yet. Existing subscribers change plans through the Stripe customer
 // portal (proration is handled by Stripe, and this avoids double billing).
 //
-// Note: no `trial_period_days` is set — the "14-day free trial" marketing copy
-// is not implemented in billing (tracked as an audit finding).
+// The 14-day free trial promised on the marketing site is applied here via
+// `subscription_data.trial_period_days`. Stripe Checkout collects the payment
+// method upfront; the card is only charged when the trial ends.
 
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
@@ -19,6 +20,7 @@ import { stripe } from "@/lib/stripe";
 
 const checkoutSchema = z.object({
   plan: z.enum(["STARTER", "PRO", "BUSINESS"]),
+  interval: z.enum(["month", "year"]).default("month"),
 });
 
 export async function POST(req: NextRequest) {
@@ -27,19 +29,6 @@ export async function POST(req: NextRequest) {
     const csrf = validateCsrfOrigin(req);
     if (!csrf.valid) {
       return NextResponse.json({ success: false, error: csrf.error }, { status: 403 });
-    }
-
-    // Validate Stripe configuration (mirrors /billing/subscribe)
-    const priceEnv = {
-      STARTER: process.env.STRIPE_STARTER_PRICE_ID,
-      PRO: process.env.STRIPE_PRO_PRICE_ID,
-      BUSINESS: process.env.STRIPE_BUSINESS_PRICE_ID,
-    } as const;
-    if (!priceEnv.STARTER || !priceEnv.PRO || !priceEnv.BUSINESS) {
-      return NextResponse.json(
-        { success: false, error: "Server configuration error: payment plans not configured" },
-        { status: 500 },
-      );
     }
 
     const session = await auth();
@@ -57,7 +46,39 @@ export async function POST(req: NextRequest) {
     if (!validation.success) {
       return NextResponse.json({ success: false, error: "Invalid plan" }, { status: 400 });
     }
-    const plan = validation.data.plan;
+    const { plan, interval } = validation.data;
+
+    // Validate Stripe configuration (mirrors /billing/subscribe)
+    const monthlyEnv = {
+      STARTER: process.env.STRIPE_STARTER_PRICE_ID,
+      PRO: process.env.STRIPE_PRO_PRICE_ID,
+      BUSINESS: process.env.STRIPE_BUSINESS_PRICE_ID,
+    } as const;
+    const annualEnv = {
+      STARTER: process.env.STRIPE_STARTER_ANNUAL_PRICE_ID,
+      PRO: process.env.STRIPE_PRO_ANNUAL_PRICE_ID,
+      BUSINESS: process.env.STRIPE_BUSINESS_ANNUAL_PRICE_ID,
+    } as const;
+    if (!monthlyEnv.STARTER || !monthlyEnv.PRO || !monthlyEnv.BUSINESS) {
+      return NextResponse.json(
+        { success: false, error: "Server configuration error: payment plans not configured" },
+        { status: 500 },
+      );
+    }
+
+    // Annual prices are optional (created in the Stripe dashboard). When the
+    // requested plan has no annual price, fail with a clear 400.
+    const priceId = interval === "year" ? annualEnv[plan] : monthlyEnv[plan];
+    if (!priceId) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "Annual billing is not available for this plan yet — switch to monthly or contact support.",
+        },
+        { status: 400 },
+      );
+    }
 
     const user = await prisma.user.findUnique({
       where: { id: session.user.id },
@@ -111,7 +132,10 @@ export async function POST(req: NextRequest) {
       customer: customerId,
       client_reference_id: session.user.id,
       metadata: { userId: session.user.id, plan },
-      line_items: [{ price: priceEnv[plan], quantity: 1 }],
+      line_items: [{ price: priceId, quantity: 1 }],
+      // 14-day free trial (marketing promise). The payment method is collected
+      // now; the card is only charged when the trial ends.
+      subscription_data: { trial_period_days: 14 },
       success_url: `${appUrl}/billing?checkout=success`,
       cancel_url: `${appUrl}/billing?checkout=cancelled`,
     });

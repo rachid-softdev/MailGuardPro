@@ -16,6 +16,11 @@
 // can only access the features explicitly granted in PLAN_FEATURE_MAP.
 // ================================================================
 
+// Numeric entitlements (included credits, bulk row caps) come from the
+// shared source of truth in lib/plans.ts so the seeded DB limits can never
+// drift from the runtime enforcement (usage API, bulk upload, webhooks).
+import { PLAN_INCLUDED_CREDITS } from "../../lib/plans";
+
 // ---- Plan ranking (lowest → highest) ----
 export const PLAN_ORDER = ["FREE", "STARTER", "PRO", "BUSINESS"] as const;
 
@@ -135,7 +140,9 @@ export const PLAN_FEATURE_MAP: Record<string, PlanFeatureDefinition[]> = {
   FREE: [
     { key: "EXPORT_PDF", enabled: false },
     { key: "AI_SUMMARY", enabled: false },
-    { key: "BULK_VALIDATE", enabled: true, limit: 3 },
+    // FREE only includes single email validation (pricing card) — bulk
+    // uploads are gated at /api/v1/validate/bulk via PLAN_BULK_MAX_ROWS.
+    { key: "BULK_VALIDATE", enabled: false },
     { key: "API_ACCESS", enabled: false },
     { key: "TEAM_MEMBERS", enabled: true, limit: 1 },
     { key: "CUSTOM_HEADERS", enabled: false },
@@ -149,7 +156,7 @@ export const PLAN_FEATURE_MAP: Record<string, PlanFeatureDefinition[]> = {
   STARTER: [
     { key: "EXPORT_PDF", enabled: true },
     { key: "AI_SUMMARY", enabled: false },
-    { key: "BULK_VALIDATE", enabled: true, limit: 5000 },
+    { key: "BULK_VALIDATE", enabled: true, limit: PLAN_INCLUDED_CREDITS.STARTER },
     { key: "API_ACCESS", enabled: true },
     { key: "TEAM_MEMBERS", enabled: true, limit: 3 },
     { key: "CUSTOM_HEADERS", enabled: false },
@@ -163,7 +170,7 @@ export const PLAN_FEATURE_MAP: Record<string, PlanFeatureDefinition[]> = {
   PRO: [
     { key: "EXPORT_PDF", enabled: true },
     { key: "AI_SUMMARY", enabled: true },
-    { key: "BULK_VALIDATE", enabled: true, limit: 50000 },
+    { key: "BULK_VALIDATE", enabled: true, limit: PLAN_INCLUDED_CREDITS.PRO },
     { key: "API_ACCESS", enabled: true },
     { key: "TEAM_MEMBERS", enabled: true, limit: 10 },
     { key: "CUSTOM_HEADERS", enabled: true },

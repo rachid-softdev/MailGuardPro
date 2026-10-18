@@ -40,6 +40,8 @@ export interface ParsedEmail {
 
 export interface BulkUploadOptions {
   requestId?: string;
+  /** Plan-based row cap (PLAN_BULK_MAX_ROWS) enforced together with the global limit. */
+  maxRows?: number;
 }
 
 export async function processBulkUpload(
@@ -83,11 +85,14 @@ export async function processBulkUpload(
     };
   }
 
+  // Row cap: plan entitlement (passed by the route) bounded by the global limit
+  const effectiveMaxRows = Math.min(MAX_BULK_ROWS, options?.maxRows ?? MAX_BULK_ROWS);
+
   // Early row limit check before expensive processing
-  if (records.length > MAX_BULK_ROWS) {
+  if (records.length > effectiveMaxRows) {
     return {
       success: false,
-      errors: [`Too many emails. Maximum: ${MAX_BULK_ROWS}`],
+      errors: [`Too many emails. Maximum: ${effectiveMaxRows}`],
     };
   }
 
@@ -145,10 +150,10 @@ export async function processBulkUpload(
   }
 
   // Check limit
-  if (emails.length > MAX_BULK_ROWS) {
+  if (emails.length > effectiveMaxRows) {
     return {
       success: false,
-      errors: [`Too many emails. Maximum: ${MAX_BULK_ROWS}`],
+      errors: [`Too many emails. Maximum: ${effectiveMaxRows}`],
     };
   }
 

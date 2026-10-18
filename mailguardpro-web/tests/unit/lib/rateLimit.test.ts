@@ -68,7 +68,6 @@ describe("rateLimits", () => {
       expect(PLAN_LIMITS.FREE.validate.requests).toBe(20);
       expect(PLAN_LIMITS.FREE.validate.window).toBe(60);
       expect(PLAN_LIMITS.FREE.bulk.requests).toBe(1);
-      expect(PLAN_LIMITS.FREE.bulkSize).toBe(10000);
     });
 
     it("should have correct limits for STARTER plan", () => {
@@ -78,7 +77,6 @@ describe("rateLimits", () => {
 
     it("should have correct limits for PRO plan", () => {
       expect(PLAN_LIMITS.PRO.validate.requests).toBe(500);
-      expect(PLAN_LIMITS.PRO.bulkSize).toBe(100000);
     });
 
     it("should have unlimited limits for BUSINESS plan", () => {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 
 const plans = [
   {
@@ -75,7 +75,7 @@ const plans = [
   },
 ];
 
-const faqs = [
+const faqs: { question: string; answer: ReactNode }[] = [
   {
     question: "Can I upgrade or downgrade at any time?",
     answer:
@@ -89,12 +89,23 @@ const faqs = [
   {
     question: "Is there a free trial?",
     answer:
-      "Yes, all paid plans come with a 14-day free trial. No credit card required. You'll get full access to all features of your chosen plan, and you can cancel anytime during the trial period.",
+      "Yes, all paid plans come with a 14-day free trial. You'll get full access to all features of your chosen plan and can cancel anytime during the trial — your card is only charged when the trial ends.",
   },
   {
     question: "Can I pay by invoice?",
-    answer:
-      "Annual Business plan customers can pay by invoice. We support wire transfers and SEPA payments for annual commitments. Contact our sales team to set up invoice billing for your account.",
+    answer: (
+      <>
+        Annual Business plan customers can pay by invoice. We support wire transfers and SEPA
+        payments for annual commitments. Contact our sales team at{" "}
+        <a
+          className="text-[var(--accent)] underline"
+          href="mailto:support@mailguardpro.com?subject=Business%20annual%20invoice%20billing"
+        >
+          support@mailguardpro.com
+        </a>{" "}
+        to set up invoice billing for your account.
+      </>
+    ),
   },
   {
     question: "What payment methods do you accept?",
@@ -153,7 +164,7 @@ function FAQItem({
   onToggle,
 }: {
   question: string;
-  answer: string;
+  answer: ReactNode;
   open: boolean;
   onToggle: () => void;
 }) {
@@ -211,7 +222,10 @@ export default function PricingPage() {
       const res = await fetch("/api/v1/billing/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ plan: planName.toUpperCase() }),
+        body: JSON.stringify({
+          plan: planName.toUpperCase(),
+          interval: annual ? "year" : "month",
+        }),
       });
       if (res.status === 401) {
         window.location.href = `/login?callbackUrl=${encodeURIComponent("/billing")}`;

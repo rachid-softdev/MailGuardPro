@@ -82,7 +82,7 @@ describe("/api/v1/validate/bulk", () => {
       // Default happy-path mocks — individual tests override what they need
       vi.mocked(auth).mockResolvedValue({ user: { id: "user-123", email: "test@test.com" } });
       vi.mocked(validateCsrfOrigin).mockReturnValue({ valid: true });
-      vi.mocked(prisma.user.findUnique).mockResolvedValue({ credits: 100, plan: "FREE" });
+      vi.mocked(prisma.user.findUnique).mockResolvedValue({ credits: 500, plan: "STARTER" });
       vi.mocked(checkRateLimitByPlan).mockResolvedValue({
         success: true,
         remaining: 1,
@@ -236,6 +236,7 @@ describe("/api/v1/validate/bulk", () => {
       expect(processBulkUpload).toHaveBeenCalledTimes(1);
       expect(processBulkUpload).toHaveBeenCalledWith(expect.any(File), "user-123", undefined, {
         requestId: "mock-request-id",
+        maxRows: 10000, // STARTER bulk row cap (lib/plans.ts)
       });
     });
 
@@ -243,7 +244,20 @@ describe("/api/v1/validate/bulk", () => {
       const req = createFormRequest("email\ntest@example.com");
       await POST(req);
 
-      expect(checkRateLimitByPlan).toHaveBeenCalledWith("user-123", "FREE", "bulk");
+      expect(checkRateLimitByPlan).toHaveBeenCalledWith("user-123", "STARTER", "bulk");
+    });
+
+    it("should return 403 for the FREE plan (bulk is a paid feature)", async () => {
+      vi.mocked(prisma.user.findUnique).mockResolvedValueOnce({ credits: 100, plan: "FREE" });
+
+      const req = createFormRequest("email\ntest@example.com");
+      const response = await POST(req);
+
+      expect(response.status).toBe(403);
+      const json = await response.json();
+      expect(json.success).toBe(false);
+      expect(json.error).toContain("paid plans");
+      expect(processBulkUpload).not.toHaveBeenCalled();
     });
 
     it("should use plan from database for rate limiting", async () => {
@@ -258,13 +272,15 @@ describe("/api/v1/validate/bulk", () => {
       expect(checkRateLimitByPlan).toHaveBeenCalledWith("user-123", "PRO", "bulk");
     });
 
-    it("should fallback to FREE plan when user DB record is missing", async () => {
+    it("should fallback to FREE plan when user DB record is missing (and block bulk)", async () => {
       vi.mocked(prisma.user.findUnique).mockResolvedValueOnce(null);
 
       const req = createFormRequest("email\ntest@example.com");
-      await POST(req);
+      const response = await POST(req);
 
       expect(checkRateLimitByPlan).toHaveBeenCalledWith("user-123", "FREE", "bulk");
+      expect(response.status).toBe(403);
+      expect(processBulkUpload).not.toHaveBeenCalled();
     });
   });
 });

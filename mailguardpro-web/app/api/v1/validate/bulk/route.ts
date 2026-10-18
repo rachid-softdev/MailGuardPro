@@ -6,6 +6,7 @@ import { v4 as uuidv4 } from "uuid";
 import { auth } from "@/lib/auth";
 import { validateCsrfOrigin } from "@/lib/csrf";
 import { loggerApi } from "@/lib/logger";
+import { PLAN_BULK_MAX_ROWS } from "@/lib/plans";
 import { prisma } from "@/lib/prisma";
 import { checkRateLimitByPlan, Plan } from "@/lib/rateLimits";
 import { processBulkUpload } from "@/services/bulkProcessor";
@@ -35,13 +36,10 @@ export async function POST(req: NextRequest) {
       select: { credits: true, plan: true },
     });
 
-    // Limite selon le plan
+    const plan = (user?.plan as Plan) || "FREE";
+
     // Rate limiting par plan
-    const rateCheck = await checkRateLimitByPlan(
-      session.user.id,
-      (user?.plan as Plan) || "FREE",
-      "bulk",
-    );
+    const rateCheck = await checkRateLimitByPlan(session.user.id, plan, "bulk");
 
     if (!rateCheck.success) {
       return NextResponse.json(
@@ -51,6 +49,18 @@ export async function POST(req: NextRequest) {
           retryAfter: rateCheck.resetAt,
         },
         { status: 429 },
+      );
+    }
+
+    // Entitlement: bulk access + row cap per plan (source unique: lib/plans.ts)
+    const maxRows = PLAN_BULK_MAX_ROWS[plan] ?? PLAN_BULK_MAX_ROWS.FREE;
+    if (maxRows === 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Bulk validation is available on paid plans. Upgrade to upload CSV files.",
+        },
+        { status: 403 },
       );
     }
 
@@ -75,7 +85,10 @@ export async function POST(req: NextRequest) {
     }
 
     // Traiter le fichier avec correlation ID
-    const result = await processBulkUpload(file, session.user.id, undefined, { requestId });
+    const result = await processBulkUpload(file, session.user.id, undefined, {
+      requestId,
+      maxRows,
+    });
 
     const durationMs = Date.now() - startTime;
 

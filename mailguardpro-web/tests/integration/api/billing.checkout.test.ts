@@ -88,6 +88,9 @@ describe("POST /api/v1/billing/checkout", () => {
     process.env.STRIPE_STARTER_PRICE_ID = "price_starter_monthly";
     process.env.STRIPE_PRO_PRICE_ID = "price_pro_monthly";
     process.env.STRIPE_BUSINESS_PRICE_ID = "price_business_monthly";
+    process.env.STRIPE_STARTER_ANNUAL_PRICE_ID = "price_starter_annual";
+    process.env.STRIPE_PRO_ANNUAL_PRICE_ID = "price_pro_annual";
+    process.env.STRIPE_BUSINESS_ANNUAL_PRICE_ID = "price_business_annual";
     process.env.NEXT_PUBLIC_APP_URL = "https://app.mailguardpro.com";
 
     vi.mocked(validateCsrfOrigin).mockReturnValue({ valid: true } as any);
@@ -162,7 +165,7 @@ describe("POST /api/v1/billing/checkout", () => {
   // Happy path
   // -----------------------------------------------------------------------
 
-  it("should create a checkout session for the right price and return its URL", async () => {
+  it("should create a checkout session for the right price (with 14-day trial) and return its URL", async () => {
     const response = await POST(postReq({ plan: "PRO" }));
 
     expect(response.status).toBe(200);
@@ -177,10 +180,42 @@ describe("POST /api/v1/billing/checkout", () => {
         client_reference_id: "user-123",
         metadata: { userId: "user-123", plan: "PRO" },
         line_items: [{ price: "price_pro_monthly", quantity: 1 }],
+        subscription_data: { trial_period_days: 14 },
         success_url: "https://app.mailguardpro.com/billing?checkout=success",
         cancel_url: "https://app.mailguardpro.com/billing?checkout=cancelled",
       }),
     );
+  });
+
+  it("should use the annual price when interval=year", async () => {
+    const response = await POST(postReq({ plan: "PRO", interval: "year" }));
+
+    expect(response.status).toBe(200);
+    expect(stripe.checkout.sessions.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        line_items: [{ price: "price_pro_annual", quantity: 1 }],
+        subscription_data: { trial_period_days: 14 },
+      }),
+    );
+  });
+
+  it("should return 400 when annual billing is not configured for the plan", async () => {
+    delete process.env.STRIPE_PRO_ANNUAL_PRICE_ID;
+
+    const response = await POST(postReq({ plan: "PRO", interval: "year" }));
+
+    expect(response.status).toBe(400);
+    const json = await response.json();
+    expect(json.success).toBe(false);
+    expect(json.error).toContain("Annual billing is not available");
+    expect(stripe.checkout.sessions.create).not.toHaveBeenCalled();
+  });
+
+  it("should return 400 for an invalid billing interval", async () => {
+    const response = await POST(postReq({ plan: "PRO", interval: "week" }));
+
+    expect(response.status).toBe(400);
+    expect(stripe.checkout.sessions.create).not.toHaveBeenCalled();
   });
 
   it("should create a Stripe customer when the user has none and persist it", async () => {
