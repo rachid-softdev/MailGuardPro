@@ -1,8 +1,8 @@
 "use client";
-import { Button, Card } from "@/components/ui";
 
-import { Bell, Info } from "lucide-react";
+import { Bell, Check, Copy, Info } from "lucide-react";
 import { useEffect, useState } from "react";
+import { Button, Card } from "@/components/ui";
 import { Modal } from "@/components/ui/Modal";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { useOnlineStatusSync } from "@/hooks/useOnlineStatusSync";
@@ -52,6 +52,13 @@ export default function WebhooksPage() {
 
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Webhook | null>(null);
+
+  // Secret lifecycle: the signing secret is returned exactly once (creation or
+  // regeneration) and must be surfaced immediately, then never again.
+  const [revealSecret, setRevealSecret] = useState<{ name: string; secret: string } | null>(null);
+  const [secretCopied, setSecretCopied] = useState(false);
+  const [regenerateTarget, setRegenerateTarget] = useState<Webhook | null>(null);
+  const [regenerating, setRegenerating] = useState(false);
 
   const fetchWebhooks = async () => {
     setLoading(true);
@@ -123,10 +130,16 @@ export default function WebhooksPage() {
       const data = await res.json();
 
       if (data.success) {
+        const createdName = data.data?.name || formName;
+        const createdSecret = data.data?.rawSecret as string | undefined;
         setErrorMessage(null);
         fetchWebhooks();
         setShowCreateModal(false);
         resetForm();
+        // Surface the one-time signing secret right after creation.
+        if (createdSecret) {
+          setRevealSecret({ name: createdName, secret: createdSecret });
+        }
       } else {
         setErrorMessage(
           data.error || "Could not create the webhook. The URL may already be registered.",
@@ -216,6 +229,41 @@ export default function WebhooksPage() {
       setTestResult(`Test failed: Network error`);
     } finally {
       setTesting(false);
+    }
+  };
+
+  const handleCopySecret = () => {
+    if (!revealSecret) return;
+    navigator.clipboard.writeText(revealSecret.secret);
+    setSecretCopied(true);
+    setTimeout(() => setSecretCopied(false), 2000);
+  };
+
+  const handleRegenerateSecret = async () => {
+    if (!regenerateTarget) return;
+    const target = regenerateTarget;
+    setRegenerating(true);
+    try {
+      const res = await fetch(`/api/v1/webhooks/${target.id}/regenerate-secret`, {
+        method: "POST",
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        setErrorMessage(null);
+        setRegenerateTarget(null);
+        setRevealSecret({
+          name: target.name ?? target.url,
+          secret: data.data.rawSecret,
+        });
+      } else {
+        setErrorMessage(data.error || "Could not regenerate the webhook secret. Please try again.");
+      }
+    } catch (error) {
+      logger.error({ err: error }, "Failed to regenerate webhook secret");
+      setErrorMessage("Could not regenerate the webhook secret due to a network issue.");
+    } finally {
+      setRegenerating(false);
     }
   };
 
@@ -337,6 +385,9 @@ export default function WebhooksPage() {
                   >
                     Test
                   </Button>
+                  <Button onClick={() => setRegenerateTarget(webhook)} variant="ghost" size="sm">
+                    Regenerate
+                  </Button>
                   <Button
                     onClick={() => toggleWebhook(webhook.id, webhook.isActive)}
                     variant="ghost"
@@ -456,6 +507,86 @@ export default function WebhooksPage() {
             {creating ? "Creating..." : "Create Webhook"}
           </Button>
         </div>
+      </Modal>
+
+      {/* Secret Reveal Modal (shown once after creation or regeneration) */}
+      <Modal
+        isOpen={!!revealSecret}
+        onClose={() => setRevealSecret(null)}
+        title="Webhook Signing Secret"
+        id="modal-webhook-secret"
+      >
+        {revealSecret && (
+          <div>
+            <div className="bg-[var(--status-valid-bg)] border border-[var(--status-valid)] rounded-lg p-4 mb-4">
+              <div className="flex items-center gap-2 mb-3">
+                <Check className="w-5 h-5 text-[var(--status-valid)]" />
+                <p className="font-medium text-[var(--status-valid)]">Secret ready</p>
+              </div>
+              <p className="text-sm text-[var(--text-muted)] mb-2">
+                Signing secret for <strong>{revealSecret.name}</strong>:
+              </p>
+              <div className="flex items-center gap-2 bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg p-3 font-mono text-sm">
+                <span className="flex-1 break-all">{revealSecret.secret}</span>
+                <button
+                  onClick={handleCopySecret}
+                  className="shrink-0 text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
+                  aria-label={secretCopied ? "Copied" : "Copy secret"}
+                >
+                  {secretCopied ? (
+                    <Check className="w-4 h-4 text-[var(--status-valid)] animate-pulse-dot" />
+                  ) : (
+                    <Copy className="w-4 h-4" />
+                  )}
+                </button>
+              </div>
+            </div>
+            <p className="text-sm text-[var(--text-muted)] mb-4">
+              Make sure to copy this secret now. You won&apos;t be able to see it again!
+            </p>
+            <Button
+              variant="primary"
+              className="w-full"
+              onClick={() => {
+                navigator.clipboard.writeText(revealSecret.secret);
+                setRevealSecret(null);
+              }}
+            >
+              Copy & Close
+            </Button>
+          </div>
+        )}
+      </Modal>
+
+      {/* Regenerate Secret Confirmation Modal */}
+      <Modal
+        isOpen={!!regenerateTarget}
+        onClose={() => setRegenerateTarget(null)}
+        title="Regenerate Signing Secret"
+        id="modal-regenerate-secret"
+      >
+        {regenerateTarget && (
+          <>
+            <p className="text-sm text-[var(--text-secondary)] mb-6">
+              This will replace the signing secret for <strong>{regenerateTarget.name}</strong>.
+              Deliveries will be signed with the new secret immediately — until your endpoint is
+              updated, signature verification with the old secret will fail.
+            </p>
+            <div className="flex gap-3">
+              <Button variant="ghost" className="flex-1" onClick={() => setRegenerateTarget(null)}>
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                className="flex-1"
+                onClick={handleRegenerateSecret}
+                disabled={regenerating}
+              >
+                {regenerating ? "Regenerating..." : "Regenerate Secret"}
+              </Button>
+            </div>
+          </>
+        )}
       </Modal>
 
       {/* Test Modal */}

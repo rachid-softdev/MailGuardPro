@@ -110,4 +110,22 @@ describe("GET /api/v1/usage", () => {
     expect(body.data.bulk.totalEmails).toBe(0);
     expect(body.data.bulk.totalProcessed).toBe(0);
   });
+
+  // ── P1: soft-deleted resources must not be counted ──
+  it("should count only non-soft-deleted API keys and webhooks", async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({
+      plan: "PRO",
+      credits: 100,
+      createdAt: new Date("2024-01-01"),
+      _count: { validations: 0, bulkJobs: 0, apiKeys: 1, webhooks: 0 },
+    });
+
+    await GET(req());
+
+    const call = vi.mocked(prisma.user.findUnique).mock.calls.at(-1)?.[0] as {
+      select: { _count: { select: { apiKeys: unknown; webhooks: unknown } } };
+    };
+    expect(call.select._count.select.apiKeys).toEqual({ where: { deletedAt: null } });
+    expect(call.select._count.select.webhooks).toEqual({ where: { deletedAt: null } });
+  });
 });

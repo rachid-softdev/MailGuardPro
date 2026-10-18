@@ -2,8 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Modal } from "@/components/ui/Modal";
 import { Button, Card } from "@/components/ui";
+import { Modal } from "@/components/ui/Modal";
 import { useUndoDelete } from "@/hooks/useUndoDelete";
 import { logger } from "@/lib/logger";
 
@@ -14,6 +14,12 @@ interface User {
   plan: string;
   credits: number;
   createdAt: string;
+}
+
+interface SessionInfo {
+  id: string;
+  expires: string;
+  isCurrent: boolean;
 }
 
 export default function SettingsPage() {
@@ -27,6 +33,12 @@ export default function SettingsPage() {
   } | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+
+  // Sessions (Security tab)
+  const [sessions, setSessions] = useState<SessionInfo[] | null>(null);
+  const [sessionsLoading, setSessionsLoading] = useState(false);
+  const [revokingSessionId, setRevokingSessionId] = useState<string | null>(null);
+  const [signingOutOthers, setSigningOutOthers] = useState(false);
 
   const { deleteResource } = useUndoDelete({
     deleteEndpoint: "/api/v1/user",
@@ -132,6 +144,68 @@ export default function SettingsPage() {
     void deleteResource("", { name: "Account" });
   };
 
+  const fetchSessions = async () => {
+    setSessionsLoading(true);
+    try {
+      const res = await fetch("/api/v1/user/sessions");
+      if (res.ok) {
+        const data = await res.json();
+        setSessions(data.data || []);
+      } else {
+        setMessage({ type: "error", text: "Failed to load active sessions." });
+      }
+    } catch (error) {
+      logger.error({ err: error }, "Failed to fetch sessions");
+      setMessage({ type: "error", text: "Failed to load active sessions." });
+    } finally {
+      setSessionsLoading(false);
+    }
+  };
+
+  const revokeSession = async (id: string) => {
+    setRevokingSessionId(id);
+    try {
+      const res = await fetch(`/api/v1/user/sessions/${id}`, { method: "DELETE" });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setMessage({ type: "success", text: "Session revoked." });
+        void fetchSessions();
+      } else {
+        setMessage({ type: "error", text: data.error || "Failed to revoke session." });
+      }
+    } catch (error) {
+      logger.error({ err: error }, "Failed to revoke session");
+      setMessage({ type: "error", text: "Failed to revoke session." });
+    } finally {
+      setRevokingSessionId(null);
+    }
+  };
+
+  const signOutOtherDevices = async () => {
+    setSigningOutOthers(true);
+    try {
+      const res = await fetch("/api/v1/user/sessions/revoke-others", { method: "POST" });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setMessage({
+          type: "success",
+          text:
+            data.revokedCount > 0
+              ? `Signed out ${data.revokedCount} other session(s).`
+              : "No other active sessions.",
+        });
+        void fetchSessions();
+      } else {
+        setMessage({ type: "error", text: data.error || "Failed to sign out other devices." });
+      }
+    } catch (error) {
+      logger.error({ err: error }, "Failed to sign out other devices");
+      setMessage({ type: "error", text: "Failed to sign out other devices." });
+    } finally {
+      setSigningOutOthers(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="p-8 max-w-2xl">
@@ -140,7 +214,7 @@ export default function SettingsPage() {
           <div className="h-4 w-72 animate-skeleton rounded" />
         </div>
         <div className="flex gap-1 mb-8 border-b border-[var(--border)]">
-          {[...Array(4)].map((_, i) => (
+          {[...Array(5)].map((_, i) => (
             <div key={i} className="h-8 w-20 animate-skeleton rounded" />
           ))}
         </div>
@@ -166,10 +240,15 @@ export default function SettingsPage() {
 
       {/* Tabs */}
       <div className="flex gap-1 mb-8 border-b border-[var(--border)] overflow-x-auto pb-px">
-        {["profile", "billing", "api", "danger"].map((tab) => (
+        {["profile", "billing", "api", "security", "danger"].map((tab) => (
           <button
             key={tab}
-            onClick={() => setActiveTab(tab)}
+            onClick={() => {
+              setActiveTab(tab);
+              if (tab === "security" && sessions === null && !sessionsLoading) {
+                void fetchSessions();
+              }
+            }}
             className={`px-4 py-2 text-sm font-medium capitalize transition-all duration-200 ${
               activeTab === tab
                 ? "text-[var(--accent)] border-b-2 border-[var(--accent)] -mb-px"
@@ -267,6 +346,75 @@ export default function SettingsPage() {
 
             <Button href="/api-keys" variant="primary" className="inline-block">
               Manage API Keys
+            </Button>
+          </div>
+        </Card>
+      )}
+
+      {/* Security Tab */}
+      {activeTab === "security" && (
+        <Card variant="default" padding="md" className="animate-fade-slide-up max-w-2xl">
+          <h2 className="text-lg font-display font-semibold mb-6">Active Sessions</h2>
+
+          {message && (
+            <div
+              className={`animate-fade-slide-in p-4 rounded-lg mb-6 ${message.type === "success" ? "bg-[var(--status-valid-bg)] text-[var(--status-valid)]" : "bg-[var(--status-invalid-bg)] text-[var(--status-invalid)]"}`}
+            >
+              {message.text}
+            </div>
+          )}
+
+          <p className="text-[var(--text-secondary)] mb-4">
+            Devices currently signed in to your account. Revoking a session signs that device out
+            immediately. Sessions expire automatically after 30 days.
+          </p>
+
+          {sessionsLoading ? (
+            <div className="space-y-3">
+              {[1, 2].map((i) => (
+                <div
+                  key={i}
+                  className="h-16 border border-[var(--border)] rounded-lg animate-skeleton"
+                />
+              ))}
+            </div>
+          ) : sessions && sessions.length > 0 ? (
+            <div className="space-y-3">
+              {sessions.map((s) => (
+                <div
+                  key={s.id}
+                  className="flex items-center justify-between p-4 border border-[var(--border)] rounded-lg"
+                >
+                  <div>
+                    <p className="font-medium flex items-center gap-2">
+                      Session {s.id.slice(0, 8)}
+                      {s.isCurrent && <span className="badge badge-success">This device</span>}
+                    </p>
+                    <p className="text-sm text-[var(--text-muted)]">
+                      Expires {new Date(s.expires).toLocaleDateString()}
+                    </p>
+                  </div>
+                  {!s.isCurrent && (
+                    <Button
+                      onClick={() => revokeSession(s.id)}
+                      variant="ghost"
+                      size="sm"
+                      className="text-[var(--status-invalid)]"
+                      disabled={revokingSessionId === s.id}
+                    >
+                      {revokingSessionId === s.id ? "Revoking..." : "Revoke"}
+                    </Button>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-[var(--text-muted)]">No active sessions found.</p>
+          )}
+
+          <div className="mt-6">
+            <Button onClick={signOutOtherDevices} variant="ghost" disabled={signingOutOthers}>
+              {signingOutOthers ? "Signing out..." : "Sign Out Other Devices"}
             </Button>
           </div>
         </Card>

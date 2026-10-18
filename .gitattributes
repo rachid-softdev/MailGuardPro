@@ -1,0 +1,3 @@
+# Normalize line endings: LF in the repository and in the working tree.
+# Prevents CRLF/format-check churn on Windows checkouts (Biome expects LF).
+* text=auto eol=lf
