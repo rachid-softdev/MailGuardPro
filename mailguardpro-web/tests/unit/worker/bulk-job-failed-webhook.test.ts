@@ -33,7 +33,11 @@ vi.mock("ioredis", () => {
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     bulkJob: { update: mockUpdate, findUnique: vi.fn() },
-    validation: { createMany: vi.fn().mockResolvedValue({ count: 0 }) },
+    validation: {
+      createMany: vi.fn().mockResolvedValue({ count: 0 }),
+      deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
+    },
+    $transaction: vi.fn(async (ops: any[]) => Promise.all(ops)),
   },
 }));
 

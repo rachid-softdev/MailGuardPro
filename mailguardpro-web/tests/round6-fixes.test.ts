@@ -70,6 +70,8 @@ vi.mock("@/lib/prisma", () => ({
       update: vi.fn(),
       findMany: vi.fn(),
       count: vi.fn(),
+      findFirst: vi.fn(),
+      delete: vi.fn(),
     },
     apiKey: {
       findUnique: vi.fn(),
@@ -678,7 +680,7 @@ describe("Fix H3 — pre-deduction gate (format + disposable)", () => {
       findUnique: vi.fn().mockResolvedValue({ id: "user-h3", credits: 99 }),
     },
     validation: {
-      create: vi.fn().mockResolvedValue({}),
+      upsert: vi.fn().mockResolvedValue({}),
     },
   };
 

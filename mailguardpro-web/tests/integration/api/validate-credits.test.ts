@@ -23,6 +23,8 @@ const { mockPrisma, mockValidateEmail, mockCheckFormat, mockCheckDisposable } = 
     validation: {
       create: vi.fn(),
       update: vi.fn(),
+      findFirst: vi.fn().mockResolvedValue(null),
+      delete: vi.fn(),
     },
     session: {
       findMany: vi.fn().mockResolvedValue([]),
@@ -172,7 +174,7 @@ beforeEach(() => {
         findUnique: vi.fn().mockResolvedValue({ id: "user-credits-1", credits: 4 }),
       },
       validation: {
-        create: vi.fn().mockResolvedValue({ id: "val-1" }),
+        upsert: vi.fn().mockResolvedValue({ id: "val-1" }),
       },
     });
   });
@@ -205,7 +207,7 @@ describe("DI-1: Credit deduction race conditions", () => {
   // ---------------------------------------------------------------------------
   it("should NOT deduct credit when validateEmail throws (transaction rollback)", async () => {
     // The transaction itself fails — validateEmail is not the direct cause
-    // (the error is in validation.create, which is inside the transaction callback)
+    // (the error is in validation.upsert, which is inside the transaction callback)
     mockPrisma.$transaction.mockImplementation(async (fn: any) => {
       return fn({
         user: {
@@ -213,7 +215,7 @@ describe("DI-1: Credit deduction race conditions", () => {
           findUnique: vi.fn().mockResolvedValue({ id: "user-credits-1", credits: 5 }),
         },
         validation: {
-          create: vi.fn().mockRejectedValue(new Error("DB insert failed")),
+          upsert: vi.fn().mockRejectedValue(new Error("DB insert failed")),
         },
       });
     });
@@ -240,7 +242,7 @@ describe("DI-1: Credit deduction race conditions", () => {
           updateMany: vi.fn().mockResolvedValue({ count: 0 }),
           findUnique: vi.fn().mockResolvedValue({ id: "user-credits-1", credits: 0 }),
         },
-        validation: { create: vi.fn() },
+        validation: { upsert: vi.fn() },
       });
     });
 
@@ -275,7 +277,7 @@ describe("DI-1: Credit deduction race conditions", () => {
           }),
         },
         validation: {
-          create: vi.fn().mockResolvedValue({ id: `val-${callCount}` }),
+          upsert: vi.fn().mockResolvedValue({ id: `val-${callCount}` }),
         },
       });
     });
@@ -317,8 +319,8 @@ describe("DI-1: Credit deduction race conditions", () => {
           findUnique: vi.fn().mockResolvedValue({ id: "user-credits-1", credits: 4 }),
         },
         validation: {
-          create: vi.fn().mockImplementation((args: any) => {
-            validationCreateData = args.data;
+          upsert: vi.fn().mockImplementation((args: any) => {
+            validationCreateData = args.create;
             return Promise.resolve({ id: "val-1" });
           }),
         },
@@ -345,7 +347,7 @@ describe("DI-1: Credit deduction race conditions", () => {
           updateMany: vi.fn().mockResolvedValue({ count: 0 }),
           findUnique: vi.fn().mockResolvedValue({ id: "user-credits-1", credits: 0 }),
         },
-        validation: { create: vi.fn() },
+        validation: { upsert: vi.fn() },
       });
     });
 
@@ -376,7 +378,7 @@ describe("DI-1: Credit deduction race conditions", () => {
             .mockResolvedValue({ id: "user-credits-1", credits: canDeduct ? 1 : 0 }),
         },
         validation: {
-          create: vi.fn().mockResolvedValue({ id: `val-${callCount}` }),
+          upsert: vi.fn().mockResolvedValue({ id: `val-${callCount}` }),
         },
       });
     });
@@ -432,7 +434,7 @@ describe("Post-transaction edge cases & Cache-Control headers", () => {
           findUnique: vi.fn().mockResolvedValue({ id: "user-credits-1", credits: 4 }),
         },
         validation: {
-          create: vi.fn().mockResolvedValue({ id: "val-1" }),
+          upsert: vi.fn().mockResolvedValue({ id: "val-1" }),
         },
       });
     });
@@ -543,5 +545,93 @@ describe("Post-transaction edge cases & Cache-Control headers", () => {
     const cc = response.headers.get("Cache-Control") || "";
     expect(cc).toContain("s-maxage=300");
     expect(cc).toContain("stale-while-revalidate=600");
+  });
+});
+
+// =============================================================================
+// DI-1b — Dedup (CRIT-4) : email déjà validé → résultat existant, 0 crédit
+// =============================================================================
+
+describe("DI-1b: duplicate email dedup (CRIT-4)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+
+    // Default: format and disposable pass
+    mockCheckFormat.mockReturnValue({ passed: true, message: "Valid format" });
+    mockCheckDisposable.mockResolvedValue({ passed: true, message: "Not disposable" });
+  });
+
+  it("should return the existing result without charging credits or re-validating", async () => {
+    // Pre-check finds a completed validation for this user+email
+    mockPrisma.validation.findFirst.mockResolvedValueOnce({
+      id: "val-existing",
+      score: 42,
+      status: "risky",
+      checksJson: { format: { passed: true, message: "Valid" } },
+      processingTimeMs: 111,
+      algoVersion: 1,
+    });
+
+    const { auth } = await import("@/lib/auth");
+    vi.mocked(auth).mockResolvedValueOnce({
+      user: { id: "user-credits-1", plan: "FREE", credits: 4 },
+      expires: new Date(Date.now() + 86400000).toISOString(),
+    } as any);
+    mockPrisma.user.findUnique.mockResolvedValue({
+      id: "user-credits-1",
+      credits: 4,
+      isActive: true,
+    });
+
+    const url = new URL(`http://localhost:3000/api/v1/validate?email=${VALID_EMAIL}`);
+    const req = new (await import("next/server")).NextRequest(url);
+    const response = await GET(req);
+
+    expect(response.status).toBe(200);
+    const json = await response.json();
+    expect(json.data.status).toBe("risky");
+    expect(json.data.score).toBe(42);
+    expect(json.meta.creditsUsed).toBe(0);
+    // No transaction, no re-validation, no charge
+    expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+    expect(mockValidateEmail).not.toHaveBeenCalled();
+    expect(mockPrisma.user.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("should return the existing result when the pending insert races (P2002)", async () => {
+    // First findFirst (pre-check) → no existing row; second (P2002 fallback) → row
+    mockPrisma.validation.findFirst.mockResolvedValueOnce(null).mockResolvedValueOnce({
+      id: "val-race",
+      score: 77,
+      status: "valid",
+      checksJson: { format: { passed: true, message: "Valid" } },
+      processingTimeMs: 90,
+      algoVersion: 1,
+    });
+
+    const { auth } = await import("@/lib/auth");
+    vi.mocked(auth).mockResolvedValueOnce({
+      user: { id: "user-credits-1", plan: "FREE", credits: 4 },
+      expires: new Date(Date.now() + 86400000).toISOString(),
+    } as any);
+    mockPrisma.user.findUnique.mockResolvedValue({
+      id: "user-credits-1",
+      credits: 4,
+      isActive: true,
+    });
+
+    // The pending insert loses a race: unique constraint (P2002)
+    const p2002 = Object.assign(new Error("Unique constraint failed"), { code: "P2002" });
+    mockPrisma.$transaction.mockRejectedValueOnce(p2002);
+
+    const url = new URL(`http://localhost:3000/api/v1/validate?email=${VALID_EMAIL}`);
+    const req = new (await import("next/server")).NextRequest(url);
+    const response = await GET(req);
+
+    expect(response.status).toBe(200);
+    const json = await response.json();
+    expect(json.data.status).toBe("valid");
+    expect(json.meta.creditsUsed).toBe(0);
+    expect(mockValidateEmail).not.toHaveBeenCalled();
   });
 });

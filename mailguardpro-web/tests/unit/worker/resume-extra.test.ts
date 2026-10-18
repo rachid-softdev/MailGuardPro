@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const mockFindUnique = vi.hoisted(() => vi.fn());
 const mockUpdate = vi.hoisted(() => vi.fn());
 const mockValidationCreateMany = vi.hoisted(() => vi.fn());
+const mockValidationDeleteMany = vi.hoisted(() => vi.fn().mockResolvedValue({ count: 0 }));
 const mockValidateEmail = vi.hoisted(() => vi.fn());
 const mockPublish = vi.hoisted(() => vi.fn());
 const mockDispatchToUser = vi.hoisted(() => vi.fn());
@@ -46,7 +47,8 @@ vi.mock("@/lib/redis", () => ({
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     bulkJob: { findUnique: mockFindUnique, update: mockUpdate },
-    validation: { createMany: mockValidationCreateMany },
+    validation: { createMany: mockValidationCreateMany, deleteMany: mockValidationDeleteMany },
+    $transaction: vi.fn(async (ops: any[]) => Promise.all(ops)),
     $connect: vi.fn(),
     $disconnect: vi.fn(),
   },

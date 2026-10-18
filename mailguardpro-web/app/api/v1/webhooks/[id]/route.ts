@@ -10,7 +10,7 @@ import { loggerApi } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
 import { checkRateLimitByPlan, type Plan } from "@/lib/rateLimits";
 import { parseJsonBody } from "@/lib/request";
-import { resolveWebhookIps, validateWebhookUrlWithDns } from "@/lib/ssrf";
+import { validateWebhookUrlWithDns } from "@/lib/ssrf";
 import { AuditAction, AuditResource, logAudit } from "@/services/auditLogger";
 
 const updateWebhookSchema = z.object({
@@ -164,17 +164,16 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         );
       }
 
-      // DNS Pinning : résoudre et stocker les nouvelles IPs
-      const webhookUrl = new URL(url);
-      const hostname = webhookUrl.hostname.toLowerCase().replace(/^\[|\]$/g, "");
-      const ipResolution = await resolveWebhookIps(hostname);
-      if (!ipResolution.valid || !ipResolution.ips) {
+      // DNS Pinning: reuse the IPs resolved during SSRF validation (single
+      // resolution — a second lookup would reopen a DNS-rebinding window and
+      // pin IPs that were never validated). Stored as a native JSON array.
+      if (!ssrfCheck.resolvedIps || ssrfCheck.resolvedIps.length === 0) {
         return NextResponse.json(
-          { success: false, error: `Webhook URL rejected: ${ipResolution.error}` },
+          { success: false, error: "Webhook URL rejected: no IPs resolved" },
           { status: 400 },
         );
       }
-      updateData.pinnedIps = JSON.stringify(ipResolution.ips);
+      updateData.pinnedIps = ssrfCheck.resolvedIps;
     }
 
     if (url !== undefined) updateData.url = url;

@@ -127,6 +127,7 @@ export default function BillingPage() {
     text: string;
   } | null>(null);
   const [portalLoading, setPortalLoading] = useState(false);
+  const [checkoutPlan, setCheckoutPlan] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -195,6 +196,51 @@ export default function BillingPage() {
 
   const currentPlan = user?.plan || "FREE";
   const currentPlanDef = PLANS.find((p) => p.name === currentPlan) || PLANS[0];
+
+  const startCheckout = useCallback(async (planName: string) => {
+    setCheckoutPlan(planName);
+    setMessage(null);
+    try {
+      const res = await fetch("/api/v1/billing/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plan: planName }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.data?.url) {
+        window.location.href = data.data.url;
+        return;
+      }
+      setMessage({
+        type: "error",
+        text: data.error || "Could not start checkout. Please try again.",
+      });
+    } catch (err) {
+      logger.error({ err }, "Failed to start checkout");
+      setMessage({
+        type: "error",
+        text: "Could not start checkout. Please try again.",
+      });
+    } finally {
+      setCheckoutPlan(null);
+    }
+  }, []);
+
+  /**
+   * Paid plan from FREE → Stripe Checkout (new subscription).
+   * Everything else (downgrade, plan change with an active subscription) →
+   * customer portal, where Stripe handles proration/cancellation.
+   */
+  const handlePlanAction = useCallback(
+    (planName: string) => {
+      if (planName !== "FREE" && currentPlan === "FREE") {
+        void startCheckout(planName);
+      } else {
+        void openStripePortal();
+      }
+    },
+    [currentPlan, startCheckout, openStripePortal],
+  );
 
   const usagePercentage =
     usage && usage.credits.included > 0
@@ -419,14 +465,14 @@ export default function BillingPage() {
                     : "hover:border-[var(--border-strong)] hover:shadow-[var(--shadow-md)] cursor-pointer"
                 }`}
                 onClick={() => {
-                  if (!isCurrentPlan) void openStripePortal();
+                  if (!isCurrentPlan) handlePlanAction(plan.name);
                 }}
                 role={isCurrentPlan ? "article" : "button"}
                 tabIndex={isCurrentPlan ? undefined : 0}
                 onKeyDown={(e) => {
                   if (!isCurrentPlan && (e.key === "Enter" || e.key === " ")) {
                     e.preventDefault();
-                    void openStripePortal();
+                    handlePlanAction(plan.name);
                   }
                 }}
                 aria-current={isCurrentPlan ? true : undefined}
@@ -490,9 +536,17 @@ export default function BillingPage() {
                     variant="primary"
                     size="sm"
                     className="w-full"
-                    onClick={(e) => e.stopPropagation()}
+                    disabled={portalLoading || checkoutPlan !== null}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handlePlanAction(plan.name);
+                    }}
                   >
-                    {plan.monthlyPrice === "€0" ? "Downgrade" : "Upgrade"}
+                    {checkoutPlan === plan.name
+                      ? "Redirecting..."
+                      : plan.monthlyPrice === "€0"
+                        ? "Downgrade"
+                        : "Upgrade"}
                   </Button>
                 )}
               </Card>

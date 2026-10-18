@@ -38,6 +38,8 @@ const {
     validation: {
       create: vi.fn(),
       update: vi.fn(),
+      findFirst: vi.fn().mockResolvedValue(null),
+      delete: vi.fn(),
     },
     $transaction: vi.fn(),
   },
@@ -201,7 +203,7 @@ beforeEach(() => {
         findUnique: vi.fn().mockResolvedValue({ credits: 99 }),
       },
       validation: {
-        create: vi.fn().mockResolvedValue({ id: "val-1" }),
+        upsert: vi.fn().mockResolvedValue({ id: "val-1" }),
       },
     });
   });

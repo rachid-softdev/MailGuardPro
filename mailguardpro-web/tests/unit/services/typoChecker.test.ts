@@ -28,7 +28,7 @@ vi.mock("fast-levenshtein", async () => {
   }
 
   return {
-    default: vi.fn((a: string, b: string) => levenshtein(a, b)),
+    get: vi.fn((a: string, b: string) => levenshtein(a, b)),
   };
 });
 
@@ -137,6 +137,20 @@ describe("typoChecker", () => {
       expect(result.passed).toBe(false);
       expect(result).toHaveProperty("suggestion");
       expect(result.suggestion).toBe("test@outlook.com");
+    });
+
+    it("should not flag valid gmail.com as a typo (substring regression)", async () => {
+      // "gmail.com".includes("gmai") used to trigger the commonTypos block.
+      const result = await checkTypo("user@gmail.com");
+      expect(result.passed).toBe(true);
+      expect(result).not.toHaveProperty("suggestion");
+    });
+
+    it("should not flag valid yahoo.com as a typo (substring regression)", async () => {
+      // "yahoo.com".includes("yaho") used to trigger the commonTypos block.
+      const result = await checkTypo("user@yahoo.com");
+      expect(result.passed).toBe(true);
+      expect(result).not.toHaveProperty("suggestion");
     });
   });
 

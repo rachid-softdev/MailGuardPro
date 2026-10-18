@@ -41,6 +41,14 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     const now = new Date();
     const undoExpiresAt = new Date(now.getTime() + 5000);
 
+    // Preserve the session that made this request so the 5s undo window keeps
+    // working; all OTHER sessions are revoked ("re-login on other devices").
+    // If the current token cannot be determined, all sessions are invalidated
+    // (fail-safe direction).
+    const currentSessionToken =
+      req.cookies.get("next-auth.session-token")?.value ??
+      req.cookies.get("__Secure-next-auth.session-token")?.value;
+
     // Soft delete: mark as deleted + revoke
     await prisma.$transaction([
       prisma.apiKey.update({
@@ -52,7 +60,10 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
         data: { tokenVersion: { increment: 1 } },
       }),
       prisma.session.deleteMany({
-        where: { userId: session.user.id },
+        where: {
+          userId: session.user.id,
+          ...(currentSessionToken ? { sessionToken: { not: currentSessionToken } } : {}),
+        },
       }),
     ]);
 
@@ -73,7 +84,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
 
     return NextResponse.json({
       success: true,
-      message: "API key revoked. All sessions invalidated — please re-login on other devices.",
+      message: "API key revoked. Other sessions invalidated — please re-login on other devices.",
       undoable: true,
       undoExpiresAt: undoExpiresAt.toISOString(),
     });

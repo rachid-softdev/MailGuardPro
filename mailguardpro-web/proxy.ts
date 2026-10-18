@@ -4,7 +4,7 @@
 
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
-import { getAuthToken } from "@/lib/auth-edge";
+import { hasSessionCookie } from "@/lib/auth-edge";
 import { getCorsHeaders, handleCors } from "@/lib/cors";
 import { loggerEdge } from "@/lib/logger-edge";
 import { checkMemoryRateLimit } from "@/lib/rateLimitMemory";
@@ -51,9 +51,11 @@ export default async function proxy(req: NextRequest) {
   const corsResponse = handleCors(req);
   if (corsResponse) return corsResponse;
 
-  // Verify JWT via lightweight edge-safe helper (no Prisma/Redis)
-  const token = await getAuthToken(req);
-  const isLoggedIn = !!token;
+  // Coarse edge auth gate — DB-backed sessions cannot be validated in the Edge
+  // Runtime, so only the presence of a session cookie is checked here (see
+  // lib/auth-edge.ts). Full session validation is enforced server-side by
+  // auth() in layouts and API routes.
+  const isLoggedIn = hasSessionCookie(req);
 
   // Rate limiting for auth routes (20 req/min per IP)
   if (req.nextUrl.pathname.startsWith("/api/auth")) {
@@ -109,9 +111,10 @@ export default async function proxy(req: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  if (isLoggedIn && req.nextUrl.pathname === "/login") {
-    return NextResponse.redirect(new URL("/dashboard", req.url));
-  }
+  // NOTE: an `isLoggedIn → redirect /login to /dashboard` shortcut is
+  // intentionally absent: with a stale session cookie (expired/revoked in DB)
+  // the dashboard layout redirects to /login which would then bounce back to
+  // /dashboard, creating an infinite redirect loop.
 
   const response = NextResponse.next({ request: { headers: requestHeaders } });
 

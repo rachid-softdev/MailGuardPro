@@ -15,7 +15,12 @@ const { mockPrisma, mockValidateEmail, mockCheckFormat, mockCheckDisposable } = 
       updateMany: vi.fn(),
     },
     apiKey: { findFirst: vi.fn().mockResolvedValue(null) },
-    validation: { create: vi.fn(), update: vi.fn() },
+    validation: {
+      create: vi.fn(),
+      update: vi.fn(),
+      findFirst: vi.fn().mockResolvedValue(null),
+      delete: vi.fn(),
+    },
     session: { findMany: vi.fn().mockResolvedValue([]) },
     auditLog: { create: vi.fn() },
     $transaction: vi.fn(),
@@ -101,7 +106,7 @@ beforeEach(() => {
         updateMany: vi.fn().mockResolvedValue({ count: 1 }),
         findUnique: vi.fn().mockResolvedValue({ id: "user-biz", credits: 0 }),
       },
-      validation: { create: vi.fn().mockResolvedValue({ id: "val-1" }) },
+      validation: { upsert: vi.fn().mockResolvedValue({ id: "val-1" }) },
     }),
   );
 });

@@ -52,6 +52,8 @@ vi.mock("@/lib/prisma", () => ({
     validation: {
       create: vi.fn(() => Promise.resolve({ id: "val-1" })),
       update: vi.fn(() => Promise.resolve({})),
+      findFirst: vi.fn(() => Promise.resolve(null)),
+      delete: vi.fn(() => Promise.resolve({})),
     },
     $transaction: vi.fn(async (cb: any) => {
       return cb({
@@ -60,7 +62,7 @@ vi.mock("@/lib/prisma", () => ({
           findUnique: vi.fn(() => Promise.resolve({ credits: 99 })),
         },
         validation: {
-          create: vi.fn(() => Promise.resolve({ id: "val-1" })),
+          upsert: vi.fn(() => Promise.resolve({ id: "val-1" })),
         },
       });
     }),
@@ -226,7 +228,7 @@ describe("SEC-1: Timing-safe catch block", () => {
           findUnique: vi.fn(() => Promise.resolve({ credits: 0 })),
         },
         validation: {
-          create: vi.fn(() => Promise.resolve({})),
+          upsert: vi.fn(() => Promise.resolve({})),
         },
       });
     });

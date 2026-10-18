@@ -292,9 +292,8 @@ describe("webhookDispatcher", () => {
       expect(result.failed).toBe(0);
     });
 
-    it("should handle webhook with pinnedIps set to null (line 214 falsy branch)", async () => {
-      // Line 214: pinnedIps: webhook.pinnedIps ? String(...) : undefined
-      // When pinnedIps is null/undefined, the ternary takes the falsy branch → undefined
+    it("should handle webhook with pinnedIps set to null (parsePinnedIps falsy branch)", async () => {
+      // parsePinnedIps(null) → undefined → dispatch rejects "No pinned IPs"
       mockPrisma.webhook.findMany.mockResolvedValue([
         {
           id: "webhook-null-ips",
@@ -303,7 +302,7 @@ describe("webhookDispatcher", () => {
           isActive: true,
           events: ["bulk_job_completed"],
           encryptedSecret: "secret",
-          pinnedIps: null, // null → falsy branch → undefined
+          pinnedIps: null,
         },
       ]);
 
@@ -321,6 +320,68 @@ describe("webhookDispatcher", () => {
       expect(result.total).toBe(1);
       expect(result.successful).toBe(0);
       expect(result.failed).toBe(1);
+    });
+
+    it("should parse legacy JSON-string pinnedIps and deliver in production (no false DNS REBINDING)", async () => {
+      // Legacy rows stored pinnedIps as a JSON-encoded string; the dispatcher
+      // must normalize it before the anti-rebinding comparison. In production,
+      // a mismatch blocks the delivery — this test would fail if the string
+      // were split as CSV (old behavior), since the quotes/brackets survive.
+      vi.stubEnv("NODE_ENV", "production");
+      try {
+        mockPrisma.webhook.findMany.mockResolvedValue([
+          {
+            id: "webhook-legacy-ips",
+            userId: "user-123",
+            url: "https://example.com/legacy",
+            isActive: true,
+            events: ["bulk_job_completed"],
+            encryptedSecret: "secret",
+            pinnedIps: '["93.184.216.34"]',
+          },
+        ]);
+
+        mockFetch.mockResolvedValue({ ok: true, status: 200, statusText: "OK" } as any);
+
+        const result = await WebhookDispatcher.dispatchToUser("user-123", "bulk_job_completed", {
+          test: "data",
+        });
+
+        expect(result.total).toBe(1);
+        expect(result.successful).toBe(1);
+        expect(result.failed).toBe(0);
+      } finally {
+        vi.unstubAllEnvs();
+      }
+    });
+
+    it("should deliver with native-array pinnedIps in production (matches resolved IPs)", async () => {
+      vi.stubEnv("NODE_ENV", "production");
+      try {
+        mockPrisma.webhook.findMany.mockResolvedValue([
+          {
+            id: "webhook-array-ips",
+            userId: "user-123",
+            url: "https://example.com/array",
+            isActive: true,
+            events: ["bulk_job_completed"],
+            encryptedSecret: "secret",
+            pinnedIps: ["93.184.216.34"],
+          },
+        ]);
+
+        mockFetch.mockResolvedValue({ ok: true, status: 200, statusText: "OK" } as any);
+
+        const result = await WebhookDispatcher.dispatchToUser("user-123", "bulk_job_completed", {
+          test: "data",
+        });
+
+        expect(result.total).toBe(1);
+        expect(result.successful).toBe(1);
+        expect(result.failed).toBe(0);
+      } finally {
+        vi.unstubAllEnvs();
+      }
     });
   });
 

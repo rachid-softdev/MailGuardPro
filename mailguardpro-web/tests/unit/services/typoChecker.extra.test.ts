@@ -21,10 +21,7 @@ function realLevenshtein(a: string, b: string): number {
 const levImpl = vi.fn();
 
 vi.mock("fast-levenshtein", () => ({
-  __esModule: true,
-  default: levImpl,
   get: levImpl,
-  getEditDistance: levImpl,
 }));
 
 import { checkTypo } from "@/services/typoChecker";
