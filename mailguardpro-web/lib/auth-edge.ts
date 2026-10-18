@@ -1,37 +1,34 @@
-// Edge-safe auth helper — verifies JWT without loading Prisma/Redis/logger
-// Used exclusively in proxy.ts (Edge Runtime) where `import { auth } from "./auth"` would
-// trigger Node.js module bundling warnings (PrismaAdapter, ioredis, pino/crypto, etc.)
+// Edge-safe auth check — used exclusively in proxy.ts (Edge Runtime) where
+// `import { auth } from "./auth"` would trigger Node.js module bundling
+// warnings (PrismaAdapter, ioredis, pino/crypto, etc.).
 //
-// For the full auth handler (callbacks, DB-backed sessions), use lib/auth.ts instead.
+// lib/auth.ts uses `session.strategy = "database"`: the session cookie holds an
+// opaque session token that can only be validated against the database by
+// `auth()` in Node. `getToken()` (next-auth/jwt) decodes JWTs, so it always
+// resolved to null for these sessions and the proxy rejected every logged-in
+// user (redirected to /login despite a valid session).
+//
+// The proxy therefore only checks that a session cookie is present. This is a
+// coarse gate for redirects — it must NOT be used for authorization decisions;
+// real validation is performed server-side by auth() in layouts/API routes.
 
 import type { NextRequest } from "next/server";
-import { getToken } from "next-auth/jwt";
 
-const AUTH_SECRET = process.env.AUTH_SECRET;
+// `next-auth.session-token` is the configured cookie name (lib/auth.ts overrides
+// the default entirely); `__Secure-` is included in case the app later switches
+// to the secure-prefixed default.
+const SESSION_COOKIE_NAMES = ["next-auth.session-token", "__Secure-next-auth.session-token"];
 
 /**
- * Returns the decoded JWT token for the given request, or `null` if not authenticated.
- * Lightweight / edge-safe equivalent of `auth()` from `@/lib/auth`.
+ * Returns `true` when the request carries a NextAuth session cookie.
+ * A present cookie does not guarantee a valid session (it may be expired or
+ * revoked in the database) — callers must not treat this as authentication.
  */
-export async function getAuthToken(
-  request: NextRequest | Request,
-): Promise<{ sub?: string; email?: string; name?: string; picture?: string } | null> {
-  if (!AUTH_SECRET) {
-    // AUTH_SECRET not configured: auth checks will fail-closed (redirect to login)
-    if (process.env.NODE_ENV === "development") {
-      console.warn("[MailGuard] AUTH_SECRET not set — auth checks will reject all requests");
-    }
-    return null;
-  }
-
-  try {
-    const token = await getToken({
-      req: request,
-      secret: AUTH_SECRET,
-      secureCookie: process.env.NODE_ENV === "production",
-    });
-    return token as { sub?: string; email?: string; name?: string; picture?: string } | null;
-  } catch {
-    return null;
-  }
+export function hasSessionCookie(request: NextRequest | Request): boolean {
+  const cookieHeader = request.headers.get("cookie");
+  if (!cookieHeader) return false;
+  return cookieHeader.split(";").some((part) => {
+    const name = (part.split("=", 1)[0] ?? "").trim();
+    return SESSION_COOKIE_NAMES.includes(name);
+  });
 }

@@ -25,6 +25,33 @@ export interface WebhookConfig {
 const MAX_RETRIES = 3;
 const RETRY_DELAYS = [2000, 4000, 8000]; // Backoff exponentiel
 
+/**
+ * Normalize the `Webhook.pinnedIps` JSON column to a string array.
+ * Native JSON arrays are returned as-is; legacy rows written as JSON-encoded
+ * strings (e.g. '["1.2.3.4"]') are parsed; plain CSV strings are split.
+ */
+function parsePinnedIps(raw: unknown): string[] | undefined {
+  const stringIps = (value: unknown[]): string[] | undefined => {
+    const ips = value.filter((ip): ip is string => typeof ip === "string");
+    return ips.length > 0 ? ips : undefined;
+  };
+  if (raw == null) return undefined;
+  if (Array.isArray(raw)) return stringIps(raw);
+  if (typeof raw === "string") {
+    const trimmed = raw.trim();
+    if (trimmed.startsWith("[")) {
+      try {
+        const parsed: unknown = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) return stringIps(parsed);
+      } catch {
+        // fall through to CSV parsing
+      }
+    }
+    return stringIps(trimmed.split(",").map((s) => s.trim()));
+  }
+  return undefined;
+}
+
 function withJitter(delayMs: number): number {
   const jitter = delayMs * 0.2; // ±20%
   return Math.max(100, delayMs + Math.floor(Math.random() * jitter * 2) - jitter);
@@ -212,11 +239,7 @@ export class WebhookDispatcher {
               secret: webhook.encryptedSecret,
               events: webhook.events,
               isActive: webhook.isActive,
-              pinnedIps: webhook.pinnedIps
-                ? String(webhook.pinnedIps)
-                    .split(",")
-                    .map((s: string) => s.trim())
-                : undefined,
+              pinnedIps: parsePinnedIps(webhook.pinnedIps),
             },
             event,
             data,

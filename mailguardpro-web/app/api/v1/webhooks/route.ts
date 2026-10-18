@@ -120,11 +120,11 @@ export async function POST(req: NextRequest) {
         { status: 400 },
       );
     }
-    const pinnedIps = JSON.stringify(ssrfCheck.resolvedIps);
+    const pinnedIps = ssrfCheck.resolvedIps; // native JSON array (Json column type)
 
-    // Vérifier le nombre de webhooks existants
+    // Vérifier le nombre de webhooks existants (soft-deleted ones don't count)
     const existingWebhooksCount = await prisma.webhook.count({
-      where: { userId: session.user.id },
+      where: { userId: session.user.id, deletedAt: null },
     });
 
     if (existingWebhooksCount >= 10) {
@@ -167,6 +167,7 @@ export async function POST(req: NextRequest) {
           url: webhook.url,
           name: webhook.name,
           events: webhook.events,
+          rawSecret,
           rawSecretPrefix: rawSecret.substring(0, 4),
           isActive: webhook.isActive,
           createdAt: webhook.createdAt,

@@ -190,7 +190,7 @@ describe("PATCH /api/v1/webhooks/[id] (P0/P1)", () => {
     );
   });
 
-  it("re-pins IPs when the URL is updated", async () => {
+  it("re-pins IPs from the validated resolution when the URL is updated", async () => {
     mockParseJsonBody.mockReturnValue({
       data: { url: "https://new.com" },
       error: undefined,
@@ -200,7 +200,10 @@ describe("PATCH /api/v1/webhooks/[id] (P0/P1)", () => {
     });
     expect(res.status).toBe(200);
     const updateArg = mockPrisma.webhook.update.mock.calls[0][0];
-    expect(updateArg.data.pinnedIps).toContain("9.9.9.9");
+    // Native array of the IPs validated by validateWebhookUrlWithDns (single
+    // resolution — no second, unvalidated DNS lookup)
+    expect(updateArg.data.pinnedIps).toEqual(["1.2.3.4"]);
+    expect(mockResolveWebhookIps).not.toHaveBeenCalled();
     expect(updateArg.data.url).toBe("https://new.com");
   });
 

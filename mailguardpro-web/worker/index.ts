@@ -23,6 +23,31 @@ interface BulkJobData {
   requestId?: string;
 }
 
+// Une ligne du buffer d'insertion des validations
+interface ValidationBufferRow {
+  email: string;
+  emailHash: string;
+  score: number;
+  status: string;
+  checksJson: any;
+  processingTimeMs: number;
+  userId: string;
+  bulkJobId: string;
+}
+
+// Flush d'un batch de validations en une seule transaction :
+// purge d'abord les lignes existantes du même (userId, emailHash) — la contrainte
+// @@unique([emailHash, userId]) ferait sinon échouer createMany pour tout email
+// déjà validé (validation single, re-upload du même fichier, job antérieur).
+async function flushValidationBuffer(userId: string, buffer: ValidationBufferRow[]): Promise<void> {
+  await prisma.$transaction([
+    prisma.validation.deleteMany({
+      where: { userId, emailHash: { in: buffer.map((row) => row.emailHash) } },
+    }),
+    prisma.validation.createMany({ data: buffer }),
+  ]);
+}
+
 // Créer le worker
 const worker = new Worker<BulkJobData>(
   "bulk-validation",
@@ -65,16 +90,7 @@ const worker = new Worker<BulkJobData>(
       risky: 0,
       unknown: 0,
     };
-    const buffer: Array<{
-      email: string;
-      emailHash: string;
-      score: number;
-      status: string;
-      checksJson: any;
-      processingTimeMs: number;
-      userId: string;
-      bulkJobId: string;
-    }> = [];
+    const buffer: ValidationBufferRow[] = [];
 
     // Traiter chaque email (resume support: skip already-processed emails)
     for (let i = startIndex; i < emails.length; i++) {
@@ -122,7 +138,7 @@ const worker = new Worker<BulkJobData>(
       // Flush buffer — encapsulé dans son propre try-catch pour ne pas corrompre processed ni le buffer (B-1)
       if (buffer.length >= BATCH_SIZE) {
         try {
-          await prisma.validation.createMany({ data: buffer });
+          await flushValidationBuffer(userId, buffer);
           buffer.length = 0;
         } catch (flushError) {
           loggerWorker.error(
@@ -155,7 +171,7 @@ const worker = new Worker<BulkJobData>(
     // Flush remaining buffer
     if (buffer.length > 0) {
       try {
-        await prisma.validation.createMany({ data: buffer });
+        await flushValidationBuffer(userId, buffer);
       } catch (flushError) {
         loggerWorker.error(
           { err: flushError, jobId, requestId },

@@ -107,9 +107,9 @@ vi.mock("dns", () => ({
 }));
 
 // ==========================================
-// FAST-LEVENSHTEIN MOCK - Must return function as default export
-// The code uses: const mod = await import('fast-levenshtein'); levenshtein = mod.default
-// So default must be a function
+// FAST-LEVENSHTEIN MOCK - Mirrors the real CommonJS module:
+// `module.exports = { get(str1, str2) }`. There is NO callable default
+// export; a callable `default` mock previously masked a runtime crash.
 // ==========================================
 const distanceFn = vi.fn((a: string, b: string): number => {
   const maxLen = Math.max(a.length, b.length);
@@ -123,10 +123,7 @@ const distanceFn = vi.fn((a: string, b: string): number => {
 });
 
 vi.mock("fast-levenshtein", () => ({
-  __esModule: true,
-  default: distanceFn,
   get: distanceFn,
-  getEditDistance: distanceFn,
 }));
 
 // ==========================================

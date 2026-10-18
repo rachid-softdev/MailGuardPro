@@ -79,6 +79,49 @@ async function getAuthenticatedUser(req: NextRequest) {
   return null;
 }
 
+// Réponse pour un email déjà validé par cet utilisateur (déduplication CRIT-4) :
+// renvoie le résultat existant sans re-valider et sans re-facturer.
+async function respondWithExistingValidation(
+  existing: {
+    score: number;
+    status: string;
+    checksJson: unknown;
+    processingTimeMs: number;
+    algoVersion: number;
+  },
+  userId: string,
+  email: string,
+  requestId: string,
+  startTime: number,
+): Promise<NextResponse> {
+  await enforceTimingSafeResponse(startTime);
+  const remaining =
+    (await prisma.user.findUnique({ where: { id: userId }, select: { credits: true } }))?.credits ??
+    null;
+  const processingTimeMs = Date.now() - startTime;
+  const response = NextResponse.json({
+    success: true,
+    data: {
+      email,
+      score: existing.score,
+      status: existing.status,
+      checks: existing.checksJson,
+      processingTimeMs: existing.processingTimeMs,
+      algoVersion: existing.algoVersion,
+    },
+    meta: {
+      requestId,
+      processingTimeMs,
+      creditsUsed: 0,
+      creditsRemaining: remaining,
+      note: "Email already validated — existing result returned (no credit charged)",
+    },
+  });
+  response.headers.set("x-request-id", requestId);
+  response.headers.set("Vary", "X-API-Key, Cookie, Authorization");
+  return response;
+}
+
 export async function GET(req: NextRequest) {
   const startTime = Date.now();
   const requestId = req.headers.get("x-request-id") || uuidv4();
@@ -177,33 +220,35 @@ export async function GET(req: NextRequest) {
         const remaining =
           (await prisma.user.findUnique({ where: { id: user.id }, select: { credits: true } }))
             ?.credits ?? null;
-        const requestId = uuidv4();
         const processingTimeMs = Date.now() - startTime;
-        return NextResponse.json({
-          success: true,
-          data: {
-            email,
-            score: 0,
-            status: "invalid",
-            checks: {
-              format: formatCheck,
-              mx: { passed: false, message: "Not checked", detail: "" },
-              smtp: { passed: false, message: "Not checked", detail: "" },
-              catchAll: { passed: false, message: "Not checked", detail: "" },
-              disposable: { passed: false, message: "Not checked", detail: "" },
-              generic: { passed: false, message: "Not checked", detail: "" },
-              freeProvider: { passed: false, message: "Not checked", detail: "" },
-              dnsbl: { passed: true, message: "Not checked", detail: "" },
-              spf: { passed: false, message: "Not checked", detail: "" },
-              dmarc: { passed: false, message: "Not checked", detail: "" },
-              typo: { passed: true, message: "Not checked", detail: "" },
+        return NextResponse.json(
+          {
+            success: true,
+            data: {
+              email,
+              score: 0,
+              status: "invalid",
+              checks: {
+                format: formatCheck,
+                mx: { passed: false, message: "Not checked", detail: "" },
+                smtp: { passed: false, message: "Not checked", detail: "" },
+                catchAll: { passed: false, message: "Not checked", detail: "" },
+                disposable: { passed: false, message: "Not checked", detail: "" },
+                generic: { passed: false, message: "Not checked", detail: "" },
+                freeProvider: { passed: false, message: "Not checked", detail: "" },
+                dnsbl: { passed: true, message: "Not checked", detail: "" },
+                spf: { passed: false, message: "Not checked", detail: "" },
+                dmarc: { passed: false, message: "Not checked", detail: "" },
+                typo: { passed: true, message: "Not checked", detail: "" },
+              },
+              domain: { name: email!.split("@")[1] || "", reputation: "neutral" },
+              processingTimeMs,
+              algoVersion: SCORING_VERSION,
             },
-            domain: { name: email!.split("@")[1] || "", reputation: "neutral" },
-            processingTimeMs,
-            algoVersion: SCORING_VERSION,
+            meta: { requestId, processingTimeMs, creditsUsed: 0, creditsRemaining: remaining },
           },
-          meta: { requestId, processingTimeMs, creditsUsed: 0, creditsRemaining: remaining },
-        });
+          { headers: { "x-request-id": requestId } },
+        );
       }
 
       const disposableCheck = await checkDisposable(email!);
@@ -244,10 +289,23 @@ export async function GET(req: NextRequest) {
       }
     }
 
+    // Déduplication (CRIT-4) : un même utilisateur ne paie pas deux fois le même
+    // email — on renvoie le résultat existant (les lignes "pending" orphelines
+    // sont rafraîchies par le flux normal).
+    if (user) {
+      const existing = await prisma.validation.findFirst({
+        where: { userId: user.id, emailHash: hashEmail(email!) },
+      });
+      if (existing && existing.status !== "pending") {
+        return respondWithExistingValidation(existing, user.id, email!, requestId, startTime);
+      }
+    }
+
     // Deduct credits atomically for authenticated users (short transaction, no network I/O)
     let result: any = null;
     let creditsRemaining: number | null = null;
     if (user) {
+      let pendingValidationId: string | null = null;
       try {
         // === STEP 1: Short transaction — credit deduction + pending record ===
         // BUSINESS is an unlimited plan: bypass the credit gate so users are
@@ -262,18 +320,31 @@ export async function GET(req: NextRequest) {
             throw new Error("INSUFFICIENT_CREDITS");
           }
 
-          return await tx.validation.create({
-            data: {
+          // upsert : rafraîchit une éventuelle ligne "pending" orpheline au lieu
+          // de planter sur la contrainte @@unique([emailHash, userId]).
+          const emailHash = hashEmail(email!);
+          return await tx.validation.upsert({
+            where: { emailHash_userId: { emailHash, userId: user.id } },
+            create: {
               email: maskEmail(email!),
-              emailHash: hashEmail(email!),
+              emailHash,
               score: 0,
               status: "pending",
               checksJson: { pending: true } as any,
               processingTimeMs: 0,
               userId: user.id,
             },
+            update: {
+              email: maskEmail(email!),
+              score: 0,
+              status: "pending",
+              checksJson: { pending: true } as any,
+              processingTimeMs: 0,
+              createdAt: new Date(),
+            },
           });
         });
+        pendingValidationId = pendingValidation.id;
 
         // === STEP 2: Network I/O — no DB connection held ===
         const validationResult = await validateEmail(email!);
@@ -311,6 +382,33 @@ export async function GET(req: NextRequest) {
             { status: 403 },
           );
         }
+
+        // P2002 : course entre deux requêtes simultanées sur le même email —
+        // renvoyer le résultat existant plutôt qu'un 500 (cf. CRIT-4).
+        if ((error as { code?: string }).code === "P2002") {
+          const existing = await prisma.validation.findFirst({
+            where: { userId: user.id, emailHash: hashEmail(email!) },
+          });
+          if (existing && existing.status !== "pending") {
+            return respondWithExistingValidation(existing, user.id, email!, requestId, startTime);
+          }
+        }
+
+        // Compensation : crédit débité mais résultat non enregistré (échec de
+        // validateEmail ou de la sauvegarde STEP 3) → rembourser et retirer la
+        // ligne "pending" pour ne pas facturer une validation ratée.
+        if (pendingValidationId) {
+          try {
+            await prisma.user.updateMany({
+              where: { id: user.id },
+              data: { credits: { increment: 1 } },
+            });
+            await prisma.validation.delete({ where: { id: pendingValidationId } });
+          } catch (compensationError) {
+            loggerApi.error({ err: compensationError, requestId }, "Credit compensation failed");
+          }
+        }
+
         throw error; // Sera catché par le block catch externe
       }
     } else {

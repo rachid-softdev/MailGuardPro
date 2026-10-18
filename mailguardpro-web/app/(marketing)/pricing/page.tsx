@@ -70,7 +70,7 @@ const plans = [
       "Phone support",
       "Custom integrations",
     ],
-    cta: "Contact us",
+    cta: "Start trial",
     popular: false,
   },
 ];
@@ -192,6 +192,43 @@ function FAQItem({
 export default function PricingPage() {
   const [annual, setAnnual] = useState(false);
   const [openFAQ, setOpenFAQ] = useState<number | null>(null);
+  const [pendingPlan, setPendingPlan] = useState<string | null>(null);
+  const [ctaError, setCtaError] = useState<string | null>(null);
+
+  /**
+   * Free → dashboard (anonymous visitors are bounced to /login by the proxy).
+   * Paid plans → Stripe Checkout; anonymous visitors are bounced to /login
+   * first with a callbackUrl back to the billing page.
+   */
+  const handleCta = async (planName: string) => {
+    if (planName === "Free") {
+      window.location.href = "/dashboard";
+      return;
+    }
+    setPendingPlan(planName);
+    setCtaError(null);
+    try {
+      const res = await fetch("/api/v1/billing/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plan: planName.toUpperCase() }),
+      });
+      if (res.status === 401) {
+        window.location.href = `/login?callbackUrl=${encodeURIComponent("/billing")}`;
+        return;
+      }
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.data?.url) {
+        window.location.href = data.data.url;
+        return;
+      }
+      setCtaError(data.error || "Could not start checkout. Please try again.");
+    } catch {
+      setCtaError("Could not start checkout. Please try again.");
+    } finally {
+      setPendingPlan(null);
+    }
+  };
 
   return (
     <>
@@ -259,12 +296,18 @@ export default function PricingPage() {
 
                 <button
                   className={`btn w-full btn-md ${plan.popular ? "btn-accent" : "btn-primary"}`}
+                  onClick={() => void handleCta(plan.name)}
+                  disabled={pendingPlan !== null}
                 >
-                  {plan.cta}
+                  {pendingPlan === plan.name ? "Redirecting..." : plan.cta}
                 </button>
               </div>
             ))}
           </div>
+
+          {ctaError && (
+            <p className="text-center text-sm text-[var(--status-invalid)] mt-6">{ctaError}</p>
+          )}
         </div>
       </section>
 

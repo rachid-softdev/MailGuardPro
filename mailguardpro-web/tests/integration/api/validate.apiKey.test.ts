@@ -21,7 +21,12 @@ const {
   mockPrisma: {
     user: { findUnique: vi.fn().mockResolvedValue({ id: "user-key", isActive: true, credits: 4 }) },
     apiKey: { findFirst: vi.fn(), update: vi.fn().mockResolvedValue({}) },
-    validation: { create: vi.fn(), update: vi.fn() },
+    validation: {
+      create: vi.fn(),
+      update: vi.fn(),
+      findFirst: vi.fn().mockResolvedValue(null),
+      delete: vi.fn(),
+    },
     session: { findMany: vi.fn().mockResolvedValue([]) },
     auditLog: { create: vi.fn() },
     $transaction: vi.fn(),
@@ -125,7 +130,7 @@ beforeEach(() => {
         updateMany: vi.fn().mockResolvedValue({ count: 1 }),
         findUnique: vi.fn().mockResolvedValue({ id: "user-key", credits: 3 }),
       },
-      validation: { create: vi.fn().mockResolvedValue({ id: "val-1" }) },
+      validation: { upsert: vi.fn().mockResolvedValue({ id: "val-1" }) },
     }),
   );
   vi.mocked(prisma.apiKey.findFirst).mockResolvedValue({

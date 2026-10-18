@@ -263,7 +263,7 @@ describe("/api/v1/webhooks", () => {
       expect(json.data).toHaveProperty("id");
     });
 
-    it("should return rawSecretPrefix (first 4 chars) in creation response", async () => {
+    it("should return the raw secret once (plus its prefix) in creation response", async () => {
       const { prisma } = await import("@/lib/prisma");
 
       vi.mocked(prisma.webhook.create).mockResolvedValue({
@@ -293,6 +293,12 @@ describe("/api/v1/webhooks", () => {
       expect(json.data).toHaveProperty("rawSecretPrefix");
       expect(typeof json.data.rawSecretPrefix).toBe("string");
       expect(json.data.rawSecretPrefix.length).toBe(4); // First 4 chars
+
+      // …and the full rawSecret exactly once (32 random bytes, hex-encoded) so
+      // consumers can configure HMAC signature verification
+      expect(typeof json.data.rawSecret).toBe("string");
+      expect(json.data.rawSecret).toHaveLength(64);
+      expect(json.data.rawSecret.startsWith(json.data.rawSecretPrefix)).toBe(true);
     });
 
     it("should call SSRF validation with DNS on webhook URL", async () => {
@@ -347,6 +353,37 @@ describe("/api/v1/webhooks", () => {
       expect(response.status).toBe(400);
       const json = await response.json();
       expect(json.error).toContain("Maximum 10 webhooks allowed");
+    });
+
+    it("should count only non-deleted webhooks when enforcing the 10-webhook limit", async () => {
+      const { prisma } = await import("@/lib/prisma");
+      vi.mocked(prisma.webhook.count).mockResolvedValue(3);
+      vi.mocked(prisma.webhook.create).mockResolvedValue({
+        id: "webhook-count-1",
+        url: "https://example.com/hook",
+        name: "Count Test",
+        events: ["bulk_job_completed"],
+        isActive: true,
+        userId: "user-123",
+        createdAt: new Date(),
+        encryptedSecret: "encrypted:x",
+        privacyMode: false,
+        pinnedIps: ["93.184.216.34"],
+      } as any);
+
+      const body = {
+        url: "https://example.com/hook",
+        name: "Count Test",
+        events: ["bulk_job_completed"],
+      };
+      const req = postReq("http://localhost:3000/api/v1/webhooks", body);
+      const response = await POST(req);
+
+      expect(response.status).toBe(201);
+      // Soft-deleted webhooks must not count toward the limit
+      expect(prisma.webhook.count).toHaveBeenCalledWith({
+        where: { userId: "user-123", deletedAt: null },
+      });
     });
 
     it("should encrypt the secret before storing in database", async () => {
@@ -572,11 +609,13 @@ describe("/api/v1/webhooks", () => {
       );
     });
 
-    it("should store pinnedIps as JSON stringified resolved IPs", async () => {
+    it("should store pinnedIps as a native JSON array of resolved IPs", async () => {
       const { prisma } = await import("@/lib/prisma");
 
       vi.mocked(prisma.webhook.create).mockImplementation((async (args: any) => {
-        expect(args.data.pinnedIps).toBe(JSON.stringify(["93.184.216.34"]));
+        // Native array (Json column type) — not a JSON-encoded string, which the
+        // dispatcher's DNS-rebinding check could not match against resolved IPs.
+        expect(args.data.pinnedIps).toEqual(["93.184.216.34"]);
         return {
           id: "webhook-pinned-123",
           url: args.data.url,

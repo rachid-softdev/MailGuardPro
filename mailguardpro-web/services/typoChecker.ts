@@ -32,8 +32,17 @@ let levenshtein: ((a: string, b: string) => number) | null = null;
 
 async function getLevenshtein(): Promise<(a: string, b: string) => number> {
   if (!levenshtein) {
-    const { default: levenshteinFn } = await import("fast-levenshtein");
-    levenshtein = levenshteinFn as unknown as (a: string, b: string) => number;
+    // fast-levenshtein est un module CommonJS : `module.exports = { get(str1, str2) }`.
+    // Selon l'interop du bundler, `get` est exposé soit sur le namespace (mod.get),
+    // soit via `.default.get` (où `default` est l'objet module.exports, non appelable).
+    const mod = await import("fast-levenshtein");
+    const getFn =
+      mod.get ??
+      (mod as unknown as { default?: { get?: (a: string, b: string) => number } }).default?.get;
+    if (typeof getFn !== "function") {
+      throw new Error("fast-levenshtein: export `get` introuvable");
+    }
+    levenshtein = getFn;
   }
   return levenshtein!;
 }
@@ -95,7 +104,12 @@ export async function checkTypo(email: string): Promise<CheckResult> {
     outlok: "outlook.com",
   };
 
-  const typoMatch = Object.keys(commonTypos).find((typo) => domain.toLowerCase().includes(typo));
+  // Comparer uniquement sur le domaine de second niveau : un `includes()` sur le
+  // domaine complet déclenchait des faux positifs ("gmail.com".includes("gmai")).
+  // On ne signale un typo que si le SLD entier correspond à une faute connue
+  // (ex: "gmai.com", "goggle.com"), pas un domaine valide qui le contient.
+  const sld = domain.toLowerCase().split(".")[0];
+  const typoMatch = Object.keys(commonTypos).find((typo) => sld === typo);
   if (typoMatch) {
     const suggestedEmail = `${localPart}@${commonTypos[typoMatch]}`;
     return {

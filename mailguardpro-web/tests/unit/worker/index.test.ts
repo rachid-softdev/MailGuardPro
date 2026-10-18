@@ -27,6 +27,7 @@ const mockFindUnique = vi.hoisted(() => vi.fn());
 const mockUpdate = vi.hoisted(() => vi.fn());
 const mockValidationCreate = vi.hoisted(() => vi.fn());
 const mockValidationCreateMany = vi.hoisted(() => vi.fn());
+const mockValidationDeleteMany = vi.hoisted(() => vi.fn().mockResolvedValue({ count: 0 }));
 
 // Service mocks
 const mockValidateEmail = vi.hoisted(() => vi.fn());
@@ -107,7 +108,9 @@ vi.mock("@/lib/prisma", () => ({
           data: args.data.map((item: any) => ({ ...item })),
         });
       }),
+      deleteMany: mockValidationDeleteMany,
     },
+    $transaction: vi.fn(async (ops: any[]) => Promise.all(ops)),
     $connect: vi.fn(),
     $disconnect: vi.fn(),
   },
@@ -311,6 +314,25 @@ describe("Worker processor", () => {
         ]),
       }),
     );
+  });
+
+  it("should purge existing rows for the same (userId, emailHash) before flushing (unique constraint)", async () => {
+    // An email that already has a row (single validation or a previous job)
+    // would make createMany fail on @@unique([emailHash, userId]).
+    const emails = [makeEmail(0, "alice@test.com")];
+    mockFindUnique.mockResolvedValue({ emailsJson: emails, processed: 0 });
+
+    await loadWorkerModule();
+    await capturedProcessor!(createMockJob({ totalEmails: 1 }));
+
+    expect(mockValidationDeleteMany).toHaveBeenCalledWith({
+      where: { userId: "user-123", emailHash: { in: ["hashed:alice@test.com"] } },
+    });
+
+    // The purge must happen before the insert
+    const delOrders = mockValidationDeleteMany.mock.invocationCallOrder;
+    const createOrders = mockValidationCreateMany.mock.invocationCallOrder;
+    expect(delOrders[delOrders.length - 1]).toBeLessThan(createOrders[createOrders.length - 1]);
   });
 
   // ─── Batch flushing ─────────────────────────────────────────────────────

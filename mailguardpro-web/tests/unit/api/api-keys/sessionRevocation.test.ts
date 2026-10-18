@@ -5,7 +5,7 @@ import { NextRequest } from "next/server";
  * Verifies that the DELETE handler for /api/v1/api-keys/[id]:
  * - Calls prisma.$transaction with 3 operations
  * - Increments tokenVersion on the user
- * - Deletes all sessions for the user
+ * - Deletes all OTHER sessions for the user (current session preserved)
  * - Returns success response
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -158,7 +158,40 @@ describe("Session revocation on API key delete [M-07]", () => {
     );
   });
 
-  it("should delete all sessions for the user", async () => {
+  it("should delete all OTHER sessions but keep the current session (undo window)", async () => {
+    vi.mocked(auth).mockResolvedValue({
+      user: { id: "user-key-4" },
+      expires: new Date(Date.now() + 86400000).toISOString(),
+    } as any);
+
+    vi.mocked(prisma.apiKey.findFirst).mockResolvedValue({
+      id: "key-101",
+      userId: "user-key-4",
+      name: "Staging Key",
+    } as any);
+
+    const url = new URL("http://localhost:3000/api/v1/api-keys/key-101");
+    const req = new NextRequest(url, {
+      method: "DELETE",
+      headers: {
+        origin: "http://localhost:3000",
+        cookie: "next-auth.session-token=current-session-token",
+      },
+    });
+    const params = Promise.resolve({ id: "key-101" });
+    await DELETE(req, { params } as any);
+
+    expect(prisma.session.deleteMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          userId: "user-key-4",
+          sessionToken: { not: "current-session-token" },
+        },
+      }),
+    );
+  });
+
+  it("should delete ALL sessions when the current session cookie is absent (fail-safe)", async () => {
     vi.mocked(auth).mockResolvedValue({
       user: { id: "user-key-4" },
       expires: new Date(Date.now() + 86400000).toISOString(),
@@ -212,7 +245,7 @@ describe("Session revocation on API key delete [M-07]", () => {
     expect(response.status).toBe(200);
     const body = await response.json();
     expect(body.success).toBe(true);
-    expect(body.message).toContain("All sessions invalidated");
+    expect(body.message).toContain("Other sessions invalidated");
   });
 
   // ────────────────────────────────────────────
