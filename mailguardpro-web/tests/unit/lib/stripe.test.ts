@@ -191,4 +191,49 @@ describe("stripe", () => {
       vi.unstubAllEnvs();
     });
   });
+
+  describe("annual price IDs (optional)", () => {
+    it("should map annual price IDs to plans when configured", async () => {
+      vi.resetModules();
+      vi.stubEnv("STRIPE_SECRET_KEY", "sk_test_123");
+      vi.stubEnv("STRIPE_STARTER_PRICE_ID", "price_starter");
+      vi.stubEnv("STRIPE_PRO_PRICE_ID", "price_pro");
+      vi.stubEnv("STRIPE_BUSINESS_PRICE_ID", "price_business");
+      vi.stubEnv("STRIPE_STARTER_ANNUAL_PRICE_ID", "price_starter_annual");
+      vi.stubEnv("STRIPE_PRO_ANNUAL_PRICE_ID", "price_pro_annual");
+      vi.stubEnv("STRIPE_BUSINESS_ANNUAL_PRICE_ID", "price_business_annual");
+
+      const mod = await import("@/lib/stripe");
+      expect(mod.PRICES_ANNUAL).toEqual({
+        STARTER: "price_starter_annual",
+        PRO: "price_pro_annual",
+        BUSINESS: "price_business_annual",
+      });
+      expect(mod.getPlanFromPriceId("price_starter_annual")).toBe("STARTER");
+      expect(mod.getPlanFromPriceId("price_pro_annual")).toBe("PRO");
+      expect(mod.getPlanFromPriceId("price_business_annual")).toBe("BUSINESS");
+      // Monthly mapping is unaffected
+      expect(mod.getPlanFromPriceId("price_pro")).toBe("PRO");
+
+      vi.unstubAllEnvs();
+    });
+
+    it("should not match unset annual price IDs", async () => {
+      vi.resetModules();
+      vi.stubEnv("STRIPE_SECRET_KEY", "sk_test_123");
+      vi.stubEnv("STRIPE_STARTER_PRICE_ID", "price_starter");
+      vi.stubEnv("STRIPE_PRO_PRICE_ID", "price_pro");
+      vi.stubEnv("STRIPE_BUSINESS_PRICE_ID", "price_business");
+      vi.stubEnv("STRIPE_STARTER_ANNUAL_PRICE_ID", "");
+      vi.stubEnv("STRIPE_PRO_ANNUAL_PRICE_ID", "");
+      vi.stubEnv("STRIPE_BUSINESS_ANNUAL_PRICE_ID", "");
+
+      const mod = await import("@/lib/stripe");
+      expect(mod.PRICES_ANNUAL).toEqual({ STARTER: "", PRO: "", BUSINESS: "" });
+      expect(mod.getPlanFromPriceId("price_pro")).toBe("PRO");
+      expect(mod.getPlanFromPriceId("")).toBeNull();
+
+      vi.unstubAllEnvs();
+    });
+  });
 });

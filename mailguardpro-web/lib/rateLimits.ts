@@ -10,7 +10,6 @@ export const PLAN_LIMITS = {
   FREE: {
     validate: { requests: 20, window: 60 }, // 20 req/min
     bulk: { requests: 1, window: 3600 }, // 1 job/hour
-    bulkSize: 10000, // 10k rows max
     apiKeys: { requests: 2, window: 3600 }, // 2 clés/hour
     webhooks: { requests: 5, window: 3600 }, // 5 webhooks/hour
     billing: { requests: 3, window: 60 }, // 3 req/min
@@ -19,7 +18,6 @@ export const PLAN_LIMITS = {
   STARTER: {
     validate: { requests: 100, window: 60 }, // 100 req/min
     bulk: { requests: 5, window: 3600 }, // 5 jobs/hour
-    bulkSize: 10000, // 10k rows max
     apiKeys: { requests: 5, window: 3600 }, // 5 clés/hour
     webhooks: { requests: 10, window: 3600 }, // 10 webhooks/hour
     billing: { requests: 10, window: 60 }, // 10 req/min
@@ -28,7 +26,6 @@ export const PLAN_LIMITS = {
   PRO: {
     validate: { requests: 500, window: 60 }, // 500 req/min
     bulk: { requests: 20, window: 3600 }, // 20 jobs/hour
-    bulkSize: 100000, // 100k rows max
     apiKeys: { requests: 10, window: 3600 }, // 10 clés/hour
     webhooks: { requests: 20, window: 3600 }, // 20 webhooks/hour
     billing: { requests: 30, window: 60 }, // 30 req/min
@@ -37,7 +34,6 @@ export const PLAN_LIMITS = {
   BUSINESS: {
     validate: { requests: 999999, window: 60 }, // Unlimited
     bulk: { requests: 999999, window: 3600 }, // Unlimited
-    bulkSize: 1000000, // 1M rows max
     apiKeys: { requests: 999999, window: 3600 }, // Unlimited
     webhooks: { requests: 999999, window: 3600 }, // Unlimited
     billing: { requests: 999999, window: 60 }, // Unlimited
@@ -45,8 +41,9 @@ export const PLAN_LIMITS = {
   },
 } as const;
 
-export type ActionType = keyof (typeof PLAN_LIMITS)["FREE"];
-export type RateLimitAction = Exclude<ActionType, "bulkSize">;
+// Rate-limitable actions. Bulk row caps are plan entitlements, not rate
+// limits — see PLAN_BULK_MAX_ROWS in lib/plans.ts.
+export type RateLimitAction = "validate" | "bulk" | "apiKeys" | "webhooks" | "billing" | "export";
 
 // Helper pour récupérer les limites selon le plan
 export function getPlanLimits(plan: Plan) {

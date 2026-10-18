@@ -21,6 +21,7 @@ import { headers } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { loggerStripe } from "@/lib/logger";
+import { PLAN_INCLUDED_CREDITS } from "@/lib/plans";
 import { prisma } from "@/lib/prisma";
 import { checkRateLimit, redis } from "@/lib/redis";
 import { stripe } from "@/lib/stripe";
@@ -118,18 +119,17 @@ export async function POST(req: NextRequest) {
           const plan = getPlanFromPriceId(priceId);
 
           if (plan) {
-            const creditMap: Record<string, number> = {
-              BUSINESS: 0,
-              PRO: 50000,
-              STARTER: 5000,
-            };
+            // Grant the plan's included credits (single source: lib/plans.ts).
+            // BUSINESS is unlimited (-1 marker, credit gate bypassed in
+            // /api/v1/validate) and needs no credit grant.
+            const grant = plan === "BUSINESS" ? 0 : PLAN_INCLUDED_CREDITS[plan];
 
             await prisma.user.update({
               where: { id: user.id },
               data: {
                 plan,
                 stripeSubscriptionId: subscriptionId,
-                credits: { increment: creditMap[plan] ?? 5000 },
+                credits: { increment: grant },
               },
             });
 
