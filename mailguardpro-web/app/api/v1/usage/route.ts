@@ -27,8 +27,10 @@ export async function GET(_req: NextRequest) {
           select: {
             validations: true,
             bulkJobs: true,
-            apiKeys: true,
-            webhooks: true,
+            // Soft-deleted rows must not be counted (deletedAt set on revoke/delete
+            // with the 5s undo window — see useUndoDelete).
+            apiKeys: { where: { deletedAt: null } },
+            webhooks: { where: { deletedAt: null } },
           },
         },
       },

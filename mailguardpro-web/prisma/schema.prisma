@@ -354,7 +354,6 @@ model Organization {
 
   subscriptions   Subscription[]
   usageTracking   UsageTracking[]
-  entitlements    EntitlementOverride[] @relation("orgOverrides")
   users           User[]
 
   @@map("organizations")
@@ -393,7 +392,9 @@ model EntitlementOverride {
   updatedAt  DateTime       @updatedAt
 
   feature    Feature        @relation(fields: [featureKey], references: [key], onDelete: Cascade)
-  org        Organization?  @relation("orgOverrides", fields: [scopeId], references: [id], onDelete: Cascade)
+  // NOTE: scope_id is polymorphic (scope=USER → users.id, scope=ORG → organizations.id).
+  // No FK constraint: a constraint targeting organizations only made USER-scoped
+  // overrides impossible (FK violation on write). See migration 20261018120000.
 
   @@index([scope, scopeId, featureKey])
   @@map("entitlement_overrides")

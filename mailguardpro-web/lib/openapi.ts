@@ -633,6 +633,152 @@ export const openApiSpec = {
       },
     },
 
+    "/webhooks/{id}/regenerate-secret": {
+      post: {
+        tags: ["Webhooks"],
+        summary: "Regenerate a webhook's signing secret",
+        description:
+          "Replaces the HMAC signing secret. The new rawSecret is returned exactly once; deliveries signed with the previous secret will fail signature verification until the endpoint is updated.",
+        operationId: "webhookRegenerateSecret",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "id",
+            in: "path",
+            required: true,
+            schema: { type: "string" },
+          },
+        ],
+        responses: {
+          "200": {
+            description: "Secret regenerated",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean" },
+                    data: {
+                      type: "object",
+                      properties: {
+                        id: { type: "string" },
+                        rawSecret: { type: "string", description: "Shown only once" },
+                        rawSecretPrefix: { type: "string" },
+                      },
+                    },
+                    warning: { type: "string" },
+                  },
+                },
+              },
+            },
+          },
+          "401": { $ref: "#/components/responses/Unauthorized" },
+          "404": { $ref: "#/components/responses/NotFound" },
+        },
+      },
+    },
+
+    // Sessions
+    "/user/sessions": {
+      get: {
+        tags: ["Sessions"],
+        summary: "List active sessions for the current user",
+        operationId: "sessionsList",
+        security: [{ bearerAuth: [] }],
+        responses: {
+          "200": {
+            description: "Active sessions (database-backed; one row per signed-in device)",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean" },
+                    data: {
+                      type: "array",
+                      items: {
+                        type: "object",
+                        properties: {
+                          id: { type: "string" },
+                          expires: { type: "string", format: "date-time" },
+                          isCurrent: {
+                            type: "boolean",
+                            description: "True for the device making the request",
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          "401": { $ref: "#/components/responses/Unauthorized" },
+        },
+      },
+    },
+    "/user/sessions/{id}": {
+      delete: {
+        tags: ["Sessions"],
+        summary: "Revoke one session (signs that device out)",
+        operationId: "sessionRevoke",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "id",
+            in: "path",
+            required: true,
+            schema: { type: "string" },
+          },
+        ],
+        responses: {
+          "200": {
+            description: "Session revoked",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean" },
+                    message: { type: "string" },
+                  },
+                },
+              },
+            },
+          },
+          "400": { $ref: "#/components/responses/BadRequest" },
+          "401": { $ref: "#/components/responses/Unauthorized" },
+          "404": { $ref: "#/components/responses/NotFound" },
+        },
+      },
+    },
+    "/user/sessions/revoke-others": {
+      post: {
+        tags: ["Sessions"],
+        summary: "Revoke all sessions except the current one",
+        operationId: "sessionsRevokeOthers",
+        security: [{ bearerAuth: [] }],
+        responses: {
+          "200": {
+            description: "Other sessions revoked",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean" },
+                    revokedCount: { type: "integer" },
+                  },
+                },
+              },
+            },
+          },
+          "400": { $ref: "#/components/responses/BadRequest" },
+          "401": { $ref: "#/components/responses/Unauthorized" },
+        },
+      },
+    },
+
     // Account
     "/account/credits": {
       get: {
