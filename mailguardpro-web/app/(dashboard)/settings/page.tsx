@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Button, Card } from "@/components/ui";
+import { Button, Card, Input } from "@/components/ui";
 import { Modal } from "@/components/ui/Modal";
 import { useUndoDelete } from "@/hooks/useUndoDelete";
 import { logger } from "@/lib/logger";
@@ -39,6 +39,27 @@ export default function SettingsPage() {
   const [sessionsLoading, setSessionsLoading] = useState(false);
   const [revokingSessionId, setRevokingSessionId] = useState<string | null>(null);
   const [signingOutOthers, setSigningOutOthers] = useState(false);
+
+  // Two-factor authentication (Security tab)
+  const [twoFactor, setTwoFactor] = useState<{
+    enabled: boolean;
+    recoveryCodesRemaining: number;
+  } | null>(null);
+  const [twoFactorLoading, setTwoFactorLoading] = useState(false);
+  const [twoFactorStep, setTwoFactorStep] = useState<"idle" | "setup" | "recovery" | "disable">(
+    "idle",
+  );
+  const [twoFactorSetup, setTwoFactorSetup] = useState<{
+    secret: string;
+    otpauthUri: string;
+  } | null>(null);
+  const [twoFactorCode, setTwoFactorCode] = useState("");
+  const [twoFactorRecoveryCodes, setTwoFactorRecoveryCodes] = useState<string[] | null>(null);
+  const [twoFactorBusy, setTwoFactorBusy] = useState(false);
+  const [twoFactorMessage, setTwoFactorMessage] = useState<{
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
 
   const { deleteResource } = useUndoDelete({
     deleteEndpoint: "/api/v1/user",
@@ -206,6 +227,125 @@ export default function SettingsPage() {
     }
   };
 
+  const fetchTwoFactorStatus = async () => {
+    setTwoFactorLoading(true);
+    try {
+      const res = await fetch("/api/v1/user/2fa");
+      if (res.ok) {
+        const data = await res.json();
+        if (data.data) setTwoFactor(data.data);
+      } else {
+        setTwoFactorMessage({ type: "error", text: "Failed to load two-factor status." });
+      }
+    } catch (error) {
+      logger.error({ err: error }, "Failed to fetch two-factor status");
+      setTwoFactorMessage({ type: "error", text: "Failed to load two-factor status." });
+    } finally {
+      setTwoFactorLoading(false);
+    }
+  };
+
+  const startTwoFactorSetup = async () => {
+    setTwoFactorBusy(true);
+    setTwoFactorMessage(null);
+    try {
+      const res = await fetch("/api/v1/user/2fa/setup", { method: "POST" });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setTwoFactorSetup(data.data);
+        setTwoFactorCode("");
+        setTwoFactorStep("setup");
+      } else {
+        setTwoFactorMessage({ type: "error", text: data.error || "Failed to start setup." });
+      }
+    } catch (error) {
+      logger.error({ err: error }, "Failed to start two-factor setup");
+      setTwoFactorMessage({ type: "error", text: "Failed to start setup." });
+    } finally {
+      setTwoFactorBusy(false);
+    }
+  };
+
+  const confirmTwoFactorEnable = async () => {
+    setTwoFactorBusy(true);
+    setTwoFactorMessage(null);
+    try {
+      const res = await fetch("/api/v1/user/2fa/enable", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: twoFactorCode.trim() }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setTwoFactorRecoveryCodes(data.data.recoveryCodes);
+        setTwoFactor({ enabled: true, recoveryCodesRemaining: data.data.recoveryCodes.length });
+        setTwoFactorStep("recovery");
+      } else {
+        setTwoFactorMessage({
+          type: "error",
+          text: data.error || "Failed to enable two-factor authentication.",
+        });
+      }
+    } catch (error) {
+      logger.error({ err: error }, "Failed to enable two-factor authentication");
+      setTwoFactorMessage({ type: "error", text: "Failed to enable two-factor authentication." });
+    } finally {
+      setTwoFactorBusy(false);
+    }
+  };
+
+  const confirmTwoFactorDisable = async () => {
+    setTwoFactorBusy(true);
+    setTwoFactorMessage(null);
+    const entry = twoFactorCode.trim();
+    const isRecoveryCode = entry.includes("-") || entry.length > 6;
+    try {
+      const res = await fetch("/api/v1/user/2fa/disable", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(isRecoveryCode ? { recoveryCode: entry } : { code: entry }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setTwoFactor({ enabled: false, recoveryCodesRemaining: 0 });
+        setTwoFactorStep("idle");
+        setTwoFactorCode("");
+        setTwoFactorMessage({ type: "success", text: "Two-factor authentication disabled." });
+      } else {
+        setTwoFactorMessage({
+          type: "error",
+          text: data.error || "Failed to disable two-factor authentication.",
+        });
+      }
+    } catch (error) {
+      logger.error({ err: error }, "Failed to disable two-factor authentication");
+      setTwoFactorMessage({ type: "error", text: "Failed to disable two-factor authentication." });
+    } finally {
+      setTwoFactorBusy(false);
+    }
+  };
+
+  const resetTwoFactorFlow = () => {
+    setTwoFactorStep("idle");
+    setTwoFactorCode("");
+    setTwoFactorSetup(null);
+    setTwoFactorRecoveryCodes(null);
+    setTwoFactorMessage(null);
+  };
+
+  const copyRecoveryCodes = async () => {
+    if (!twoFactorRecoveryCodes) return;
+    try {
+      await navigator.clipboard.writeText(twoFactorRecoveryCodes.join("\n"));
+      setTwoFactorMessage({ type: "success", text: "Recovery codes copied to clipboard." });
+    } catch {
+      setTwoFactorMessage({
+        type: "error",
+        text: "Could not copy codes. Please copy them manually.",
+      });
+    }
+  };
+
   if (loading) {
     return (
       <div className="p-8 max-w-2xl">
@@ -247,6 +387,9 @@ export default function SettingsPage() {
               setActiveTab(tab);
               if (tab === "security" && sessions === null && !sessionsLoading) {
                 void fetchSessions();
+              }
+              if (tab === "security" && twoFactor === null && !twoFactorLoading) {
+                void fetchTwoFactorStatus();
               }
             }}
             className={`px-4 py-2 text-sm font-medium capitalize transition-all duration-200 ${
@@ -353,71 +496,214 @@ export default function SettingsPage() {
 
       {/* Security Tab */}
       {activeTab === "security" && (
-        <Card variant="default" padding="md" className="animate-fade-slide-up max-w-2xl">
-          <h2 className="text-lg font-display font-semibold mb-6">Active Sessions</h2>
+        <>
+          <Card variant="default" padding="md" className="animate-fade-slide-up max-w-2xl">
+            <h2 className="text-lg font-display font-semibold mb-6">Active Sessions</h2>
 
-          {message && (
-            <div
-              className={`animate-fade-slide-in p-4 rounded-lg mb-6 ${message.type === "success" ? "bg-[var(--status-valid-bg)] text-[var(--status-valid)]" : "bg-[var(--status-invalid-bg)] text-[var(--status-invalid)]"}`}
-            >
-              {message.text}
+            {message && (
+              <div
+                className={`animate-fade-slide-in p-4 rounded-lg mb-6 ${message.type === "success" ? "bg-[var(--status-valid-bg)] text-[var(--status-valid)]" : "bg-[var(--status-invalid-bg)] text-[var(--status-invalid)]"}`}
+              >
+                {message.text}
+              </div>
+            )}
+
+            <p className="text-[var(--text-secondary)] mb-4">
+              Devices currently signed in to your account. Revoking a session signs that device out
+              immediately. Sessions expire automatically after 30 days.
+            </p>
+
+            {sessionsLoading ? (
+              <div className="space-y-3">
+                {[1, 2].map((i) => (
+                  <div
+                    key={i}
+                    className="h-16 border border-[var(--border)] rounded-lg animate-skeleton"
+                  />
+                ))}
+              </div>
+            ) : sessions && sessions.length > 0 ? (
+              <div className="space-y-3">
+                {sessions.map((s) => (
+                  <div
+                    key={s.id}
+                    className="flex items-center justify-between p-4 border border-[var(--border)] rounded-lg"
+                  >
+                    <div>
+                      <p className="font-medium flex items-center gap-2">
+                        Session {s.id.slice(0, 8)}
+                        {s.isCurrent && <span className="badge badge-success">This device</span>}
+                      </p>
+                      <p className="text-sm text-[var(--text-muted)]">
+                        Expires {new Date(s.expires).toLocaleDateString()}
+                      </p>
+                    </div>
+                    {!s.isCurrent && (
+                      <Button
+                        onClick={() => revokeSession(s.id)}
+                        variant="ghost"
+                        size="sm"
+                        className="text-[var(--status-invalid)]"
+                        disabled={revokingSessionId === s.id}
+                      >
+                        {revokingSessionId === s.id ? "Revoking..." : "Revoke"}
+                      </Button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-[var(--text-muted)]">No active sessions found.</p>
+            )}
+
+            <div className="mt-6">
+              <Button onClick={signOutOtherDevices} variant="ghost" disabled={signingOutOthers}>
+                {signingOutOthers ? "Signing out..." : "Sign Out Other Devices"}
+              </Button>
             </div>
-          )}
+          </Card>
 
-          <p className="text-[var(--text-secondary)] mb-4">
-            Devices currently signed in to your account. Revoking a session signs that device out
-            immediately. Sessions expire automatically after 30 days.
-          </p>
+          <Card variant="default" padding="md" className="animate-fade-slide-up max-w-2xl mt-6">
+            <h2 className="text-lg font-display font-semibold mb-6">Two-Factor Authentication</h2>
 
-          {sessionsLoading ? (
-            <div className="space-y-3">
-              {[1, 2].map((i) => (
-                <div
-                  key={i}
-                  className="h-16 border border-[var(--border)] rounded-lg animate-skeleton"
-                />
-              ))}
-            </div>
-          ) : sessions && sessions.length > 0 ? (
-            <div className="space-y-3">
-              {sessions.map((s) => (
-                <div
-                  key={s.id}
-                  className="flex items-center justify-between p-4 border border-[var(--border)] rounded-lg"
-                >
+            {twoFactorMessage && (
+              <div
+                className={`animate-fade-slide-in p-4 rounded-lg mb-6 ${twoFactorMessage.type === "success" ? "bg-[var(--status-valid-bg)] text-[var(--status-valid)]" : "bg-[var(--status-invalid-bg)] text-[var(--status-invalid)]"}`}
+              >
+                {twoFactorMessage.text}
+              </div>
+            )}
+
+            {twoFactorLoading ? (
+              <div className="h-16 border border-[var(--border)] rounded-lg animate-skeleton" />
+            ) : twoFactor?.enabled ? (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between p-4 border border-[var(--border)] rounded-lg">
                   <div>
-                    <p className="font-medium flex items-center gap-2">
-                      Session {s.id.slice(0, 8)}
-                      {s.isCurrent && <span className="badge badge-success">This device</span>}
-                    </p>
+                    <p className="font-medium">Authenticator app</p>
                     <p className="text-sm text-[var(--text-muted)]">
-                      Expires {new Date(s.expires).toLocaleDateString()}
+                      {twoFactor.recoveryCodesRemaining} recovery code
+                      {twoFactor.recoveryCodesRemaining === 1 ? "" : "s"} remaining
                     </p>
                   </div>
-                  {!s.isCurrent && (
-                    <Button
-                      onClick={() => revokeSession(s.id)}
-                      variant="ghost"
-                      size="sm"
-                      className="text-[var(--status-invalid)]"
-                      disabled={revokingSessionId === s.id}
-                    >
-                      {revokingSessionId === s.id ? "Revoking..." : "Revoke"}
-                    </Button>
-                  )}
+                  <span className="badge badge-success">Enabled</span>
                 </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm text-[var(--text-muted)]">No active sessions found.</p>
-          )}
 
-          <div className="mt-6">
-            <Button onClick={signOutOtherDevices} variant="ghost" disabled={signingOutOthers}>
-              {signingOutOthers ? "Signing out..." : "Sign Out Other Devices"}
-            </Button>
-          </div>
-        </Card>
+                {twoFactorStep === "disable" ? (
+                  <div className="space-y-3 p-4 border border-[var(--border)] rounded-lg">
+                    <p className="text-sm text-[var(--text-secondary)]">
+                      Enter a code from your authenticator app — or one of your recovery codes — to
+                      turn two-factor authentication off.
+                    </p>
+                    <Input
+                      value={twoFactorCode}
+                      onChange={(e) => setTwoFactorCode(e.target.value)}
+                      placeholder="123456 or XXXXX-XXXXX"
+                      className="font-mono"
+                      maxLength={12}
+                    />
+                    <div className="flex gap-3">
+                      <Button
+                        onClick={confirmTwoFactorDisable}
+                        variant="danger"
+                        size="sm"
+                        disabled={twoFactorBusy || !twoFactorCode.trim()}
+                      >
+                        {twoFactorBusy ? "Disabling..." : "Confirm Disable"}
+                      </Button>
+                      <Button onClick={resetTwoFactorFlow} variant="ghost" size="sm">
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <Button
+                    onClick={() => {
+                      setTwoFactorStep("disable");
+                      setTwoFactorCode("");
+                      setTwoFactorMessage(null);
+                    }}
+                    variant="ghost"
+                  >
+                    Disable Two-Factor Authentication
+                  </Button>
+                )}
+              </div>
+            ) : twoFactorStep === "setup" ? (
+              <div className="space-y-4">
+                <p className="text-sm text-[var(--text-secondary)]">
+                  1. Add this secret to your authenticator app (Google Authenticator, Authy,
+                  1Password...):
+                </p>
+                <code className="block p-4 border border-[var(--border)] rounded-lg font-mono text-sm break-all select-all">
+                  {twoFactorSetup?.secret}
+                </code>
+                {twoFactorSetup?.otpauthUri && (
+                  <a
+                    href={twoFactorSetup.otpauthUri}
+                    className="block text-xs font-mono text-[var(--accent)] hover:underline break-all"
+                  >
+                    {twoFactorSetup.otpauthUri}
+                  </a>
+                )}
+                <p className="text-sm text-[var(--text-secondary)]">
+                  2. Enter the 6-digit code shown by your app to confirm:
+                </p>
+                <Input
+                  value={twoFactorCode}
+                  onChange={(e) => setTwoFactorCode(e.target.value)}
+                  placeholder="123456"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  className="font-mono"
+                  maxLength={6}
+                />
+                <div className="flex gap-3">
+                  <Button
+                    onClick={confirmTwoFactorEnable}
+                    variant="primary"
+                    disabled={twoFactorBusy || twoFactorCode.trim().length < 6}
+                  >
+                    {twoFactorBusy ? "Verifying..." : "Verify & Enable"}
+                  </Button>
+                  <Button onClick={resetTwoFactorFlow} variant="ghost">
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            ) : twoFactorStep === "recovery" && twoFactorRecoveryCodes ? (
+              <div className="space-y-4">
+                <p className="text-sm text-[var(--text-secondary)]">
+                  Store these recovery codes somewhere safe. Each code can be used once to sign in
+                  if you lose access to your authenticator app. They are shown only this time.
+                </p>
+                <div className="grid grid-cols-2 gap-2 p-4 border border-[var(--border)] rounded-lg font-mono text-sm">
+                  {twoFactorRecoveryCodes.map((recoveryCode) => (
+                    <span key={recoveryCode}>{recoveryCode}</span>
+                  ))}
+                </div>
+                <div className="flex gap-3">
+                  <Button onClick={copyRecoveryCodes} variant="secondary">
+                    Copy codes
+                  </Button>
+                  <Button onClick={resetTwoFactorFlow} variant="ghost">
+                    Done
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <p className="text-[var(--text-secondary)]">
+                  Add a second step to your sign-in: a 6-digit code from an authenticator app. Even
+                  if someone gets access to your email, they cannot sign in without your device.
+                </p>
+                <Button onClick={startTwoFactorSetup} variant="primary" disabled={twoFactorBusy}>
+                  {twoFactorBusy ? "Preparing..." : "Enable Two-Factor Authentication"}
+                </Button>
+              </div>
+            )}
+          </Card>
+        </>
       )}
 
       {/* Danger Tab */}

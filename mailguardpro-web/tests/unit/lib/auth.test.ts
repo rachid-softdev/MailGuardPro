@@ -589,6 +589,57 @@ describe("NextAuth configuration (lib/auth.ts)", () => {
     });
 
     // -----------------------------------------------------------------------
+    // Two-factor gate (Session.twoFactorVerifiedAt)
+    // -----------------------------------------------------------------------
+
+    it("should return null user when 2FA is enabled and this device has not passed the challenge", async () => {
+      mockPrismaFindUnique.mockResolvedValue({ ...defaultDbUser, twoFactorEnabled: true });
+      const result = await sessionCallback({
+        session: { ...baseSession, twoFactorVerifiedAt: null },
+        user: adapterUser,
+      });
+      expect(result?.user).toBeNull();
+      expect(result.expires).toBe(new Date(0).toISOString());
+      // The session row must survive so /login/2fa can complete the challenge
+      expect(mockPrismaDeleteMany).not.toHaveBeenCalled();
+    });
+
+    it("should return null user when the session has no twoFactorVerifiedAt field (legacy object)", async () => {
+      mockPrismaFindUnique.mockResolvedValue({ ...defaultDbUser, twoFactorEnabled: true });
+      const result = await sessionCallback({ session: baseSession, user: adapterUser });
+      expect(result?.user).toBeNull();
+    });
+
+    it("should enrich the session once the challenge is passed on this device", async () => {
+      mockPrismaFindUnique.mockResolvedValue({ ...defaultDbUser, twoFactorEnabled: true });
+      const result = await sessionCallback({
+        session: { ...baseSession, twoFactorVerifiedAt: new Date() },
+        user: adapterUser,
+      });
+      expect(result?.user?.id).toBe("db-user-1");
+      expect(result?.user?.twoFactorEnabled).toBe(true);
+    });
+
+    it("should not gate sessions when 2FA is disabled", async () => {
+      mockPrismaFindUnique.mockResolvedValue({ ...defaultDbUser, twoFactorEnabled: false });
+      const result = await sessionCallback({
+        session: { ...baseSession, twoFactorVerifiedAt: null },
+        user: adapterUser,
+      });
+      expect(result?.user?.id).toBe("db-user-1");
+      expect(result?.user?.twoFactorEnabled).toBe(false);
+    });
+
+    it("should not gate sessions when twoFactorEnabled is absent (pre-migration users)", async () => {
+      mockPrismaFindUnique.mockResolvedValue(defaultDbUser);
+      const result = await sessionCallback({
+        session: { ...baseSession, twoFactorVerifiedAt: null },
+        user: adapterUser,
+      });
+      expect(result?.user?.id).toBe("db-user-1");
+    });
+
+    // -----------------------------------------------------------------------
     // User not found / missing email
     // -----------------------------------------------------------------------
 

@@ -105,7 +105,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       }
       return true;
     },
-    async session({ session, user }: { session: Session; user: AdapterUser }) {
+    async session({
+      session,
+      user,
+    }: {
+      session: Session & { twoFactorVerifiedAt?: Date | null };
+      user: AdapterUser;
+    }) {
       if (session.user?.email) {
         const dbUser = await prisma.user.findUnique({
           where: { email: session.user.email },
@@ -116,6 +122,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             role: true,
             tokenVersion: true,
             isActive: true,
+            twoFactorEnabled: true,
             userRoles: { select: { role: true } },
           },
         });
@@ -153,11 +160,20 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             return { ...session, user: null as any, expires: new Date(0).toISOString() };
           }
 
+          // Enforce the two-factor challenge: sessions of 2FA-enabled users stay
+          // unauthenticated until the TOTP challenge is passed on this device
+          // (Session.twoFactorVerifiedAt). Unlike the branches above, the session
+          // row is kept so /login/2fa can complete the challenge.
+          if (dbUser.twoFactorEnabled === true && session.twoFactorVerifiedAt == null) {
+            return { ...session, user: null as any, expires: new Date(0).toISOString() };
+          }
+
           session.user.id = dbUser.id;
           session.user.plan = dbUser.plan;
           session.user.credits = dbUser.credits;
           session.user.role = dbUser.role;
           session.user.tokenVersion = dbUser.tokenVersion;
+          session.user.twoFactorEnabled = dbUser.twoFactorEnabled === true;
           session.user.roles = dbUser.userRoles.map((ur: { role: string }) => ur.role) as (
             | "USER"
             | "ADMIN"

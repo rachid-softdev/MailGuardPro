@@ -38,30 +38,33 @@ enum JobStatus {
 }
 
 model User {
-  id                   String    @id @default(cuid())
-  name                 String?
-  email                String?   @unique
-  emailVerified        DateTime?
-  image                String?
-  plan                 Plan      @default(FREE)
-  credits              Int       @default(100)
-  createdAt            DateTime  @default(now())
-  role                 Role      @default(USER)
-  isActive             Boolean   @default(true)
-  stripeCustomerId     String?   @unique
-  stripeSubscriptionId String?
-  tokenVersion         Int       @default(0) // Incremented on API key revocation
-  organizationId       String?   @map("organization_id")
+  id                     String    @id @default(cuid())
+  name                   String?
+  email                  String?   @unique
+  emailVerified          DateTime?
+  image                  String?
+  plan                   Plan      @default(FREE)
+  credits                Int       @default(100)
+  createdAt              DateTime  @default(now())
+  role                   Role      @default(USER)
+  isActive               Boolean   @default(true)
+  stripeCustomerId       String?   @unique
+  stripeSubscriptionId   String?
+  tokenVersion           Int       @default(0) // Incremented on API key revocation
+  twoFactorEnabled       Boolean   @default(false) // TOTP second factor
+  twoFactorSecret        String? // TOTP secret (base32), encrypted at rest (TOKEN_ENCRYPTION_KEY)
+  twoFactorRecoveryCodes String? // JSON array of sha256 hashes of one-time recovery codes
+  organizationId         String?   @map("organization_id")
 
-  accounts    Account[]
-  sessions    Session[]
-  apiKeys     ApiKey[]
-  bulkJobs    BulkJob[]
-  webhooks    Webhook[]
-  validations       Validation[]
-  userRoles         UserRole[]
-  deletionSchedule  DeletionSchedule?
-  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  accounts         Account[]
+  sessions         Session[]
+  apiKeys          ApiKey[]
+  bulkJobs         BulkJob[]
+  webhooks         Webhook[]
+  validations      Validation[]
+  userRoles        UserRole[]
+  deletionSchedule DeletionSchedule?
+  organization     Organization?     @relation(fields: [organizationId], references: [id], onDelete: SetNull)
 }
 
 model Account {
@@ -84,10 +87,11 @@ model Account {
 }
 
 model Session {
-  id           String   @id @default(cuid())
-  sessionToken String   @unique
-  userId       String
-  expires      DateTime
+  id                  String    @id @default(cuid())
+  sessionToken        String    @unique
+  userId              String
+  expires             DateTime
+  twoFactorVerifiedAt DateTime? // Set once this device passes the TOTP challenge
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
@@ -165,20 +169,20 @@ model BulkJob {
 }
 
 model Webhook {
-  id               String             @id @default(cuid())
-  userId           String
-  user             User               @relation(fields: [userId], references: [id], onDelete: Cascade)
-  url              String
-  name             String?
-  events           String[] // ['bulk_job_completed', 'daily_report']
-  encryptedSecret  String             @db.Text // Secret pour HMAC signing (AES-256-GCM encrypted)
-  isActive         Boolean            @default(true)
-  privacyMode      Boolean            @default(false) // If true, mask email addresses in webhook payload
-  pinnedIps        Json? // ["1.2.3.4", "::1"] — IPs résolues au moment de la création
-  createdAt        DateTime           @default(now())
-  updatedAt        DateTime           @updatedAt
-  deletedAt        DateTime?          // NEW: soft-delete timestamp for undo
-  restoredAt       DateTime?          // NEW: audit field
+  id                String            @id @default(cuid())
+  userId            String
+  user              User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  url               String
+  name              String?
+  events            String[] // ['bulk_job_completed', 'daily_report']
+  encryptedSecret   String            @db.Text // Secret pour HMAC signing (AES-256-GCM encrypted)
+  isActive          Boolean           @default(true)
+  privacyMode       Boolean           @default(false) // If true, mask email addresses in webhook payload
+  pinnedIps         Json? // ["1.2.3.4", "::1"] — IPs résolues au moment de la création
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  deletedAt         DateTime? // NEW: soft-delete timestamp for undo
+  restoredAt        DateTime? // NEW: audit field
   webhookDeliveries WebhookDelivery[]
 }
 
@@ -236,16 +240,16 @@ model IdempotencyKey {
 }
 
 model ScheduledExport {
-  id        String   @id @default(uuid())
+  id        String    @id @default(uuid())
   userId    String
-  scope     String   // "validations" | "bulk-results"
-  format    String   // "csv" | "xlsx" | "pdf"
-  frequency String   // "daily" | "weekly" | "monthly"
+  scope     String // "validations" | "bulk-results"
+  format    String // "csv" | "xlsx" | "pdf"
+  frequency String // "daily" | "weekly" | "monthly"
   filters   Json?
   nextRunAt DateTime
   lastRunAt DateTime?
-  createdAt DateTime @default(now())
-  isActive  Boolean  @default(true)
+  createdAt DateTime  @default(now())
+  isActive  Boolean   @default(true)
 
   @@index([userId])
   @@index([isActive, nextRunAt])
@@ -315,31 +319,31 @@ model PricingPlan {
 }
 
 model Feature {
-  id          String      @id @default(cuid())
-  key         String      @unique
-  description String?
-  type        FeatureType
-  defaultConfig Json?     @default("{}") @map("default_config")
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  id            String      @id @default(cuid())
+  key           String      @unique
+  description   String?
+  type          FeatureType
+  defaultConfig Json?       @default("{}") @map("default_config")
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
 
-  planFeatures        PlanFeature[]
+  planFeatures         PlanFeature[]
   entitlementOverrides EntitlementOverride[]
 
   @@map("features")
 }
 
 model PlanFeature {
-  id          String            @id @default(cuid())
-  planId      String            @map("plan_id")
-  featureId   String            @map("feature_id")
-  enabled     Boolean           @default(false)
-  limitValue  Int?              @map("limit_value")
-  configJson  Json?             @default("{}") @map("config_json")
+  id                String            @id @default(cuid())
+  planId            String            @map("plan_id")
+  featureId         String            @map("feature_id")
+  enabled           Boolean           @default(false)
+  limitValue        Int?              @map("limit_value")
+  configJson        Json?             @default("{}") @map("config_json")
   downgradeStrategy DowngradeStrategy @default(IMMEDIATE) @map("downgrade_strategy")
 
-  plan    PricingPlan    @relation(fields: [planId], references: [id], onDelete: Cascade)
-  feature Feature @relation(fields: [featureId], references: [id], onDelete: Cascade)
+  plan    PricingPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  feature Feature     @relation(fields: [featureId], references: [id], onDelete: Cascade)
 
   @@unique([planId, featureId])
   @@map("plan_features")
@@ -352,26 +356,26 @@ model Organization {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
-  subscriptions   Subscription[]
-  usageTracking   UsageTracking[]
-  users           User[]
+  subscriptions Subscription[]
+  usageTracking UsageTracking[]
+  users         User[]
 
   @@map("organizations")
 }
 
 model Subscription {
-  id                 String               @id @default(cuid())
-  orgId              String               @map("org_id")
-  planKey            String               @map("plan_key")
+  id                 String                 @id @default(cuid())
+  orgId              String                 @map("org_id")
+  planKey            String                 @map("plan_key")
   status             SubscriptionStatusEnum
-  stripeSubId        String?              @unique @map("stripe_sub_id")
-  currentPeriodStart DateTime?            @map("current_period_start")
-  currentPeriodEnd   DateTime?            @map("current_period_end")
-  createdAt          DateTime             @default(now())
-  updatedAt          DateTime             @updatedAt
+  stripeSubId        String?                @unique @map("stripe_sub_id")
+  currentPeriodStart DateTime?              @map("current_period_start")
+  currentPeriodEnd   DateTime?              @map("current_period_end")
+  createdAt          DateTime               @default(now())
+  updatedAt          DateTime               @updatedAt
 
   organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  pricingPlan  PricingPlan @relation(fields: [planKey], references: [key], onDelete: Restrict)
+  pricingPlan  PricingPlan  @relation(fields: [planKey], references: [key], onDelete: Restrict)
 
   @@unique([orgId, planKey])
   @@index([orgId])
@@ -380,18 +384,18 @@ model Subscription {
 }
 
 model EntitlementOverride {
-  id         String         @id @default(cuid())
+  id         String        @id @default(cuid())
   scope      OverrideScope
-  scopeId    String         @map("scope_id")
-  featureKey String         @map("feature_key")
+  scopeId    String        @map("scope_id")
+  featureKey String        @map("feature_key")
   enabled    Boolean?
-  limitValue Int?           @map("limit_value")
-  expiresAt  DateTime?      @map("expires_at")
-  reason     String         @default("")
-  createdAt  DateTime       @default(now())
-  updatedAt  DateTime       @updatedAt
+  limitValue Int?          @map("limit_value")
+  expiresAt  DateTime?     @map("expires_at")
+  reason     String        @default("")
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
 
-  feature    Feature        @relation(fields: [featureKey], references: [key], onDelete: Cascade)
+  feature Feature @relation(fields: [featureKey], references: [key], onDelete: Cascade)
   // NOTE: scope_id is polymorphic (scope=USER → users.id, scope=ORG → organizations.id).
   // No FK constraint: a constraint targeting organizations only made USER-scoped
   // overrides impossible (FK violation on write). See migration 20261018120000.
