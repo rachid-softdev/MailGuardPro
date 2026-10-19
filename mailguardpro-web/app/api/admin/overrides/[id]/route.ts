@@ -3,12 +3,19 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/require-admin";
+import { validateCsrfOrigin } from "@/lib/csrf";
 import { loggerApi } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
 import { getFeatureGateService } from "@/services/feature-flags/serviceFactory";
 
-export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    // CSRF protection
+    const csrf = validateCsrfOrigin(req);
+    if (!csrf.valid) {
+      return NextResponse.json({ error: csrf.error }, { status: 403 });
+    }
+
     await requireAdmin();
     const { id } = await params;
 

@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { requireAdmin } from "@/lib/auth/require-admin";
+import { validateCsrfOrigin } from "@/lib/csrf";
 import { loggerApi } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
 
@@ -59,6 +60,12 @@ export async function GET(req: NextRequest) {
 
 export async function POST(request: Request) {
   try {
+    // CSRF protection
+    const csrf = validateCsrfOrigin(request);
+    if (!csrf.valid) {
+      return NextResponse.json({ error: csrf.error }, { status: 403 });
+    }
+
     await requireAdmin();
 
     const body = await request.json();

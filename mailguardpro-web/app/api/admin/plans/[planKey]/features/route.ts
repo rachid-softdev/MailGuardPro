@@ -4,6 +4,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { requireAdmin } from "@/lib/auth/require-admin";
+import { validateCsrfOrigin } from "@/lib/csrf";
 import { loggerApi } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
 
@@ -17,6 +18,12 @@ const AddFeatureSchema = z.object({
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ planKey: string }> }) {
   try {
+    // CSRF protection
+    const csrf = validateCsrfOrigin(req);
+    if (!csrf.valid) {
+      return NextResponse.json({ error: csrf.error }, { status: 403 });
+    }
+
     await requireAdmin();
     const { planKey } = await params;
 

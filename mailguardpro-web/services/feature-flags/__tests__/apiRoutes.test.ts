@@ -62,6 +62,10 @@ vi.mock("@/services/feature-flags/serviceFactory", () => ({
   getDowngradeService: vi.fn(),
 }));
 
+vi.mock("@/lib/csrf", () => ({
+  validateCsrfOrigin: vi.fn(() => ({ valid: true, error: undefined })),
+}));
+
 // Note: PrismaEntitlementRepository is NOT mocked — the real class uses
 // mocked prisma, which provides all the required model methods.
 
