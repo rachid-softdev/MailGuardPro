@@ -11,6 +11,7 @@ declare module "next-auth" {
       role: "USER" | "ADMIN";
       isActive: boolean;
       tokenVersion: number;
+      twoFactorEnabled?: boolean;
       roles: ("USER" | "ADMIN")[];
     } & DefaultSession["user"];
   }
