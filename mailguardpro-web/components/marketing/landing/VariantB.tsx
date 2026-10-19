@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import EmailDemo from "@/components/marketing/EmailDemo";
-import { ScoreCircle } from "@/components/validator/ScoreCircle";
 import { Button, Card, SectionHeader } from "@/components/ui";
+import { ScoreCircle } from "@/components/validator/ScoreCircle";
 
 const ArrowIcon = (
   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
@@ -290,7 +290,7 @@ export function VariantB() {
             </p>
           </div>
           <div className="grid md:grid-cols-2 gap-8 max-w-3xl mx-auto">
-<Card variant="default">
+            <Card variant="default">
               <div className="w-12 h-12 bg-[var(--accent-light)] rounded-lg mb-4 flex items-center justify-center">
                 <svg
                   className="w-6 h-6 text-[var(--accent)]"
