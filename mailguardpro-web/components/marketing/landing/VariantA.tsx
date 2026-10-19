@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import EmailDemo from "@/components/marketing/EmailDemo";
+import { DemoVideoSection } from "@/components/marketing/landing/DemoVideoSection";
 import { Badge, Button, Card, SectionHeader } from "@/components/ui";
 import { ScoreCircle } from "@/components/validator/ScoreCircle";
 
@@ -49,6 +50,8 @@ export function VariantA() {
           </Card>
         </div>
       </section>
+
+      <DemoVideoSection />
 
       {/* Features */}
       <section className="py-20 border-t border-[var(--border)]">

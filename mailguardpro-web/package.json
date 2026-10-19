@@ -13,6 +13,7 @@
     "format": "biome format --write .",
     "format:check": "biome format .",
     "migrate:tokens": "tsx scripts/migrate-legacy-tokens.ts",
+    "demo:video": "tsx scripts/generate-demo-video.ts",
     "worker": "tsx worker/index.ts",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
