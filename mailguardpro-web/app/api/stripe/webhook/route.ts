@@ -142,6 +142,18 @@ export async function POST(req: NextRequest) {
       }
     } catch (error) {
       loggerStripe.error({ err: error }, "Failed to process checkout.session.completed");
+
+      // Do NOT acknowledge: a transient failure (Stripe API / DB) must surface
+      // as 5xx so Stripe retries the delivery. Release the idempotency marker
+      // first, otherwise the retried delivery would be treated as a duplicate
+      // and the plan/credits would never be granted.
+      try {
+        await redis.del(checkoutIdempotencyKey(eventId));
+      } catch (releaseErr) {
+        loggerStripe.warn({ releaseErr, eventId }, "Failed to release checkout idempotency marker");
+      }
+
+      return NextResponse.json({ error: "Event processing failed" }, { status: 500 });
     }
 
     return NextResponse.json({ received: true });
