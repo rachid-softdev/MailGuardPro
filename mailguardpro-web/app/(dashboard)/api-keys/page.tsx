@@ -2,18 +2,20 @@
 
 import { Check, Copy, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Modal } from "@/components/ui/Modal";
 import { Button, Card } from "@/components/ui";
+import { Modal } from "@/components/ui/Modal";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { useOnlineStatusSync } from "@/hooks/useOnlineStatusSync";
 import { useUndoDelete } from "@/hooks/useUndoDelete";
 import { logger } from "@/lib/logger";
+import { formatScopes, SCOPE_OPTIONS } from "./scopeOptions";
 
 interface ApiKey {
   id: string;
   keyPrefix: string;
   name: string;
+  scopes: string;
   isActive: boolean;
   lastUsedAt: string | null;
   createdAt: string;
@@ -24,6 +26,7 @@ export default function ApiKeysPage() {
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newKeyName, setNewKeyName] = useState("");
+  const [newKeyScope, setNewKeyScope] = useState("full");
   const [creating, setCreating] = useState(false);
   const [newKey, setNewKey] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -72,7 +75,7 @@ export default function ApiKeysPage() {
       const res = await fetch("/api/v1/api-keys", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: newKeyName }),
+        body: JSON.stringify({ name: newKeyName, scope: newKeyScope }),
       });
 
       const data = await res.json();
@@ -203,6 +206,7 @@ export default function ApiKeysPage() {
                 <div className="h-5 w-14 bg-[var(--bg-subtle)] animate-skeleton rounded-full" />
                 <div className="h-4 w-16 bg-[var(--bg-subtle)] animate-skeleton rounded" />
                 <div className="h-4 w-16 bg-[var(--bg-subtle)] animate-skeleton rounded" />
+                <div className="h-4 w-16 bg-[var(--bg-subtle)] animate-skeleton rounded" />
                 <div className="h-4 w-14 bg-[var(--bg-subtle)] animate-skeleton rounded ml-auto" />
               </div>
             ))}
@@ -220,6 +224,9 @@ export default function ApiKeysPage() {
                   </th>
                   <th className="text-left py-3 px-4 text-sm font-medium text-[var(--text-muted)]">
                     Status
+                  </th>
+                  <th className="text-left py-3 px-4 text-sm font-medium text-[var(--text-muted)]">
+                    Access
                   </th>
                   <th className="text-left py-3 px-4 text-sm font-medium text-[var(--text-muted)]">
                     Last Used
@@ -259,6 +266,9 @@ export default function ApiKeysPage() {
                     </td>
                     <td className="py-3 px-4">
                       <StatusBadge status={key.isActive ? "valid" : "unknown"} showDot={true} />
+                    </td>
+                    <td className="py-3 px-4 text-sm text-[var(--text-muted)]">
+                      {formatScopes(key.scopes)}
                     </td>
                     <td className="py-3 px-4 text-sm text-[var(--text-muted)]">
                       {formatDate(key.lastUsedAt)}
@@ -305,6 +315,7 @@ export default function ApiKeysPage() {
         onClose={() => {
           setShowCreateModal(false);
           setNewKeyName("");
+          setNewKeyScope("full");
         }}
         title="Create API Key"
         id="modal-create-api-key"
@@ -345,6 +356,7 @@ export default function ApiKeysPage() {
                 setNewKey(null);
                 setShowCreateModal(false);
                 setNewKeyName("");
+                setNewKeyScope("full");
               }}
             >
               Copy & Close
@@ -362,6 +374,26 @@ export default function ApiKeysPage() {
                 className="input w-full"
               />
             </div>
+            <div className="mb-4">
+              <label htmlFor="api-key-scope" className="block text-sm font-medium mb-2">
+                Access level
+              </label>
+              <select
+                id="api-key-scope"
+                value={newKeyScope}
+                onChange={(e) => setNewKeyScope(e.target.value)}
+                className="input w-full"
+              >
+                {SCOPE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-[var(--text-muted)] mt-1">
+                {SCOPE_OPTIONS.find((option) => option.value === newKeyScope)?.description}
+              </p>
+            </div>
             <div className="flex gap-3">
               <Button
                 variant="ghost"
@@ -369,6 +401,7 @@ export default function ApiKeysPage() {
                 onClick={() => {
                   setShowCreateModal(false);
                   setNewKeyName("");
+                  setNewKeyScope("full");
                 }}
               >
                 Cancel
