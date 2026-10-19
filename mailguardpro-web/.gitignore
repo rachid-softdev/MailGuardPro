@@ -39,6 +39,7 @@ src/generated/prisma/
 
 # Test
 coverage/
+demo-render/
 
 # Misc
 *.log
