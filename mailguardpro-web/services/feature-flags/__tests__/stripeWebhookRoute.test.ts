@@ -16,6 +16,7 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 // ================================================================
 const mockHeadersGet = vi.fn();
 const mockRedisSet = vi.fn();
+const mockRedisDel = vi.fn();
 const mockCheckRateLimit = vi.fn();
 const mockConstructEvent = vi.fn();
 const mockStripeRetrieve = vi.fn();
@@ -34,7 +35,7 @@ vi.mock("next/headers", () => ({
 }));
 
 vi.mock("@/lib/redis", () => ({
-  redis: { set: mockRedisSet },
+  redis: { set: mockRedisSet, del: mockRedisDel },
   checkRateLimit: mockCheckRateLimit,
 }));
 
@@ -114,6 +115,8 @@ describe("Stripe Webhook Route — POST /api/stripe/webhook", () => {
       limit: 60,
     });
     mockRedisSet.mockResolvedValue("OK");
+    mockRedisDel.mockResolvedValue(1);
+    mockPrismaUpdate.mockResolvedValue({ id: "user_1" });
     mockConstructEvent.mockReturnValue(makeEvent("unhandled.type", {}));
     mockCreateStripeWebhookHandler.mockResolvedValue({
       handleVerifiedEvent: mockFFHandleEvent,
@@ -419,6 +422,87 @@ describe("Stripe Webhook Route — POST /api/stripe/webhook", () => {
 
       expect(res.status).toBe(503);
       expect(await res.json()).toEqual({ error: "Event processing failed" });
+    });
+  });
+
+  // ================================================================
+  // SECTION 3c: Post-audit wave 3 — checkout processing failures must
+  // NOT be acknowledged. They release the checkout idempotency marker
+  // and answer 5xx so Stripe retries instead of losing the event.
+  // ================================================================
+  describe("post-audit wave 3 — checkout failure retry semantics", () => {
+    beforeEach(() => {
+      mockConstructEvent.mockReturnValue(
+        makeEvent("checkout.session.completed", {
+          customer: "cus_test",
+          subscription: "sub_test",
+        }),
+      );
+    });
+
+    it("W3.1 Stripe retrieve failure → 500 + checkout marker released", async () => {
+      mockPrismaFindFirst.mockResolvedValue({ id: "user_1", stripeCustomerId: "cus_test" });
+      mockStripeRetrieve.mockRejectedValue(new Error("Stripe API down"));
+
+      const res = await POST(createRequest("{}"));
+
+      expect(res.status).toBe(500);
+      expect(mockRedisDel).toHaveBeenCalledWith(expect.stringMatching(/^stripe:checkout:/));
+      expect(mockPrismaUpdate).not.toHaveBeenCalled();
+    });
+
+    it("W3.2 DB failure while granting credits → 500 + checkout marker released", async () => {
+      mockPrismaFindFirst.mockResolvedValue({ id: "user_1", stripeCustomerId: "cus_test" });
+      mockStripeRetrieve.mockResolvedValue({
+        items: { data: [{ price: { id: "price_pro" } }] },
+      });
+      mockGetPlanFromPriceId.mockReturnValue("PRO");
+      mockPrismaUpdate.mockRejectedValue(new Error("DB down"));
+
+      const res = await POST(createRequest("{}"));
+
+      expect(res.status).toBe(500);
+      expect(mockRedisDel).toHaveBeenCalledWith(expect.stringMatching(/^stripe:checkout:/));
+    });
+
+    it("W3.3 successful processing keeps the marker (dedupe preserved)", async () => {
+      mockPrismaFindFirst.mockResolvedValue({ id: "user_1", stripeCustomerId: "cus_test" });
+      mockStripeRetrieve.mockResolvedValue({
+        items: { data: [{ price: { id: "price_pro" } }] },
+      });
+      mockGetPlanFromPriceId.mockReturnValue("PRO");
+
+      const res = await POST(createRequest("{}"));
+
+      expect(res.status).toBe(200);
+      expect(mockRedisDel).not.toHaveBeenCalled();
+    });
+
+    it("W3.4 retry after a released failure is reprocessed (not deduplicated)", async () => {
+      mockPrismaFindFirst.mockResolvedValue({ id: "user_1", stripeCustomerId: "cus_test" });
+      mockStripeRetrieve.mockRejectedValueOnce(new Error("Stripe API down"));
+
+      const first = await POST(createRequest("{}"));
+      expect(first.status).toBe(500);
+      expect(mockRedisDel).toHaveBeenCalledTimes(1);
+
+      mockStripeRetrieve.mockResolvedValue({
+        items: { data: [{ price: { id: "price_pro" } }] },
+      });
+      mockGetPlanFromPriceId.mockReturnValue("PRO");
+
+      const second = await POST(createRequest("{}"));
+      expect(second.status).toBe(200);
+      expect(mockPrismaUpdate).toHaveBeenCalled();
+    });
+
+    it("W3.5 Redis down during marker release is non-fatal (still 500 → Stripe retries)", async () => {
+      mockPrismaFindFirst.mockResolvedValue({ id: "user_1", stripeCustomerId: "cus_test" });
+      mockStripeRetrieve.mockRejectedValue(new Error("Stripe API down"));
+      mockRedisDel.mockRejectedValue(new Error("Redis down"));
+
+      const res = await POST(createRequest("{}"));
+      expect(res.status).toBe(500);
     });
   });
 

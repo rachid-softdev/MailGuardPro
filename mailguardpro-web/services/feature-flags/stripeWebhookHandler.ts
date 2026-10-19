@@ -21,9 +21,9 @@
 import Stripe from "stripe";
 import { logger } from "@/lib/logger";
 import type { ICacheService } from "./cacheService";
+import { DowngradeService } from "./downgradeService";
 import type { IEntitlementRepository } from "./entitlementRepository";
 import type { SubscriptionStatus } from "./types";
-import { DowngradeService } from "./downgradeService";
 
 // ---- Price IDs to plan key mapping ----
 // Configure these via env variables or a registry
@@ -313,41 +313,35 @@ export class StripeWebhookHandler {
     const org = await this.resolveOrg(customerId, subscriptionId);
     if (!org) return;
 
-    // Renew the period
-    try {
-      const subscription = await this.stripe.subscriptions.retrieve(subscriptionId);
-      const sub = subscription as any;
-      const periodStart = sub.current_period_start
-        ? new Date(sub.current_period_start * 1000)
-        : null;
-      const periodEnd = sub.current_period_end ? new Date(sub.current_period_end * 1000) : null;
+    // Renew the period. Transient failures (Stripe API / DB) must propagate so
+    // `handleVerifiedEvent` releases the idempotency marker and the route
+    // answers 5xx — Stripe then retries the delivery instead of the renewal
+    // being silently lost.
+    const subscription = await this.stripe.subscriptions.retrieve(subscriptionId);
+    const sub = subscription as any;
+    const periodStart = sub.current_period_start ? new Date(sub.current_period_start * 1000) : null;
+    const periodEnd = sub.current_period_end ? new Date(sub.current_period_end * 1000) : null;
 
-      const priceId = sub.items.data[0]?.price.id ?? "";
-      const planKey = getPlanKeyFromPriceId(priceId) ?? "FREE";
+    const priceId = sub.items.data[0]?.price.id ?? "";
+    const planKey = getPlanKeyFromPriceId(priceId) ?? "FREE";
 
-      await this.repo.upsertSubscription({
-        org_id: org.id,
-        plan_key: planKey,
-        status: "active",
-        stripe_sub_id: subscriptionId,
-        current_period_start: periodStart,
-        current_period_end: periodEnd,
-      });
+    await this.repo.upsertSubscription({
+      org_id: org.id,
+      plan_key: planKey,
+      status: "active",
+      stripe_sub_id: subscriptionId,
+      current_period_start: periodStart,
+      current_period_end: periodEnd,
+    });
 
-      await this.cache.invalidate(org.id);
+    await this.cache.invalidate(org.id);
 
-      logger.info(
-        { orgId: org.id, subscriptionId, planKey },
-        "StripeWebhook: payment succeeded — period renewed",
-      );
+    logger.info(
+      { orgId: org.id, subscriptionId, planKey },
+      "StripeWebhook: payment succeeded — period renewed",
+    );
 
-      await this.syncUserPlan(org.id, planKey);
-    } catch (err) {
-      logger.error(
-        { err, customerId, subscriptionId },
-        "StripeWebhook: failed to renew subscription after payment",
-      );
-    }
+    await this.syncUserPlan(org.id, planKey);
   }
 
   private async handleInvoicePaymentFailed(invoice: Stripe.Invoice): Promise<void> {
