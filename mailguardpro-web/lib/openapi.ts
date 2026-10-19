@@ -678,6 +678,53 @@ export const openApiSpec = {
       },
     },
 
+    "/webhooks/deliveries/{id}/retry": {
+      post: {
+        tags: ["Webhooks"],
+        summary: "Retry a failed webhook delivery",
+        description:
+          "Re-sends the event stored on a failed delivery as a single immediate attempt (no automatic backoff). The attempt is persisted as a new delivery record so the retry history stays auditable.",
+        operationId: "webhookDeliveryRetry",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "id",
+            in: "path",
+            required: true,
+            schema: { type: "string" },
+          },
+        ],
+        responses: {
+          "200": {
+            description: "Delivery re-sent; the result was appended to the delivery history",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean" },
+                    data: {
+                      type: "object",
+                      properties: {
+                        redeliveryOf: { type: "string" },
+                        event: { type: "string" },
+                        url: { type: "string" },
+                      },
+                    },
+                    message: { type: "string" },
+                  },
+                },
+              },
+            },
+          },
+          "400": { $ref: "#/components/responses/BadRequest" },
+          "401": { $ref: "#/components/responses/Unauthorized" },
+          "404": { $ref: "#/components/responses/NotFound" },
+          "429": { $ref: "#/components/responses/RateLimited" },
+        },
+      },
+    },
+
     // Sessions
     "/user/sessions": {
       get: {

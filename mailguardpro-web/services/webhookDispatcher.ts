@@ -71,10 +71,14 @@ export class WebhookDispatcher {
     webhook: WebhookConfig,
     event: string,
     data: Record<string, unknown>,
+    options?: { maxAttempts?: number },
   ): Promise<boolean> {
     if (!webhook.isActive || !webhook.events.includes(event)) {
       return false;
     }
+
+    // Les relivraisons manuelles plafonnent à une seule tentative immédiate
+    const maxAttempts = Math.max(1, Math.min(options?.maxAttempts ?? MAX_RETRIES, MAX_RETRIES));
 
     // DNS Pinning : re-résoudre et comparer avec les IPs stockées
     if (!webhook.pinnedIps) {
@@ -116,7 +120,7 @@ export class WebhookDispatcher {
 
     let lastError: Error | null = null;
 
-    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
       try {
         const response = await fetch(webhook.url, {
           method: "POST",
@@ -158,14 +162,14 @@ export class WebhookDispatcher {
       }
 
       // Attendre avant le retry (with jitter to avoid thundering herd)
-      if (attempt < MAX_RETRIES - 1) {
+      if (attempt < maxAttempts - 1) {
         await new Promise((r) => setTimeout(r, withJitter(RETRY_DELAYS[attempt])));
       }
     }
 
     // Tous les retries ont échoué
     loggerWebhook.error(
-      { err: lastError, maxRetries: MAX_RETRIES, url: webhook.url },
+      { err: lastError, maxRetries: maxAttempts, url: webhook.url },
       "Webhook dispatch failed after all attempts",
     );
 
@@ -177,6 +181,36 @@ export class WebhookDispatcher {
     });
 
     return false;
+  }
+
+  // Relivraison manuelle d'une livraison échouée (bouton « Retry » de l'interface) :
+  // reconstruit la config depuis l'enregistrement Prisma et effectue une tentative
+  // unique et immédiate (pas de backoff — l'utilisateur peut relancer d'un clic).
+  static async redeliver(
+    webhook: {
+      id: string;
+      url: string;
+      encryptedSecret: string;
+      events: string[];
+      isActive: boolean;
+      pinnedIps: unknown;
+    },
+    event: string,
+    data: Record<string, unknown>,
+  ): Promise<boolean> {
+    return this.dispatch(
+      {
+        id: webhook.id,
+        url: webhook.url,
+        secret: webhook.encryptedSecret,
+        events: webhook.events,
+        isActive: webhook.isActive,
+        pinnedIps: parsePinnedIps(webhook.pinnedIps),
+      },
+      event,
+      data,
+      { maxAttempts: 1 },
+    );
   }
 
   // Persist a delivery record in the database (for DLQ audit trail)

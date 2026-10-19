@@ -13,8 +13,8 @@ import {
   XCircle,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import { Tooltip } from "@/components/ui/Tooltip";
 import { Button, Card } from "@/components/ui";
+import { Tooltip } from "@/components/ui/Tooltip";
 import { logger } from "@/lib/logger";
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -110,10 +110,14 @@ function DeliveryRow({
   delivery,
   isExpanded,
   onToggle,
+  onRedeliver,
+  isRetrying,
 }: {
   delivery: WebhookDelivery;
   isExpanded: boolean;
   onToggle: () => void;
+  onRedeliver: (id: string) => void;
+  isRetrying: boolean;
 }) {
   return (
     <>
@@ -190,7 +194,7 @@ function DeliveryRow({
               </div>
 
               {/* Metadata */}
-              <div className="flex gap-6 text-xs text-[var(--text-muted)] font-mono">
+              <div className="flex items-center gap-6 text-xs text-[var(--text-muted)] font-mono">
                 <span>
                   ID: <span className="text-[var(--text-secondary)]">{delivery.id}</span>
                 </span>
@@ -206,6 +210,19 @@ function DeliveryRow({
                     {new Date(delivery.createdAt).toLocaleString()}
                   </span>
                 </span>
+                {delivery.status === "failed" && (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="ml-auto"
+                    onClick={() => onRedeliver(delivery.id)}
+                    loading={isRetrying}
+                    aria-label={`Retry delivery ${delivery.id}`}
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    Retry delivery
+                  </Button>
+                )}
               </div>
             </div>
           </td>
@@ -234,6 +251,10 @@ export default function WebhookDeliveriesPage() {
 
   // Expanded rows
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+
+  // Manual redelivery
+  const [retryingId, setRetryingId] = useState<string | null>(null);
+  const [retryFeedback, setRetryFeedback] = useState<{ ok: boolean; message: string } | null>(null);
 
   // ── Fetch webhooks for dropdown ─────────────────────────────────────────
 
@@ -299,6 +320,35 @@ export default function WebhookDeliveriesPage() {
 
   const handleRetry = () => {
     fetchDeliveries();
+  };
+
+  // Re-send a failed delivery as a new attempt (single immediate try server-side)
+  const handleRedeliver = async (id: string) => {
+    setRetryingId(id);
+    setRetryFeedback(null);
+    try {
+      const res = await fetch(`/api/v1/webhooks/deliveries/${id}/retry`, { method: "POST" });
+      const json = await res.json().catch(() => null);
+      if (res.ok && json?.success) {
+        setRetryFeedback({
+          ok: true,
+          message: json.message || "Delivery re-sent — the result was added to the history.",
+        });
+        await fetchDeliveries();
+      } else {
+        setRetryFeedback({
+          ok: false,
+          message: json?.error || "Redelivery failed. Please try again.",
+        });
+      }
+    } catch {
+      setRetryFeedback({
+        ok: false,
+        message: "Could not connect to the server. Please check your connection.",
+      });
+    } finally {
+      setRetryingId(null);
+    }
   };
 
   const handleFilterChange = (setter: (v: string) => void, value: string) => {
@@ -367,6 +417,25 @@ export default function WebhookDeliveriesPage() {
           )}
         </div>
       </Card>
+
+      {/* Redelivery feedback */}
+      {retryFeedback && (
+        <div
+          role="status"
+          className={`mb-4 px-4 py-3 rounded-lg border text-sm flex items-center gap-2 ${
+            retryFeedback.ok
+              ? "bg-[var(--status-valid-bg)]/30 border-[var(--status-valid)]/20 text-[var(--status-valid)]"
+              : "bg-[var(--status-invalid-bg)]/30 border-[var(--status-invalid)]/20 text-[var(--status-invalid)]"
+          }`}
+        >
+          {retryFeedback.ok ? (
+            <CheckCircle className="w-4 h-4 shrink-0" />
+          ) : (
+            <AlertCircle className="w-4 h-4 shrink-0" />
+          )}
+          {retryFeedback.message}
+        </div>
+      )}
 
       {/* Error state */}
       {error && (
@@ -453,6 +522,8 @@ export default function WebhookDeliveriesPage() {
                     delivery={delivery}
                     isExpanded={expandedIds.has(delivery.id)}
                     onToggle={() => toggleExpanded(delivery.id)}
+                    onRedeliver={handleRedeliver}
+                    isRetrying={retryingId === delivery.id}
                   />
                 ))}
               </tbody>
