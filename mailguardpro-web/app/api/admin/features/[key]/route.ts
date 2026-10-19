@@ -3,11 +3,18 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/require-admin";
+import { validateCsrfOrigin } from "@/lib/csrf";
 import { loggerApi } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ key: string }> }) {
   try {
+    // CSRF protection
+    const csrf = validateCsrfOrigin(req);
+    if (!csrf.valid) {
+      return NextResponse.json({ error: csrf.error }, { status: 403 });
+    }
+
     await requireAdmin();
     const { key } = await params;
     const body = await req.json();

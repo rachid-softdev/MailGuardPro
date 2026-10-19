@@ -25,9 +25,14 @@ vi.mock("@/lib/logger", () => ({
   loggerApi: { error: vi.fn(), warn: vi.fn(), info: vi.fn() },
 }));
 
+vi.mock("@/lib/csrf", () => ({
+  validateCsrfOrigin: vi.fn(() => ({ valid: true, error: undefined })),
+}));
+
 import { NextRequest } from "next/server";
 import { GET, POST } from "@/app/api/admin/users/route";
 import { auth } from "@/lib/auth";
+import { validateCsrfOrigin } from "@/lib/csrf";
 import { prisma } from "@/lib/prisma";
 
 const ADMIN_SESSION = {
@@ -88,7 +93,10 @@ describe("GET /api/admin/users", () => {
 });
 
 describe("POST /api/admin/users", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(validateCsrfOrigin).mockReturnValue({ valid: true, error: undefined });
+  });
 
   it("returns 403 when the caller is a non-admin user", async () => {
     vi.mocked(auth).mockResolvedValue(NON_ADMIN_SESSION as any);
@@ -100,6 +108,14 @@ describe("POST /api/admin/users", () => {
     vi.mocked(auth).mockResolvedValue(null as any);
     const res = await POST(adminPostRequest({ email: "new@x.com", roles: ["USER"] }));
     expect(res.status).toBe(401);
+  });
+
+  it("returns 403 when the CSRF origin is invalid", async () => {
+    vi.mocked(auth).mockResolvedValue(ADMIN_SESSION as any);
+    vi.mocked(validateCsrfOrigin).mockReturnValue({ valid: false, error: "Origin not allowed" });
+    const res = await POST(adminPostRequest({ email: "new@x.com", roles: ["USER"] }));
+    expect(res.status).toBe(403);
+    expect(prisma.user.create).not.toHaveBeenCalled();
   });
 
   it("returns 400 for an invalid email", async () => {
