@@ -107,7 +107,7 @@ jobs:
         run: pnpm run db:generate
 
       - name: Push DB schema
-        run: pnpm --filter @mailguardpro/web exec prisma db push --skip-generate
+        run: pnpm --filter @mailguardpro/web exec prisma db push
         env:
           DATABASE_URL: postgresql://test:test@localhost:5432/mailguard_test
 
@@ -173,7 +173,7 @@ jobs:
         run: pnpm run db:generate
 
       - name: Push DB schema
-        run: pnpm --filter @mailguardpro/web exec prisma db push --skip-generate
+        run: pnpm --filter @mailguardpro/web exec prisma db push
         env:
           DATABASE_URL: postgresql://test:test@localhost:5432/mailguard_test
 
@@ -210,7 +210,7 @@ jobs:
         run: pnpm run db:generate
 
       - name: Push DB schema
-        run: pnpm --filter @mailguardpro/web exec prisma db push --skip-generate
+        run: pnpm --filter @mailguardpro/web exec prisma db push
         env:
           DATABASE_URL: postgresql://test:test@localhost:5432/mailguard_test
 
