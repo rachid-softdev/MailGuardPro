@@ -247,6 +247,9 @@ jobs:
           STRIPE_PUBLISHABLE_KEY: pk_test_mock
           STRIPE_WEBHOOK_SECRET: whsec_mock
           NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: pk_test_mock
+          STRIPE_STARTER_PRICE_ID: price_starter_mock
+          STRIPE_PRO_PRICE_ID: price_pro_mock
+          STRIPE_BUSINESS_PRICE_ID: price_business_mock
           RESEND_API_KEY: re_mock
           SENTRY_AUTH_TOKEN: mock
 
