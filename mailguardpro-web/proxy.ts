@@ -27,10 +27,13 @@ function buildCsp(nonce: string): string {
     process.env.CSP_IMG_ORIGINS ||
     "https://lh3.googleusercontent.com https://avatars.githubusercontent.com";
   const liveModeOrigins = process.env.NODE_ENV === "development" ? "http://localhost:8400" : "";
+  // React uses eval() in development for debugging (e.g. reconstructing server stacks).
+  // Next.js only requires it in dev; production never allows unsafe-eval.
+  const devEval = process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : "";
 
   return [
     `default-src 'self'`,
-    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' ${stripeOrigins} ${liveModeOrigins}`,
+    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${devEval} ${stripeOrigins} ${liveModeOrigins}`,
     `style-src 'self' 'unsafe-inline'`,
     `img-src 'self' data: blob: https: ${imgOrigins}`,
     `font-src 'self' data:`,

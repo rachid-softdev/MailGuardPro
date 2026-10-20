@@ -45,7 +45,7 @@ const KNOWN_DISPOSABLE_DOMAINS = new Set([
 
 // URL of the public blocklist (optional, can be used for weekly sync)
 const DISPOSABLE_LIST_URL =
-  "https://raw.githubusercontent.com/disposable-email-domains/disposable-email-domains/master/disposable_domains.txt";
+  "https://raw.githubusercontent.com/disposable-email-domains/disposable-email-domains/main/disposable_email_blocklist.conf";
 
 interface DisposableResult extends CheckResult {
   provider?: string;
