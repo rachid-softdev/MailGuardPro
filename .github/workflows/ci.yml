@@ -107,12 +107,12 @@ jobs:
         run: pnpm run db:generate
 
       - name: Push DB schema
-        run: pnpm --filter mailguardpro-web exec prisma db push --skip-generate
+        run: pnpm --filter @mailguardpro/web exec prisma db push --skip-generate
         env:
           DATABASE_URL: postgresql://test:test@localhost:5432/mailguard_test
 
       - name: Run Unit Tests
-        run: pnpm --filter mailguardpro-web run test:run
+        run: pnpm --filter @mailguardpro/web run test:run
         env:
           DATABASE_URL: postgresql://test:test@localhost:5432/mailguard_test
           REDIS_URL: redis://localhost:6379
@@ -173,12 +173,12 @@ jobs:
         run: pnpm run db:generate
 
       - name: Push DB schema
-        run: pnpm --filter mailguardpro-web exec prisma db push --skip-generate
+        run: pnpm --filter @mailguardpro/web exec prisma db push --skip-generate
         env:
           DATABASE_URL: postgresql://test:test@localhost:5432/mailguard_test
 
       - name: Run Integration Tests
-        run: pnpm --filter mailguardpro-web run test:run -- --grep "integration"
+        run: pnpm --filter @mailguardpro/web run test:run -- --grep "integration"
         env:
           DATABASE_URL: postgresql://test:test@localhost:5432/mailguard_test
           REDIS_URL: redis://localhost:6379
@@ -210,12 +210,12 @@ jobs:
         run: pnpm run db:generate
 
       - name: Push DB schema
-        run: pnpm --filter mailguardpro-web exec prisma db push --skip-generate
+        run: pnpm --filter @mailguardpro/web exec prisma db push --skip-generate
         env:
           DATABASE_URL: postgresql://test:test@localhost:5432/mailguard_test
 
       - name: Build application
-        run: pnpm --filter mailguardpro-web run build
+        run: pnpm --filter @mailguardpro/web run build
         env:
           DATABASE_URL: postgresql://test:test@localhost:5432/mailguard_test
           REDIS_URL: redis://localhost:6379
