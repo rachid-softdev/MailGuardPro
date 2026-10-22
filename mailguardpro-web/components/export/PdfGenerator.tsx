@@ -2,9 +2,9 @@
 
 import DOMPurify from "dompurify";
 import { useState } from "react";
+import { Button } from "@/components/ui";
 import { sanitizeForHtml } from "@/lib/emailSanitizer";
 import { logger } from "@/lib/logger";
-import { Button } from "@/components/ui";
 
 interface ValidationResult {
   email: string;
@@ -94,7 +94,7 @@ function generatePdfWithBrowser(data: ExportData): boolean {
       --text-muted: #666;
       --bg-subtle: #f5f5f5;
       --border: #eee;
-      --accent: #00A36C;
+      --accent: #E05A2B;
       --status-valid: #00A36C;
       --status-invalid: #dc3545;
       --status-risky: #e6a700;
@@ -107,14 +107,14 @@ function generatePdfWithBrowser(data: ExportData): boolean {
       padding: 40px;
       max-width: 800px;
       margin: 0 auto;
-      color: var(--text-primary);
+      color: var(--ink);
     }
     h1 { margin-bottom: 10px; }
-    .subtitle { color: var(--text-muted); font-size: 14px; margin-bottom: 30px; }
+    .subtitle { color: var(--ink-3); font-size: 14px; margin-bottom: 30px; }
     .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 30px; }
-    .stat-box { background: var(--bg-subtle); padding: 20px; border-radius: 8px; text-align: center; }
+    .stat-box { background: var(--surface-2); padding: 20px; border-radius: 8px; text-align: center; }
     .stat-value { font-size: 24px; font-weight: bold; }
-    .stat-label { font-size: 12px; color: var(--text-muted); margin-top: 5px; }
+    .stat-label { font-size: 12px; color: var(--ink-3); margin-top: 5px; }
     .deliverability { text-align: center; padding: 30px; background: var(--bg-accent-soft); border-radius: 12px; margin-bottom: 30px; }
     .deliverability-value { font-size: 48px; font-weight: bold; color: var(--accent); }
     .recommendations { margin-bottom: 30px; }
@@ -122,8 +122,8 @@ function generatePdfWithBrowser(data: ExportData): boolean {
     .recommendations ul { list-style: none; padding: 0; }
     .recommendations li { padding: 8px 12px; background: var(--bg-warning); border: 1px solid var(--border-warning); border-radius: 6px; margin-bottom: 8px; }
     table { width: 100%; border-collapse: collapse; font-size: 12px; }
-    th { background: var(--bg-subtle); padding: 10px; text-align: left; }
-    td { padding: 8px 10px; border-bottom: 1px solid var(--border); }
+    th { background: var(--surface-2); padding: 10px; text-align: left; }
+    td { padding: 8px 10px; border-bottom: 1px solid var(--line); }
     .valid { color: var(--status-valid); }
     .invalid { color: var(--status-invalid); }
     .risky { color: var(--status-risky); }
@@ -162,7 +162,7 @@ function generatePdfWithBrowser(data: ExportData): boolean {
 
   <div class="deliverability">
     <div class="deliverability-value">${data.stats.deliverabilityRate}%</div>
-    <div style="color: var(--text-muted)">Estimated Deliverability Rate</div>
+    <div style="color: var(--ink-3)">Estimated Deliverability Rate</div>
   </div>
 
   ${

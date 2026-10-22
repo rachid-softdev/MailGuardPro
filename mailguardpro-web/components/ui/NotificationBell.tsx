@@ -3,6 +3,7 @@
 import { AlertCircle, AlertTriangle, Bell, BellDot, Info } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useErrorToast } from "@/hooks/useErrorToast";
+import { cn } from "@/lib/cn";
 
 const ICON_MAP = {
   error: AlertCircle,
@@ -10,7 +11,11 @@ const ICON_MAP = {
   info: Info,
 } as const;
 
-export function NotificationBell() {
+interface NotificationBellProps {
+  direction?: "up" | "down";
+}
+
+export function NotificationBell({ direction = "up" }: NotificationBellProps) {
   const { history, unreadCount, markAllRead, clearHistory } = useErrorToast();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -18,22 +23,20 @@ export function NotificationBell() {
   const handleToggle = useCallback(() => {
     setOpen((prev) => {
       if (!prev) {
-        // Opening — mark as read
         markAllRead();
       }
       return !prev;
     });
   }, [markAllRead]);
 
-  // Close on outside click / Escape
   useEffect(() => {
     if (!open) return;
-    const handleEvent = (e: MouseEvent | KeyboardEvent) => {
-      if (e instanceof KeyboardEvent) {
-        if (e.key === "Escape") setOpen(false);
+    const handleEvent = (event: MouseEvent | KeyboardEvent) => {
+      if (event instanceof KeyboardEvent) {
+        if (event.key === "Escape") setOpen(false);
         return;
       }
-      if (ref.current && !ref.current.contains(e.target as Node)) {
+      if (ref.current && !ref.current.contains(event.target as Node)) {
         setOpen(false);
       }
     };
@@ -48,14 +51,15 @@ export function NotificationBell() {
   return (
     <div ref={ref} className="relative">
       <button
+        type="button"
         onClick={handleToggle}
-        className="relative p-1.5 rounded-md hover:bg-[var(--bg-subtle)] transition-colors text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+        className="relative inline-flex h-8 w-8 items-center justify-center rounded-[var(--radius-sm)] text-[var(--ink-3)] transition-colors hover:bg-[var(--surface-2)] hover:text-[var(--ink)]"
         aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ""}`}
         aria-expanded={open}
       >
-        {unreadCount > 0 ? <BellDot size={18} /> : <Bell size={18} />}
+        {unreadCount > 0 ? <BellDot size={16} /> : <Bell size={16} />}
         {unreadCount > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-[var(--status-invalid)] text-white text-[10px] font-semibold flex items-center justify-center leading-none">
+          <span className="absolute right-0.5 top-0.5 flex h-3.5 min-w-3.5 items-center justify-center bg-[var(--status-invalid)] px-0.5 font-mono text-[8px] font-semibold leading-none text-white">
             {unreadCount > 9 ? "9+" : unreadCount}
           </span>
         )}
@@ -63,16 +67,22 @@ export function NotificationBell() {
 
       {open && (
         <div
-          className="absolute bottom-full right-0 mb-2 w-80 max-h-80 overflow-y-auto bg-[var(--bg-surface)] border border-[var(--border)] rounded-[var(--radius-lg)] shadow-[var(--shadow-lg)] z-50 animate-fade-slide-in"
+          className={cn(
+            "absolute right-0 z-50 max-h-80 w-80 overflow-y-auto border border-[var(--line-strong)] bg-[var(--surface)] shadow-[var(--shadow-lg)]",
+            direction === "down" ? "top-full mt-2" : "bottom-full mb-2",
+          )}
           role="menu"
           aria-label="Notification history"
         >
-          <div className="flex items-center justify-between px-4 py-2.5 border-b border-[var(--border)]">
-            <h3 className="text-sm font-semibold text-[var(--text-primary)]">Notifications</h3>
+          <div className="flex items-center justify-between border-b border-[var(--line)] px-4 py-2.5">
+            <h3 className="font-mono text-[10px] uppercase tracking-[0.06em] text-[var(--ink-2)]">
+              Notifications
+            </h3>
             {history.length > 0 && (
               <button
+                type="button"
                 onClick={clearHistory}
-                className="text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
+                className="text-[10px] text-[var(--ink-3)] transition-colors hover:text-[var(--ink)]"
               >
                 Clear all
               </button>
@@ -80,28 +90,26 @@ export function NotificationBell() {
           </div>
 
           {history.length === 0 ? (
-            <p className="px-4 py-6 text-sm text-[var(--text-muted)] text-center">
+            <p className="px-4 py-6 text-center text-xs text-[var(--ink-3)]">
               No recent notifications
             </p>
           ) : (
-            <div className="py-1">
+            <div className="divide-y divide-[var(--line)]">
               {history.map((item) => (
                 <div
                   key={item.id}
-                  className="px-4 py-2.5 hover:bg-[var(--bg-subtle)] transition-colors"
+                  className="px-4 py-2.5 transition-colors hover:bg-[var(--surface-2)]"
                 >
                   <div className="flex items-start gap-2">
                     <span className="mt-0.5 shrink-0" aria-hidden="true">
                       {(() => {
                         const Icon = ICON_MAP[item.type];
-                        return <Icon className="w-4 h-4 text-[var(--text-muted)]" />;
+                        return <Icon className="h-3.5 w-3.5 text-[var(--ink-3)]" />;
                       })()}
                     </span>
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium text-[var(--text-primary)] truncate">
-                        {item.title}
-                      </p>
-                      <p className="text-xs text-[var(--text-secondary)] line-clamp-2 mt-0.5">
+                      <p className="truncate text-xs font-medium text-[var(--ink)]">{item.title}</p>
+                      <p className="mt-0.5 line-clamp-2 text-[11px] text-[var(--ink-2)]">
                         {item.message}
                       </p>
                     </div>

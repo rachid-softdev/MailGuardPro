@@ -71,9 +71,6 @@ importers:
       '@react-pdf/renderer':
         specifier: ^4.0.0
         version: 4.5.1(react@19.2.7)
-      '@scalar/nextjs-api-reference':
-        specifier: ^0.11.4
-        version: 0.11.10(next@16.2.10(@babel/core@7.29.7)(@opentelemetry/api@1.9.1)(@playwright/test@1.61.1)(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(react@19.2.7)
       '@sentry/nextjs':
         specifier: ^10.62.0
         version: 10.66.0(@opentelemetry/core@2.9.0(@opentelemetry/api@1.9.1))(@opentelemetry/sdk-trace-base@2.9.0(@opentelemetry/api@1.9.1))(next@16.2.10(@babel/core@7.29.7)(@opentelemetry/api@1.9.1)(@playwright/test@1.61.1)(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(react@19.2.7)(webpack@5.107.2(esbuild@0.28.0)(postcss@8.5.15))
@@ -1966,33 +1963,6 @@ packages:
   '@rushstack/eslint-patch@1.16.1':
     resolution: {integrity: sha512-TvZbIpeKqGQQ7X0zSCvPH9riMSFQFSggnfBjFZ1mEoILW+UuXCKwOoPcgjMwiUtRqFZ8jWhPJc4um14vC6I4ag==}
 
-  '@scalar/client-side-rendering@0.3.3':
-    resolution: {integrity: sha512-QMTKZdwtSSV619jV1jKeRCOd358cgJqRBTHQ663CF7EUCZ354qH4js883K3RYg5/eO4oWxOuka308KIj0sZ/Kg==}
-    engines: {node: '>=22'}
-
-  '@scalar/helpers@0.9.1':
-    resolution: {integrity: sha512-UKSLIPfN++f+zzbsZ+F6I0lNrR4yX4PtokjHgGwGiHapxT5VJqAF4zFTIP2KCd27XG7KnAIA7qq62O4xRBxc6w==}
-    engines: {node: '>=22'}
-
-  '@scalar/nextjs-api-reference@0.11.10':
-    resolution: {integrity: sha512-Ww3pn7BytEt/QLCKt5TFlA48CX8Tvrt+uADPqQZ0FmZHcn14PngaQcBy6JK3TnqLD7JHA78SZhMIFdvs2OrLNQ==}
-    engines: {node: '>=22'}
-    peerDependencies:
-      next: ^15.0.0 || ^16.0.0
-      react: ^19.0.0
-
-  '@scalar/schemas@0.7.3':
-    resolution: {integrity: sha512-B6S/zUptiRfMsmMy92u/LefpULus1h0q3od9l5xgZc+pslkfFhfFns+QsU0UJX3Lqp3tTsf64c3tIRqH7cZgVA==}
-    engines: {node: '>=22'}
-
-  '@scalar/types@0.16.3':
-    resolution: {integrity: sha512-8TVNlK8AdvIekrapAoEVwy+IVRbMTSDYnpprskAJV4XanmZ52Kru6RmS6d+tbEBfMo2dTgQ9cV9P0kqsAu/AuA==}
-    engines: {node: '>=22'}
-
-  '@scalar/validation@0.6.1':
-    resolution: {integrity: sha512-XeJ+pvxag0rguuRT6hxNSXIsxleB8Gcs6WQ55vFRkB4qo2CCO+wIli+uipzM3pILu5cP7agcL3pgADiZzd1ZNg==}
-    engines: {node: '>=20'}
-
   '@selderee/plugin-htmlparser2@0.11.0':
     resolution: {integrity: sha512-P33hHGdldxGabLFjPPpaTxVolMrzrcegejx+0GxjrIb9Zv48D8yAIA/QTDR2dFl7Uz7urX8aX6+5bCZslr+gWQ==}
 
@@ -3166,6 +3136,7 @@ packages:
   cron-parser@4.9.0:
     resolution: {integrity: sha512-p0SaNjrHOnQeR8/VnfGbmg9te2kfyYSQ7Sc/j/6DtPL3JQvKxmjO9TSjNFpujqV3vEYYBvNNvXSxzyksBWAx1Q==}
     engines: {node: '>=12.0.0'}
+    deprecated: v4 is no longer maintained, upgrade to v5
 
   cross-spawn@7.0.6:
     resolution: {integrity: sha512-uV2QOWP2nWzsy2aMp8aRibhi9dlzF5Hgh5SHaB9OiTGEyDTiJJyx0uy51QXdyWbtAHNua4XJzUKca3OzKUd3vA==}
@@ -3374,10 +3345,6 @@ packages:
 
   end-of-stream@1.4.5:
     resolution: {integrity: sha512-ooEGc6HP26xXq/N+GCGOT0JKCLDGrq2bQUZrQ7gyrJiZANJ/8YDTxTpQBXGMn+WbIQXNVpyWymm7KYVICQnyOg==}
-
-  enhanced-resolve@5.23.0:
-    resolution: {integrity: sha512-yJN/BOOLxcOW2aQgeif9mSnaUB8KtvmMMp56oA1kx1CRfBKbhZm2pJ+NBY+3eOboHxix8lfjWpHE0Ei5U8RbSA==}
-    engines: {node: '>=10.13.0'}
 
   enhanced-resolve@5.24.2:
     resolution: {integrity: sha512-rpsZEGT1jFuve6QlpyRp9ckQ+kN61hvF9BzCPyMdaKTm8UJce96KBn3sorXOFXlzjPrs3Vc4T1NsSroZ3PxlFw==}
@@ -3804,6 +3771,7 @@ packages:
   git-raw-commits@5.0.1:
     resolution: {integrity: sha512-Y+csSm2GD/PCSh6Isd/WiMjNAydu0VBiG9J7EdQsNA5P9uXvLayqjmTsNlK5Gs9IhblFZqOU0yid5Il5JPoLiQ==}
     engines: {node: '>=18'}
+    deprecated: Deprecated and no longer maintained. Use @conventional-changelog/git-client instead.
     hasBin: true
 
   glob-parent@5.1.2:
@@ -4570,11 +4538,6 @@ packages:
   nanoid@3.3.12:
     resolution: {integrity: sha512-ZB9RH/39qpq5Vu6Y+NmUaFhQR6pp+M2Xt76XBnEwDaGcVAqhlvxrl3B2bKS5D3NH3QR76v3aSrKaF/Kiy7lEtQ==}
     engines: {node: ^10 || ^12 || ^13.7 || ^14 || >=15.0.1}
-    hasBin: true
-
-  nanoid@5.1.11:
-    resolution: {integrity: sha512-v+KEsUv2ps74PaSKv0gHTxTCgMXOIfBEbaqa6w6ISIGC7ZsvHN4N9oJ8d4cmf0n5oTzQz2SLmThbQWhjd/8eKg==}
-    engines: {node: ^18 || >=20}
     hasBin: true
 
   napi-postinstall@0.3.4:
@@ -5531,10 +5494,6 @@ packages:
   symbol-tree@3.2.4:
     resolution: {integrity: sha512-9QNk5KwDF+Bvz+PyObkmSYjI5ksVUYtjW7AU22r2NKcfLJcXp96hkDWU3+XndOsUb+AQ9QhfzfCT2O+CNWT5Tw==}
 
-  tagged-tag@1.0.0:
-    resolution: {integrity: sha512-yEFYrVhod+hdNyx7g5Bnkkb0G6si8HJurOoOEgC8B/O0uXLHlaey/65KRv6cuWBNhBgHKAROVpc7QyYqE5gFng==}
-    engines: {node: '>=20'}
-
   tailwind-merge@2.6.1:
     resolution: {integrity: sha512-Oo6tHdpZsGpkKG88HJ8RR1rg/RdnEkQEfMoEk2x1XRI3F1AxeU+ijRXpiVUF4UbLfcxxRGw6TbUINKYdWVsQTQ==}
 
@@ -5727,10 +5686,6 @@ packages:
   type-fest@0.7.1:
     resolution: {integrity: sha512-Ne2YiiGN8bmrmJJEuTWTLJR32nh/JdL1+PSicowtNb0WFpn59GK8/lfD61bVtzguz7b3PBt74nxpv/Pw5po5Rg==}
     engines: {node: '>=8'}
-
-  type-fest@5.7.0:
-    resolution: {integrity: sha512-1URUxUqfHFM1c+zfSPsa3gnkO7Aq21qyH75SIduNYz4SzY964rn1X2vCMQaHSHhktiw+0kPa2iyb6PUpXqB6Vg==}
-    engines: {node: '>=20'}
 
   typed-array-buffer@1.0.3:
     resolution: {integrity: sha512-nAYYwfY3qnzX30IkA6AQZjVbtK6duGontcQm1WSG1MD94YLqK0515GNApXkoxKOWMusVssAHWLh9SeaoefYFGw==}
@@ -7637,34 +7592,6 @@ snapshots:
 
   '@rushstack/eslint-patch@1.16.1': {}
 
-  '@scalar/client-side-rendering@0.3.3':
-    dependencies:
-      '@scalar/schemas': 0.7.3
-      '@scalar/types': 0.16.3
-      '@scalar/validation': 0.6.1
-
-  '@scalar/helpers@0.9.1': {}
-
-  '@scalar/nextjs-api-reference@0.11.10(next@16.2.10(@babel/core@7.29.7)(@opentelemetry/api@1.9.1)(@playwright/test@1.61.1)(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(react@19.2.7)':
-    dependencies:
-      '@scalar/client-side-rendering': 0.3.3
-      next: 16.2.10(@babel/core@7.29.7)(@opentelemetry/api@1.9.1)(@playwright/test@1.61.1)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
-      react: 19.2.7
-
-  '@scalar/schemas@0.7.3':
-    dependencies:
-      '@scalar/helpers': 0.9.1
-      '@scalar/validation': 0.6.1
-
-  '@scalar/types@0.16.3':
-    dependencies:
-      '@scalar/helpers': 0.9.1
-      nanoid: 5.1.11
-      type-fest: 5.7.0
-      zod: 4.4.3
-
-  '@scalar/validation@0.6.1': {}
-
   '@selderee/plugin-htmlparser2@0.11.0':
     dependencies:
       domhandler: 5.0.3
@@ -9122,11 +9049,6 @@ snapshots:
     dependencies:
       once: 1.4.0
 
-  enhanced-resolve@5.23.0:
-    dependencies:
-      graceful-fs: 4.2.11
-      tapable: 2.3.3
-
   enhanced-resolve@5.24.2:
     dependencies:
       graceful-fs: 4.2.11
@@ -10505,8 +10427,6 @@ snapshots:
 
   nanoid@3.3.12: {}
 
-  nanoid@5.1.11: {}
-
   napi-postinstall@0.3.4: {}
 
   natural-compare@1.4.0: {}
@@ -11563,8 +11483,6 @@ snapshots:
 
   symbol-tree@3.2.4: {}
 
-  tagged-tag@1.0.0: {}
-
   tailwind-merge@2.6.1: {}
 
   tailwind-merge@3.6.0: {}
@@ -11724,10 +11642,6 @@ snapshots:
       prelude-ls: 1.2.1
 
   type-fest@0.7.1: {}
-
-  type-fest@5.7.0:
-    dependencies:
-      tagged-tag: 1.0.0
 
   typed-array-buffer@1.0.3:
     dependencies:
@@ -11957,7 +11871,7 @@ snapshots:
       acorn-import-phases: 1.0.4(acorn@8.16.0)
       browserslist: 4.28.2
       chrome-trace-event: 1.0.4
-      enhanced-resolve: 5.23.0
+      enhanced-resolve: 5.24.2
       es-module-lexer: 2.1.0
       eslint-scope: 5.1.1
       events: 3.3.0

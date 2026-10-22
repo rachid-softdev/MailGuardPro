@@ -9,28 +9,28 @@ const WELCOME_HTML = `
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
   </head>
-  <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #111; max-width: 600px; margin: 0 auto; padding: 20px;">
+  <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #1b1f1c; max-width: 600px; margin: 0 auto; padding: 20px;">
     <div style="text-align: center; margin-bottom: 30px;">
-      <h1 style="color: #00A36C; margin: 0;">MailGuard Pro</h1>
+      <h1 style="color: #E05A2B; margin: 0;">MailGuard Pro</h1>
     </div>
     <p>Bonjour Alex,</p>
     <p>Merci d'avoir rejoint MailGuard Pro !</p>
     <p>Vous disposez de <strong>100 crédits gratuits</strong> pour commencer à valider vos adresses email.</p>
     <div style="text-align: center; margin: 30px 0;">
-      <a href="#" style="background: #00A36C; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; display: inline-block;">
+      <a href="#" style="background: #E05A2B; color: white; padding: 12px 24px; border-radius: 2px; text-decoration: none; display: inline-block;">
         Commencer maintenant
       </a>
     </div>
-    <p style="color: #666; font-size: 14px;">
+    <p style="color: #4d534d; font-size: 14px;">
       Avec MailGuard Pro, vous pouvez :
     </p>
-    <ul style="color: #666;">
+    <ul style="color: #4d534d;">
       <li>Obtenir un score de qualité 0-100 pour chaque email</li>
       <li>Valider des milliers d'emails en bulk</li>
       <li>Exporter vos résultats en CSV, JSON, XLSX ou PDF</li>
     </ul>
-    <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
-    <p style="color: #999; font-size: 12px; text-align: center;">
+    <hr style="border: none; border-top: 1px solid #dfe3da; margin: 30px 0;">
+    <p style="color: #6b7069; font-size: 12px; text-align: center;">
       © 2026 MailGuard Pro. Tous droits réservés.
     </p>
   </body>
@@ -49,7 +49,7 @@ function buildBulkCompletedHtml(filename: string, total: number, valid: number):
       <li>Emails valides : ${valid}</li>
       <li>Taux de délivrabilité : ${Math.round((valid / total) * 100)}%</li>
     </ul>
-    <a href="#" style="color: #00A36C;">Voir les résultats</a>
+    <a href="#" style="color: #E05A2B;">Voir les résultats</a>
   </body>
 </html>
 `;
@@ -63,32 +63,42 @@ export default function EmailPreviewPage() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-6 py-12">
-      <div className="flex items-center gap-3 mb-2">
-        <h1 className="text-3xl font-bold text-[var(--text-primary)]">Email Previews</h1>
-        <DevBadge />
-      </div>
-      <p className="text-[var(--text-secondary)] mb-10">
-        Preview email templates from{" "}
-        <code className="font-mono text-xs bg-[var(--bg-subtle)] px-1.5 py-0.5 rounded">
-          lib/resend.ts
-        </code>
-      </p>
+    <div className="mx-auto max-w-4xl px-6 py-12">
+      <header className="mb-10 border-b border-[var(--line)] pb-5">
+        <div className="flex items-center gap-3">
+          <p className="label-mono flex items-center gap-2">
+            <span className="h-1.5 w-1.5 bg-[var(--accent)]" aria-hidden="true" />
+            Internal / email
+          </p>
+          <DevBadge />
+        </div>
+        <h1 className="mt-2 font-display text-[clamp(1.9rem,3.2vw,2.6rem)] font-semibold leading-none tracking-[-0.04em] text-[var(--ink)]">
+          Email Previews.
+        </h1>
+        <p className="mt-2 text-[13px] text-[var(--ink-2)]">
+          Preview email templates from{" "}
+          <code className="border border-[var(--line)] bg-[var(--surface-2)] px-1.5 py-0.5 font-mono text-[11px]">
+            lib/resend.ts
+          </code>
+        </p>
+      </header>
 
       <div className="space-y-10">
         <section>
-          <h2 className="text-lg font-bold text-[var(--text-primary)] mb-1">Welcome Email</h2>
-          <p className="text-sm text-[var(--text-muted)] mb-4">
+          <h2 className="mb-1 font-display text-lg font-semibold tracking-[-0.02em] text-[var(--ink)]">
+            Welcome Email
+          </h2>
+          <p className="mb-4 text-[12px] text-[var(--ink-3)]">
             Sent when a new user signs up. Subject: &ldquo;Bienvenue sur MailGuard Pro&rdquo;
           </p>
           <PagePreview html={WELCOME_HTML} title="welcome-email.html" height={520} />
         </section>
 
         <section>
-          <h2 className="text-lg font-bold text-[var(--text-primary)] mb-1">
+          <h2 className="mb-1 font-display text-lg font-semibold tracking-[-0.02em] text-[var(--ink)]">
             Bulk Completed Email
           </h2>
-          <p className="text-sm text-[var(--text-muted)] mb-4">
+          <p className="mb-4 text-[12px] text-[var(--ink-3)]">
             Sent when bulk validation finishes. Subject: &ldquo;Traitement terminé :
             contacts-2026.csv&rdquo;
           </p>

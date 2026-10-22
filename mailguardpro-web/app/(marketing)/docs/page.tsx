@@ -1,118 +1,273 @@
+import { ArrowDown, ArrowUp } from "lucide-react";
 import type { Metadata } from "next";
+import Link from "next/link";
+import { MarketingFooter } from "@/components/marketing/MarketingFooter";
 
 export const metadata: Metadata = {
   title: "API Documentation — MailGuard Pro",
   description:
-    "Integrate email validation into your applications with the MailGuard Pro REST API. Single validation, bulk processing, webhooks, and more.",
+    "Integrate email inspection into your applications with the MailGuard Pro REST API. Single validation, bulk processing, webhooks, and more.",
 };
 
-const curl = (code: string) => (
-  <pre className="p-4 rounded-[var(--radius-md)] bg-[#1a1a1a] text-[#e4e4e4] text-sm font-mono leading-relaxed overflow-x-auto">
-    <code>{code}</code>
-  </pre>
-);
+const contents = [
+  ["01", "Authentication", "authentication"],
+  ["02", "Single validation", "single-validation"],
+  ["03", "Bulk validation", "bulk-validation"],
+  ["04", "Webhooks", "webhooks"],
+  ["05", "Rate limits", "rate-limits"],
+] as const;
 
-const sectionHeading = (text: string) => (
-  <h2 className="text-2xl font-display font-bold mb-4 mt-12 first:mt-0">{text}</h2>
-);
+function CodeBlock({ label, code }: { label: string; code: string }) {
+  return (
+    <div className="border border-[var(--line-strong)] bg-[var(--surface)]">
+      <div className="flex items-center justify-between gap-3 border-b border-[var(--line)] px-3 py-2">
+        <span className="label-mono text-[var(--ink-2)]">{label}</span>
+        <span className="h-1 w-1 bg-[var(--accent)]" aria-hidden="true" />
+      </div>
+      <pre className="overflow-x-auto p-4 font-mono text-[12px] leading-relaxed text-[var(--ink)]">
+        <code>{code}</code>
+      </pre>
+    </div>
+  );
+}
 
-const subheading = (text: string) => (
-  <h3 className="text-lg font-display font-semibold mb-2 mt-8">{text}</h3>
-);
+function SectionHeading({
+  index,
+  id,
+  title,
+  description,
+}: {
+  index: string;
+  id: string;
+  title: string;
+  description: string;
+}) {
+  return (
+    <div id={id} className="scroll-mt-24 border-t border-[var(--line-strong)] pt-7">
+      <p className="label-mono flex items-center gap-2.5">
+        <span className="text-[var(--accent-text)]">{index}</span>
+        <span className="h-px w-5 bg-[var(--line-strong)]" aria-hidden="true" />
+        {title}
+      </p>
+      <h2 className="mt-3 font-display text-2xl font-semibold tracking-[-0.03em] text-[var(--ink)]">
+        {title}
+      </h2>
+      <p className="mt-2 max-w-[68ch] text-sm leading-relaxed text-[var(--ink-2)]">{description}</p>
+    </div>
+  );
+}
+
+function Subheading({ children }: { children: React.ReactNode }) {
+  return (
+    <h3 className="mt-6 font-mono text-[10px] uppercase tracking-[0.06em] text-[var(--ink-2)]">
+      {children}
+    </h3>
+  );
+}
+
+function InlineCode({ children }: { children: React.ReactNode }) {
+  return (
+    <code className="border border-[var(--line)] bg-[var(--surface-2)] px-1 py-0.5 font-mono text-[11px] text-[var(--ink)]">
+      {children}
+    </code>
+  );
+}
+
+function Endpoint({ method, path }: { method: "GET" | "POST"; path: string }) {
+  return (
+    <div className="mt-4 flex flex-wrap items-center gap-3 border border-[var(--line)] bg-[var(--surface-2)] px-3 py-2">
+      <span
+        className={
+          method === "POST"
+            ? "border border-[var(--accent)] bg-[var(--accent-soft)] px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-[0.08em] text-[var(--accent-text)]"
+            : "border border-[var(--route)] bg-[var(--route-soft)] px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-[0.08em] text-[var(--route)]"
+        }
+      >
+        {method}
+      </span>
+      <code className="font-mono text-[12px] text-[var(--ink)]">{path}</code>
+    </div>
+  );
+}
+
+function DataTable({ columns, rows }: { columns: string[]; rows: React.ReactNode[][] }) {
+  return (
+    <div className="mt-3 overflow-x-auto border border-[var(--line)]">
+      <table className="data-table">
+        <thead>
+          <tr>
+            {columns.map((column) => (
+              <th key={column} scope="col">
+                {column}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row, index) => (
+            <tr key={index}>
+              {row.map((cell, cellIndex) => (
+                <td key={cellIndex} className="text-[12px] text-[var(--ink-2)]">
+                  {cell}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
 
 export default function ApiDocsPage() {
   return (
-    <div className="py-16 md:py-24">
-      <div className="max-w-[var(--container-md)] mx-auto px-6">
-        {/* Header */}
-        <div className="mb-12">
-          <h1 className="text-4xl font-display font-bold mb-3">API Documentation</h1>
-          <p className="text-lg text-[var(--text-secondary)]">
-            Integrate email validation into your applications
+    <>
+      <section className="border-b border-[var(--line)]">
+        <div className="mx-auto max-w-[1280px] px-5 py-12 lg:px-8 lg:py-16">
+          <p className="label-mono flex items-center gap-2.5">
+            <span className="h-1.5 w-1.5 bg-[var(--accent)]" aria-hidden="true" />
+            Developer desk / REST v1
           </p>
+          <div className="mt-4 grid gap-6 lg:grid-cols-[1fr_auto] lg:items-end">
+            <div>
+              <h1 className="max-w-[13ch] font-display text-[clamp(2.6rem,5.4vw,4.75rem)] font-semibold leading-[0.95] tracking-[-0.045em] text-[var(--ink)]">
+                Wire the{" "}
+                <em className="font-normal italic text-[var(--accent-text)]">inspection</em> in.
+              </h1>
+              <p className="mt-4 max-w-[58ch] text-[15px] leading-relaxed text-[var(--ink-2)]">
+                One REST API for single addresses and batches. Send an email, receive a calibrated
+                score, the six checks, and a status you can act on.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-end gap-2">
+              <a href="#single-validation" className="btn btn-primary btn-md">
+                Read the endpoint reference
+                <ArrowDown size={14} aria-hidden="true" />
+              </a>
+              <Link href="/login" className="btn btn-ghost btn-md">
+                Get an API key
+              </Link>
+            </div>
+          </div>
+
+          <div className="mt-8 grid gap-px border border-[var(--line-strong)] bg-[var(--line)] sm:grid-cols-3">
+            <div className="bg-[var(--surface)] px-4 py-3">
+              <p className="label-mono">Base URL</p>
+              <p className="mt-1 break-all font-mono text-[11px] text-[var(--ink)]">
+                https://api.mailguard.pro/v1
+              </p>
+            </div>
+            <div className="bg-[var(--surface)] px-4 py-3">
+              <p className="label-mono">Authentication</p>
+              <p className="mt-1 font-mono text-[11px] text-[var(--ink)]">X-API-Key</p>
+            </div>
+            <div className="bg-[var(--surface)] px-4 py-3">
+              <p className="label-mono">Payload</p>
+              <p className="mt-1 font-mono text-[11px] text-[var(--ink)]">JSON / multipart</p>
+            </div>
+          </div>
         </div>
+      </section>
 
-        {/* Base URL */}
-        <section>
-          <p className="text-sm text-[var(--text-muted)] mb-1 font-mono">Base URL</p>
-          <p className="text-sm text-[var(--text-secondary)] font-mono">
-            https://api.mailguard.pro/v1
-          </p>
-        </section>
+      <div className="mx-auto max-w-[1280px] px-5 py-10 lg:px-8 lg:py-14">
+        <div className="grid gap-10 lg:grid-cols-[220px_minmax(0,1fr)] lg:gap-16">
+          <aside className="lg:sticky lg:top-20 lg:self-start">
+            <p className="label-mono">On this page</p>
+            <nav aria-label="Documentation sections" className="mt-3 border-t border-[var(--line)]">
+              {contents.map(([index, label, id]) => (
+                <a
+                  key={id}
+                  href={`#${id}`}
+                  className="flex items-baseline gap-3 border-b border-[var(--line)] py-2.5 text-[12px] text-[var(--ink-2)] transition-colors hover:text-[var(--ink)]"
+                >
+                  <span className="font-mono text-[9px] text-[var(--ink-3)]">{index}</span>
+                  {label}
+                </a>
+              ))}
+            </nav>
 
-        {/* Authentication */}
-        {sectionHeading("Authentication")}
-        <p className="text-[var(--text-secondary)] leading-relaxed mb-4">
-          All API requests require an API key passed in the{" "}
-          <code className="font-mono text-sm px-1 py-0.5 rounded bg-[var(--bg-subtle)]">
-            X-API-Key
-          </code>{" "}
-          header. Generate your API key from the dashboard under <strong>API Keys</strong>.
-        </p>
-        {subheading("Example Request")}
-        {curl(`curl -X POST https://api.mailguard.pro/v1/validate \\
+            <div className="mt-6 border border-[var(--line)] bg-[var(--surface)] p-4">
+              <p className="label-mono">Need a key?</p>
+              <p className="mt-2 text-[11px] leading-relaxed text-[var(--ink-3)]">
+                Create a scoped key from the dashboard. Keys are shown once.
+              </p>
+              <Link href="/api-keys" className="btn btn-accent btn-sm mt-3 w-full">
+                API keys
+              </Link>
+            </div>
+          </aside>
+
+          <article className="min-w-0">
+            <div className="space-y-10">
+              <section>
+                <SectionHeading
+                  index="01"
+                  id="authentication"
+                  title="Authentication"
+                  description="Every request carries an API key in the X-API-Key header. Keys are scoped and can be revoked from the dashboard without rotating your integration."
+                />
+                <p className="mt-4 text-sm leading-relaxed text-[var(--ink-2)]">
+                  Generate a key under <strong className="text-[var(--ink)]">API Keys</strong>. Keep
+                  it out of client-side code and version control. If a key is exposed, delete it
+                  immediately and create a new one.
+                </p>
+                <div className="mt-4">
+                  <CodeBlock
+                    label="Request / headers"
+                    code={`curl -X POST https://api.mailguard.pro/v1/validate \\
   -H "X-API-Key: mg_live_xxxxxxxxxxxx" \\
   -H "Content-Type: application/json" \\
-  -d '{"email": "user@example.com"}'`)}
+  -d '{"email": "user@example.com"}'`}
+                  />
+                </div>
+                <div className="mt-4 border-l-2 border-[var(--status-risky)] bg-[var(--status-risky-bg)] px-4 py-3">
+                  <p className="font-mono text-[9px] uppercase tracking-[0.06em] text-[var(--status-risky-text)]">
+                    Security note
+                  </p>
+                  <p className="mt-1 text-sm leading-relaxed text-[var(--ink-2)]">
+                    Never expose a key in a browser bundle, public repository, or support ticket.
+                    Regenerate compromised keys from the dashboard.
+                  </p>
+                </div>
+              </section>
 
-        <div className="bg-[var(--status-risky-bg)] border border-[var(--status-risky)]/20 rounded-[var(--radius-md)] p-4 mt-6">
-          <p className="text-sm text-[var(--status-risky)] font-semibold mb-1">Security</p>
-          <p className="text-sm text-[var(--text-secondary)]">
-            Never expose your API key in client-side code, version control, or public repositories.
-            Regenerate compromised keys immediately from the dashboard.
-          </p>
-        </div>
+              <section>
+                <SectionHeading
+                  index="02"
+                  id="single-validation"
+                  title="Single validation"
+                  description="Inspect one address and receive a quality score from 0 to 100, the six checks, and a status. This is the same reading the dashboard displays."
+                />
+                <Endpoint method="POST" path="/v1/validate" />
 
-        {/* Single Validation */}
-        {sectionHeading("Single Validation")}
-        <p className="text-[var(--text-secondary)] leading-relaxed mb-4">
-          Validate a single email address and receive a quality score (0–100), syntax checks, domain
-          analysis, and deliverability signals.
-        </p>
+                <Subheading>Request body</Subheading>
+                <DataTable
+                  columns={["Field", "Type", "Required", "Description"]}
+                  rows={[
+                    [
+                      <InlineCode key="email">email</InlineCode>,
+                      <span className="font-mono" key="type">
+                        string
+                      </span>,
+                      "Yes",
+                      "The address to inspect.",
+                    ],
+                    [
+                      <InlineCode key="webhook">webhook_url</InlineCode>,
+                      <span className="font-mono" key="type">
+                        string
+                      </span>,
+                      "No",
+                      "Optional URL to receive the result asynchronously.",
+                    ],
+                  ]}
+                />
 
-        <div className="flex items-baseline gap-3 mb-4">
-          <span className="px-2 py-0.5 rounded text-xs font-mono font-bold uppercase  bg-[var(--accent-light)] text-[var(--accent)]">
-            POST
-          </span>
-          <code className="text-sm font-mono">/api/v1/validate</code>
-        </div>
-
-        {subheading("Request Body")}
-        <div className="overflow-x-auto mb-6">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-[var(--border)]">
-                <th className="text-left py-2 pr-4 font-semibold">Field</th>
-                <th className="text-left py-2 pr-4 font-semibold">Type</th>
-                <th className="text-left py-2 pr-4 font-semibold">Required</th>
-                <th className="text-left py-2 font-semibold">Description</th>
-              </tr>
-            </thead>
-            <tbody className="text-[var(--text-secondary)]">
-              <tr className="border-b border-[var(--border)]">
-                <td className="py-2 pr-4 font-mono">email</td>
-                <td className="py-2 pr-4 font-mono">string</td>
-                <td className="py-2 pr-4">Yes</td>
-                <td className="py-2">The email address to validate</td>
-              </tr>
-              <tr className="border-b border-[var(--border)]">
-                <td className="py-2 pr-4 font-mono">webhook_url</td>
-                <td className="py-2 pr-4 font-mono">string</td>
-                <td className="py-2 pr-4">No</td>
-                <td className="py-2">URL to receive the result via webhook</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        {subheading("Example Request")}
-        {curl(`curl -X POST https://api.mailguard.pro/v1/validate \\
-  -H "X-API-Key: mg_live_xxxxxxxxxxxx" \\
-  -H "Content-Type: application/json" \\
-  -d '{"email": "user@example.com"}'`)}
-
-        {subheading("Example Response")}
-        {curl(`{
+                <Subheading>Example response</Subheading>
+                <CodeBlock
+                  label="200 / application/json"
+                  code={`{
   "email": "user@example.com",
   "score": 95,
   "status": "valid",
@@ -130,106 +285,103 @@ export default function ApiDocsPage() {
     "is_catch_all": false
   },
   "request_id": "req_abc123def"
-}`)}
+}`}
+                />
+                <p className="mt-3 text-[11px] leading-relaxed text-[var(--ink-3)]">
+                  A score is always paired with status and evidence. Never gate a send on the number
+                  alone.
+                </p>
+              </section>
 
-        {/* Bulk Validation */}
-        {sectionHeading("Bulk Validation")}
-        <p className="text-[var(--text-secondary)] leading-relaxed mb-4">
-          Validate up to 100,000 emails in a single batch by uploading a CSV file. Processing runs
-          asynchronously — poll the job status endpoint or subscribe via webhook for completion
-          notifications.
-        </p>
+              <section>
+                <SectionHeading
+                  index="03"
+                  id="bulk-validation"
+                  title="Bulk validation"
+                  description="Send a CSV manifest and let the line run asynchronously. Poll the job status or subscribe to a webhook for completion."
+                />
+                <Endpoint method="POST" path="/v1/validate/bulk" />
 
-        <div className="flex items-baseline gap-3 mb-4">
-          <span className="px-2 py-0.5 rounded text-xs font-mono font-bold uppercase  bg-[var(--status-valid-bg)] text-[var(--status-valid)]">
-            POST
-          </span>
-          <code className="text-sm font-mono">/api/v1/validate/bulk</code>
-        </div>
+                <Subheading>CSV format</Subheading>
+                <p className="mt-2 text-sm leading-relaxed text-[var(--ink-2)]">
+                  The file must include a header row with an <InlineCode>email</InlineCode> column.
+                  Extra columns are preserved in the export but not inspected.
+                </p>
+                <div className="mt-3">
+                  <CodeBlock
+                    label="manifest.csv"
+                    code={`email,firstName,lastName,company
+alice@example.com,Alice,Smith,Acme
+bob@example.org,Bob,Jones,Beta
+charlie@example.net,Charlie,Lee,Gamma`}
+                  />
+                </div>
 
-        {subheading("CSV Format")}
-        <p className="text-[var(--text-secondary)] leading-relaxed mb-4">
-          The CSV file must contain a header row with an{" "}
-          <code className="font-mono text-sm px-1 py-0.5 rounded bg-[var(--bg-subtle)]">email</code>{" "}
-          column. Additional columns are ignored, allowing you to upload existing lists without
-          modification.
-        </p>
-
-        {subheading("Example CSV")}
-        {curl(`email
-alice@example.com
-bob@example.org
-charlie@example.net`)}
-        <div className="flex items-baseline gap-3 my-4">
-          <span className="px-2 py-0.5 rounded text-xs font-mono font-bold uppercase  bg-[var(--bg-subtle)] text-[var(--text-muted)]">
-            GET
-          </span>
-          <code className="text-sm font-mono">/api/v1/validate/bulk/:job_id</code>
-        </div>
-        <p className="text-[var(--text-secondary)] leading-relaxed mb-4">
-          Check the status and download results of a bulk job using the returned{" "}
-          <code className="font-mono text-sm px-1 py-0.5 rounded bg-[var(--bg-subtle)]">
-            job_id
-          </code>
-          .
-        </p>
-
-        {subheading("Bulk Upload Request")}
-        {curl(`curl -X POST https://api.mailguard.pro/v1/validate/bulk \\
+                <Subheading>Upload</Subheading>
+                <CodeBlock
+                  label="Request / multipart"
+                  code={`curl -X POST https://api.mailguard.pro/v1/validate/bulk \\
   -H "X-API-Key: mg_live_xxxxxxxxxxxx" \\
-  -F "file=@contacts.csv"`)}
-        {subheading("Bulk Upload Response")}
-        {curl(`{
+  -F "file=@contacts.csv"`}
+                />
+                <Subheading>Accepted</Subheading>
+                <CodeBlock
+                  label="202 / application/json"
+                  code={`{
   "job_id": "job_xyz789abc",
   "status": "queued",
   "total": 5000,
   "created_at": "2026-06-14T10:30:00Z"
-}`)}
+}`}
+                />
 
-        {/* Webhooks */}
-        {sectionHeading("Webhooks")}
-        <p className="text-[var(--text-secondary)] leading-relaxed mb-4">
-          Receive real-time notifications when validation jobs complete or when emails in your
-          watchlist are rechecked. Configure webhook endpoints from the dashboard.
-        </p>
+                <Subheading>Check a job</Subheading>
+                <Endpoint method="GET" path="/v1/validate/bulk/:job_id" />
+                <p className="mt-2 text-sm leading-relaxed text-[var(--ink-2)]">
+                  Poll until <InlineCode>status</InlineCode> is <InlineCode>completed</InlineCode>{" "}
+                  or <InlineCode>failed</InlineCode>. Results are paginated; exports are available
+                  from the job record.
+                </p>
+              </section>
 
-        {subheading("Events")}
-        <div className="overflow-x-auto mb-6">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-[var(--border)]">
-                <th className="text-left py-2 pr-4 font-semibold">Event</th>
-                <th className="text-left py-2 pr-4 font-semibold">Description</th>
-                <th className="text-left py-2 font-semibold">Trigger</th>
-              </tr>
-            </thead>
-            <tbody className="text-[var(--text-secondary)]">
-              <tr className="border-b border-[var(--border)]">
-                <td className="py-2 pr-4 font-mono">validation.completed</td>
-                <td className="py-2 pr-4">Single validation result ready</td>
-                <td className="py-2">After a single email validation</td>
-              </tr>
-              <tr className="border-b border-[var(--border)]">
-                <td className="py-2 pr-4 font-mono">bulk.completed</td>
-                <td className="py-2 pr-4">Bulk validation finished</td>
-                <td className="py-2">All rows in a batch have been processed</td>
-              </tr>
-              <tr className="border-b border-[var(--border)]">
-                <td className="py-2 pr-4 font-mono">bulk.failed</td>
-                <td className="py-2 pr-4">Bulk validation job failed</td>
-                <td className="py-2">When a batch encounters an unrecoverable error</td>
-              </tr>
-              <tr className="border-b border-[var(--border)]">
-                <td className="py-2 pr-4 font-mono">email.updated</td>
-                <td className="py-2 pr-4">Email status changed</td>
-                <td className="py-2">When a watched email&apos;s status changes</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+              <section>
+                <SectionHeading
+                  index="04"
+                  id="webhooks"
+                  title="Webhooks"
+                  description="Receive a signed POST when a job finishes or a watched address changes. Deliveries are retried with exponential backoff."
+                />
+                <Subheading>Events</Subheading>
+                <DataTable
+                  columns={["Event", "Description", "Trigger"]}
+                  rows={[
+                    [
+                      <InlineCode key="e">validation.completed</InlineCode>,
+                      "Single validation result ready",
+                      "After a single inspection",
+                    ],
+                    [
+                      <InlineCode key="e">bulk.completed</InlineCode>,
+                      "Bulk job finished",
+                      "All rows processed",
+                    ],
+                    [
+                      <InlineCode key="e">bulk.failed</InlineCode>,
+                      "Bulk job failed",
+                      "Unrecoverable batch error",
+                    ],
+                    [
+                      <InlineCode key="e">email.updated</InlineCode>,
+                      "Watched address changed",
+                      "Status change on a watched address",
+                    ],
+                  ]}
+                />
 
-        {subheading("Payload Format")}
-        {curl(`{
+                <Subheading>Payload</Subheading>
+                <CodeBlock
+                  label="application/json"
+                  code={`{
   "event": "validation.completed",
   "timestamp": "2026-06-14T10:30:00Z",
   "payload": {
@@ -238,86 +390,63 @@ charlie@example.net`)}
     "status": "valid",
     "request_id": "req_abc123def"
   }
-}`)}
+}`}
+                />
 
-        <div className="bg-[var(--bg-subtle)] border border-[var(--border)] rounded-[var(--radius-md)] p-4 mt-6">
-          <p className="text-sm font-semibold mb-1">Delivery</p>
-          <p className="text-sm text-[var(--text-secondary)]">
-            Webhooks are delivered with a signature header{" "}
-            <code className="font-mono text-xs px-1 py-0.5 rounded bg-[var(--bg-surface)]">
-              X-Webhook-Signature
-            </code>{" "}
-            using HMAC-SHA256. Verify the signature before processing. Failed deliveries are retried
-            up to 5 times with exponential backoff.
-          </p>
-        </div>
+                <div className="mt-4 border border-[var(--line)] bg-[var(--surface-2)] px-4 py-3">
+                  <p className="label-mono text-[var(--ink-2)]">Delivery</p>
+                  <p className="mt-1 text-sm leading-relaxed text-[var(--ink-2)]">
+                    Each delivery includes an <InlineCode>X-Webhook-Signature</InlineCode> header
+                    using HMAC-SHA256. Verify it before processing. Failed deliveries are retried up
+                    to five times.
+                  </p>
+                </div>
+              </section>
 
-        {/* Rate Limits */}
-        {sectionHeading("Rate Limits")}
-        <p className="text-[var(--text-secondary)] leading-relaxed mb-4">
-          Rate limits vary by plan. Limits apply per API key and reset daily at midnight UTC.
-        </p>
+              <section>
+                <SectionHeading
+                  index="05"
+                  id="rate-limits"
+                  title="Rate limits"
+                  description="Limits apply per API key and reset daily at midnight UTC. Burst limits protect the line during short spikes."
+                />
+                <DataTable
+                  columns={["Plan", "Requests / day", "Burst", "Bulk uploads"]}
+                  rows={[
+                    ["Free", "100", "10 / min", "—"],
+                    ["Starter", "5,000", "100 / min", "10 / month"],
+                    ["Pro", "50,000", "500 / min", "Unlimited"],
+                    ["Business", "Custom", "Custom", "Unlimited"],
+                  ]}
+                />
+                <div className="mt-4 border border-[var(--line)] bg-[var(--surface)] px-4 py-3">
+                  <p className="label-mono text-[var(--ink-2)]">Response headers</p>
+                  <p className="mt-1 text-sm leading-relaxed text-[var(--ink-2)]">
+                    Every response includes <InlineCode>X-RateLimit-Limit</InlineCode>,{" "}
+                    <InlineCode>X-RateLimit-Remaining</InlineCode>, and{" "}
+                    <InlineCode>X-RateLimit-Reset</InlineCode> so your client can pace itself.
+                  </p>
+                </div>
+              </section>
+            </div>
 
-        <div className="overflow-x-auto mb-6">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-[var(--border)]">
-                <th className="text-left py-2 pr-4 font-semibold">Plan</th>
-                <th className="text-left py-2 pr-4 font-semibold">Requests / day</th>
-                <th className="text-left py-2 pr-4 font-semibold">Burst limit</th>
-                <th className="text-left py-2 font-semibold">Bulk uploads</th>
-              </tr>
-            </thead>
-            <tbody className="text-[var(--text-secondary)]">
-              <tr className="border-b border-[var(--border)]">
-                <td className="py-2 pr-4 font-medium">Free</td>
-                <td className="py-2 pr-4 font-mono">100</td>
-                <td className="py-2 pr-4 font-mono">10/min</td>
-                <td className="py-2 font-mono">—</td>
-              </tr>
-              <tr className="border-b border-[var(--border)]">
-                <td className="py-2 pr-4 font-medium">Starter</td>
-                <td className="py-2 pr-4 font-mono">5,000</td>
-                <td className="py-2 pr-4 font-mono">100/min</td>
-                <td className="py-2 font-mono">10/month</td>
-              </tr>
-              <tr className="border-b border-[var(--border)]">
-                <td className="py-2 pr-4 font-medium">Pro</td>
-                <td className="py-2 pr-4 font-mono">50,000</td>
-                <td className="py-2 pr-4 font-mono">500/min</td>
-                <td className="py-2 font-mono">Unlimited</td>
-              </tr>
-              <tr className="border-b border-[var(--border)]">
-                <td className="py-2 pr-4 font-medium">Enterprise</td>
-                <td className="py-2 pr-4 font-mono">Custom</td>
-                <td className="py-2 pr-4 font-mono">Custom</td>
-                <td className="py-2 font-mono">Unlimited</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <div className="bg-[var(--status-valid-bg)] border border-[var(--status-valid)]/20 rounded-[var(--radius-md)] p-4">
-          <p className="text-sm text-[var(--status-valid)] font-semibold mb-1">
-            Rate limit headers
-          </p>
-          <p className="text-sm text-[var(--text-secondary)]">
-            Every response includes{" "}
-            <code className="font-mono text-xs px-1 py-0.5 rounded bg-[var(--bg-surface)]">
-              X-RateLimit-Limit
-            </code>
-            ,{" "}
-            <code className="font-mono text-xs px-1 py-0.5 rounded bg-[var(--bg-surface)]">
-              X-RateLimit-Remaining
-            </code>
-            , and{" "}
-            <code className="font-mono text-xs px-1 py-0.5 rounded bg-[var(--bg-surface)]">
-              X-RateLimit-Reset
-            </code>{" "}
-            headers so you can track usage programmatically.
-          </p>
+            <div className="mt-12 flex flex-col gap-3 border-t border-[var(--line-strong)] pt-5 sm:flex-row sm:items-center sm:justify-between">
+              <p className="font-mono text-[9px] uppercase tracking-[0.06em] text-[var(--ink-3)]">
+                MailGuard Pro / API v1 / updated June 2026
+              </p>
+              <a
+                href="#authentication"
+                className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.04em] text-[var(--accent-text)] hover:underline"
+              >
+                Back to authentication
+                <ArrowUp size={12} aria-hidden="true" />
+              </a>
+            </div>
+          </article>
         </div>
       </div>
-    </div>
+
+      <MarketingFooter />
+    </>
   );
 }

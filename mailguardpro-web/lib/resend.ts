@@ -48,28 +48,28 @@ export const EMAIL_TEMPLATES = {
           <meta charset="utf-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
         </head>
-        <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #111; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #1b1f1c; max-width: 600px; margin: 0 auto; padding: 20px;">
           <div style="text-align: center; margin-bottom: 30px;">
-            <h1 style="color: #00A36C; margin: 0;">MailGuard Pro</h1>
+            <h1 style="color: #E05A2B; margin: 0;">MailGuard Pro</h1>
           </div>
           <p>Bonjour${name ? ` ${name}` : ""},</p>
           <p>Merci d'avoir rejoint MailGuard Pro !</p>
           <p>Vous disposez de <strong>100 crédits gratuits</strong> pour commencer à valider vos adresses email.</p>
           <div style="text-align: center; margin: 30px 0;">
-            <a href="${process.env.NEXT_PUBLIC_APP_URL}/validate" style="background: #00A36C; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; display: inline-block;">
+            <a href="${process.env.NEXT_PUBLIC_APP_URL}/validate" style="background: #E05A2B; color: white; padding: 12px 24px; border-radius: 2px; text-decoration: none; display: inline-block;">
               Commencer maintenant
             </a>
           </div>
-          <p style="color: #666; font-size: 14px;">
+          <p style="color: #4d534d; font-size: 14px;">
             Avec MailGuard Pro, vous pouvez :
           </p>
-          <ul style="color: #666;">
+          <ul style="color: #4d534d;">
             <li>Obtenir un score de qualité 0-100 pour chaque email</li>
             <li>Valider des milliers d'emails en bulk</li>
             <li>Exporter vos résultats en CSV, JSON, XLSX ou PDF</li>
           </ul>
-          <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
-          <p style="color: #999; font-size: 12px; text-align: center;">
+          <hr style="border: none; border-top: 1px solid #dfe3da; margin: 30px 0;">
+          <p style="color: #6b7069; font-size: 12px; text-align: center;">
             © 2026 MailGuard Pro. Tous droits réservés.
           </p>
         </body>
@@ -105,20 +105,20 @@ export const EMAIL_TEMPLATES = {
           <meta charset="utf-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
         </head>
-        <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #111; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #1b1f1c; max-width: 600px; margin: 0 auto; padding: 20px;">
           <div style="text-align: center; margin-bottom: 30px;">
-            <h1 style="color: #00A36C; margin: 0;">MailGuard Pro</h1>
+            <h1 style="color: #E05A2B; margin: 0;">MailGuard Pro</h1>
           </div>
           <p>Hi${name ? ` ${name}` : ""},</p>
           <p>You have <strong>${credits} validation credits</strong> left on your ${plan} plan.</p>
           <p>Upgrade your plan or add more credits to keep validating without interruption.</p>
           <div style="text-align: center; margin: 30px 0;">
-            <a href="${process.env.NEXT_PUBLIC_APP_URL}/billing" style="background: #00A36C; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; display: inline-block;">
+            <a href="${process.env.NEXT_PUBLIC_APP_URL}/billing" style="background: #E05A2B; color: white; padding: 12px 24px; border-radius: 2px; text-decoration: none; display: inline-block;">
               Manage your plan
             </a>
           </div>
-          <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
-          <p style="color: #999; font-size: 12px; text-align: center;">
+          <hr style="border: none; border-top: 1px solid #dfe3da; margin: 30px 0;">
+          <p style="color: #6b7069; font-size: 12px; text-align: center;">
             © 2026 MailGuard Pro. Tous droits réservés.
           </p>
         </body>

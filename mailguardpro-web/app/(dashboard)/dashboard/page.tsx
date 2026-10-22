@@ -1,24 +1,19 @@
 "use client";
 
 import { formatDistanceToNow } from "date-fns";
-import {
-  Activity,
-  BarChart3,
-  ChevronDown,
-  ChevronRight,
-  Clock,
-  Layers,
-  RefreshCw,
-  TrendingUp,
-} from "lucide-react";
+import { Activity, RefreshCw } from "lucide-react";
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { useCallback, useEffect, useState } from "react";
 import { DashboardErrorState } from "@/components/dashboard/DashboardErrorState";
 import { DashboardSkeleton } from "@/components/dashboard/DashboardSkeleton";
 import { QuickValidate } from "@/components/dashboard/QuickValidate";
+import { Button } from "@/components/ui";
 import { StatusBadge } from "@/components/ui/StatusBadge";
-import { Button, Card } from "@/components/ui";
+import { ScoreGauge, ScoreMeter } from "@/components/validator/ScoreGauge";
 import { usePolling } from "@/hooks/usePolling";
+import { cn } from "@/lib/cn";
+import { getScoreBand } from "@/lib/score";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -102,143 +97,235 @@ function maskEmail(email: string): string {
   return `${maskedLocal}@${maskedDomain}`;
 }
 
+function formatCount(value: number): string {
+  return value.toLocaleString("en-US");
+}
+
+function PanelHead({ title, meta, action }: { title: string; meta?: string; action?: ReactNode }) {
+  return (
+    <div className="panel-head">
+      <div className="flex min-w-0 items-center gap-2.5">
+        <h2 className="panel-title">{title}</h2>
+        {meta && (
+          <span className="hidden font-mono text-[9px] uppercase tracking-[0.04em] text-[var(--ink-3)] sm:inline">
+            {meta}
+          </span>
+        )}
+      </div>
+      {action}
+    </div>
+  );
+}
+
+function EmptyPanel({
+  title,
+  body,
+  href,
+  linkLabel,
+}: {
+  title: string;
+  body: string;
+  href: string;
+  linkLabel: string;
+}) {
+  return (
+    <div className="flex flex-col items-start gap-3 px-4 py-8">
+      <Activity className="h-5 w-5 text-[var(--ink-3)]" aria-hidden="true" />
+      <div>
+        <p className="text-sm font-medium text-[var(--ink)]">{title}</p>
+        <p className="mt-1 text-xs text-[var(--ink-3)]">{body}</p>
+      </div>
+      <Link
+        href={href}
+        className="text-xs font-medium text-[var(--ink)] underline decoration-[var(--line-strong)] underline-offset-4 hover:text-[var(--accent-text)]"
+      >
+        {linkLabel}
+      </Link>
+    </div>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Sub-components
 // ---------------------------------------------------------------------------
 
-function ValidationByDayChart({ data }: { data: DayData[] }) {
-  const maxCount = Math.max(...data.map((d) => d.count), 1);
+function Readout({
+  label,
+  value,
+  sub,
+  children,
+}: {
+  label: string;
+  value: string | number;
+  sub: string;
+  children?: ReactNode;
+}) {
+  return (
+    <div className="bg-[var(--surface)] p-4 sm:p-5">
+      <p className="label-mono">{label}</p>
+      <p className="mt-2 font-display text-[26px] font-semibold leading-none tracking-[-0.035em] text-[var(--ink)] tabular">
+        {typeof value === "number" ? formatCount(value) : value}
+      </p>
+      <p className="mt-1.5 font-mono text-[9px] uppercase tracking-[0.04em] text-[var(--ink-3)]">
+        {sub}
+      </p>
+      {children}
+    </div>
+  );
+}
+
+function ThroughputChart({ data }: { data: DayData[] }) {
+  const maxCount = Math.max(...data.map((day) => day.count), 1);
+  const total = data.reduce((sum, day) => sum + day.count, 0);
 
   return (
-    <Card variant="default" padding="md">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-sm font-semibold uppercase  text-[var(--text-muted)]">
-          Validations by Day
-        </h3>
-        <BarChart3 className="w-4 h-4 text-[var(--text-muted)]" aria-hidden="true" />
-      </div>
-      <div
-        className="flex items-end gap-2 h-32 sm:h-48"
-        role="img"
-        aria-label={`Bar chart: email validations per day. ${data.map((d) => `${d.date}: ${d.count} (avg score ${d.avgScore})`).join(", ")}`}
-      >
-        {data.map((day) => {
-          const height = Math.max((day.count / maxCount) * 180, day.count > 0 ? 8 : 0);
-          const date = new Date(day.date + "T00:00:00");
-          const dayLabel = date.toLocaleDateString("en-US", { weekday: "short" });
-          const fullLabel = date.toLocaleDateString("en-US", {
-            month: "short",
-            day: "numeric",
-          });
+    <section className="panel" aria-labelledby="throughput-title">
+      <PanelHead
+        title="Throughput"
+        meta="Last 14 days"
+        action={
+          <span className="font-mono text-[10px] text-[var(--ink-2)]">
+            {formatCount(total)} total
+          </span>
+        }
+      />
+      <div className="p-4 sm:p-5">
+        <div
+          className="flex h-44 items-end gap-1 border-b border-[var(--line-strong)] pb-1"
+          role="img"
+          aria-label={`Bar chart: email validations per day. ${data
+            .map((day) => `${day.date}: ${day.count} (average score ${day.avgScore})`)
+            .join(", ")}`}
+        >
+          {data.map((day) => {
+            const height = Math.max((day.count / maxCount) * 118, day.count > 0 ? 2 : 0);
+            const date = new Date(day.date + "T00:00:00");
+            const dayLabel = date.toLocaleDateString("en-US", { weekday: "narrow" });
+            const fullLabel = date.toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+            });
 
-          return (
-            <div
-              key={day.date}
-              className="flex-1 flex flex-col items-center gap-1 min-w-0"
-              title={`${fullLabel}: ${day.count} validations, avg score ${day.avgScore}`}
-              aria-hidden="true"
-            >
-              <span className="text-[11px] font-mono text-[var(--text-muted)] leading-none">
-                {day.count}
-              </span>
+            return (
               <div
-                className="w-full rounded-t transition-all duration-300"
-                style={{
-                  height: `${height}px`,
-                  backgroundColor:
-                    day.avgScore >= 80
-                      ? "var(--status-valid)"
-                      : day.avgScore >= 60
-                        ? "var(--score-medium)"
-                        : day.avgScore > 0
-                          ? "var(--status-invalid)"
-                          : "var(--bg-subtle)",
-                  opacity: day.count > 0 ? 1 : 0.4,
-                }}
-              />
-              <span className="text-[11px] text-[var(--text-muted)] truncate w-full text-center">
-                {dayLabel}
-              </span>
-            </div>
-          );
-        })}
+                key={day.date}
+                className="group flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-1"
+                title={`${fullLabel}: ${day.count} validations, average score ${day.avgScore}`}
+                aria-hidden="true"
+              >
+                <span className="font-mono text-[9px] leading-none text-[var(--ink-3)] opacity-0 transition-opacity group-hover:opacity-100">
+                  {day.count}
+                </span>
+                <div
+                  className={cn(
+                    "w-full max-w-[26px] transition-colors duration-150",
+                    day.count > 0
+                      ? "bg-[var(--ink)] group-hover:bg-[var(--accent)]"
+                      : "bg-[var(--surface-3)]",
+                  )}
+                  style={{ height: `${height}px` }}
+                />
+                <span className="mt-1 w-full truncate text-center font-mono text-[8px] uppercase text-[var(--ink-3)]">
+                  {dayLabel}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+        <div className="mt-3 flex items-center justify-between font-mono text-[9px] uppercase tracking-[0.04em] text-[var(--ink-3)]">
+          <span>Bars = inspections</span>
+          <span>Hover for daily average</span>
+        </div>
       </div>
-    </Card>
+    </section>
   );
 }
 
 function StatusDistribution({ data }: { data: StatusData[] }) {
-  const total = data.reduce((sum, d) => sum + d.count, 0);
-  if (total === 0) return null;
+  const total = data.reduce((sum, item) => sum + item.count, 0);
 
-  const statusColors: Record<string, string> = {
+  const statusOrder = ["valid", "risky", "invalid", "unknown"];
+  const colors: Record<string, string> = {
     valid: "var(--status-valid)",
     invalid: "var(--status-invalid)",
     risky: "var(--status-risky)",
     unknown: "var(--status-unknown)",
   };
-
-  const statusOrder = ["valid", "invalid", "risky", "unknown"];
   const sorted = [...data].sort(
     (a, b) => statusOrder.indexOf(a.status) - statusOrder.indexOf(b.status),
   );
 
   return (
-    <Card variant="default" padding="md">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-sm font-semibold uppercase  text-[var(--text-muted)]">
-          Validations by Status
-        </h3>
-        <Layers className="w-4 h-4 text-[var(--text-muted)]" aria-hidden="true" />
-      </div>
-      {/* Stacked bar */}
-      <div
-        className="flex h-5 rounded-full overflow-hidden mb-3"
-        role="img"
-        aria-label={`Status distribution: ${sorted.map((s) => `${s.status}: ${s.count} (${Math.round((s.count / total) * 100)}%)`).join(", ")}`}
-      >
-        {sorted.map((item) => (
-          <div
-            key={item.status}
-            style={{
-              width: `${(item.count / total) * 100}%`,
-              backgroundColor: statusColors[item.status] || "var(--bg-subtle)",
-            }}
-            title={`${item.status}: ${item.count} (${Math.round((item.count / total) * 100)}%)`}
-          />
-        ))}
-      </div>
-      {/* Legend */}
-      <div className="space-y-1.5">
-        {sorted.map((item) => {
-          const pct = Math.round((item.count / total) * 100);
-          return (
-            <div key={item.status} className="flex items-center justify-between text-sm">
-              <div className="flex items-center gap-2">
-                <span
-                  className="w-2.5 h-2.5 rounded-full shrink-0"
+    <section className="panel" aria-labelledby="status-title">
+      <PanelHead
+        title="Status mix"
+        action={
+          <span className="font-mono text-[10px] text-[var(--ink-2)]">
+            {formatCount(total)} total
+          </span>
+        }
+      />
+      <div className="p-4 sm:p-5">
+        {total === 0 ? (
+          <p className="py-8 text-center text-xs text-[var(--ink-3)]">No inspections yet.</p>
+        ) : (
+          <>
+            <div
+              className="flex h-3 w-full gap-px bg-[var(--line)]"
+              role="img"
+              aria-label={`Status distribution: ${sorted
+                .map(
+                  (item) =>
+                    `${item.status}: ${item.count} (${Math.round((item.count / total) * 100)}%)`,
+                )
+                .join(", ")}`}
+            >
+              {sorted.map((item) => (
+                <div
+                  key={item.status}
                   style={{
-                    backgroundColor: statusColors[item.status] || "var(--bg-subtle)",
+                    width: `${(item.count / total) * 100}%`,
+                    backgroundColor: colors[item.status] || "var(--surface-3)",
                   }}
+                  title={`${item.status}: ${item.count}`}
+                  aria-hidden="true"
                 />
-                <span className="capitalize text-[var(--text-secondary)]">{item.status}</span>
-              </div>
-              <span className="font-mono text-xs">
-                {item.count} ({pct}%)
-              </span>
+              ))}
             </div>
-          );
-        })}
+            <div className="mt-4 divide-y divide-[var(--line)] border-t border-[var(--line)]">
+              {sorted.map((item) => {
+                const pct = total > 0 ? Math.round((item.count / total) * 100) : 0;
+                return (
+                  <div key={item.status} className="flex items-center justify-between gap-3 py-2.5">
+                    <div className="flex items-center gap-2">
+                      <span
+                        className="h-1.5 w-1.5 shrink-0"
+                        style={{ backgroundColor: colors[item.status] || "var(--surface-3)" }}
+                        aria-hidden="true"
+                      />
+                      <span className="text-[11px] capitalize text-[var(--ink-2)]">
+                        {item.status}
+                      </span>
+                    </div>
+                    <div className="flex items-baseline gap-2 font-mono text-[10px]">
+                      <span className="text-[var(--ink)]">{formatCount(item.count)}</span>
+                      <span className="w-7 text-right text-[var(--ink-3)]">{pct}%</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        )}
       </div>
-    </Card>
+    </section>
   );
 }
 
 function ScoreDistributionChart({ data }: { data: ScoreDist[] }) {
-  const maxCount = Math.max(...data.map((d) => d.count), 1);
-  const allZero = data.every((d) => d.count === 0);
-
-  const rangeColors = [
+  const maxCount = Math.max(...data.map((item) => item.count), 1);
+  const allZero = data.every((item) => item.count === 0);
+  const bandColors = [
     "var(--score-critical)",
     "var(--score-poor)",
     "var(--score-medium)",
@@ -247,90 +334,191 @@ function ScoreDistributionChart({ data }: { data: ScoreDist[] }) {
   ];
 
   return (
-    <Card variant="default" padding="md">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-sm font-semibold uppercase  text-[var(--text-muted)]">
-          Score Distribution
-        </h3>
-        <Activity className="w-4 h-4 text-[var(--text-muted)]" aria-hidden="true" />
+    <section className="panel" aria-labelledby="score-dist-title">
+      <PanelHead title="Score distribution" meta="All inspections" />
+      <div className="p-4 sm:p-5">
+        {allZero ? (
+          <p className="py-8 text-center text-xs text-[var(--ink-3)]">No scores yet.</p>
+        ) : (
+          <div
+            className="space-y-3.5"
+            role="img"
+            aria-label={`Score distribution: ${data.map((item) => `${item.range}: ${item.count}`).join(", ")}`}
+          >
+            {data.map((item, index) => (
+              <div key={item.range}>
+                <div className="flex items-baseline justify-between gap-3">
+                  <span className="font-mono text-[10px] text-[var(--ink-2)]">{item.range}</span>
+                  <span className="font-mono text-[10px] text-[var(--ink-3)]">
+                    {formatCount(item.count)}
+                  </span>
+                </div>
+                <div className="mt-1 h-1.5 w-full bg-[var(--surface-2)]">
+                  <div
+                    className="h-full transition-[width] duration-500"
+                    style={{
+                      width: `${(item.count / maxCount) * 100}%`,
+                      backgroundColor: bandColors[index] ?? "var(--ink-3)",
+                    }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
-      {allZero ? (
-        <p className="text-sm text-[var(--text-muted)] text-center py-4">No data yet</p>
-      ) : (
-        <div
-          className="space-y-3"
-          role="img"
-          aria-label={`Score distribution: ${data.map((d) => `${d.range}: ${d.count}`).join(", ")}`}
-        >
-          {data.map((item, i) => (
-            <div key={item.range}>
-              <div className="flex items-center justify-between text-sm mb-1">
-                <span className="text-[var(--text-muted)]">{item.range}</span>
-                <span className="font-mono text-xs">{item.count}</span>
-              </div>
-              <div className="w-full h-2.5 bg-[var(--bg-subtle)] rounded-full overflow-hidden">
-                <div
-                  className="h-full rounded-full transition-all duration-300"
-                  style={{
-                    width: `${(item.count / maxCount) * 100}%`,
-                    backgroundColor: rangeColors[i],
-                  }}
-                />
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </Card>
+    </section>
   );
 }
 
-function RecentActivityFeed({ activities }: { activities: ActivityItem[] }) {
+function RecentInspections({ activities }: { activities: ActivityItem[] }) {
   return (
-    <Card variant="default" padding="md">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-sm font-semibold uppercase  text-[var(--text-muted)]">
-          Recent Activity
-        </h3>
-        <Clock className="w-4 h-4 text-[var(--text-muted)]" />
-      </div>
+    <section className="panel" aria-labelledby="recent-title">
+      <PanelHead
+        title="Recent inspections"
+        action={
+          <Link
+            href="/history"
+            className="text-[11px] font-medium text-[var(--ink-2)] underline decoration-[var(--line-strong)] underline-offset-2 hover:text-[var(--ink)]"
+          >
+            View all
+          </Link>
+        }
+      />
       {activities.length > 0 ? (
-        <div className="space-y-1 max-h-80 overflow-y-auto pr-1 -mr-1">
-          {activities.map((activity, i) => (
-            <div
-              key={`${activity.email}-${i}`}
-              className="flex items-center justify-between py-2 border-b border-[var(--border)] last:border-0"
-            >
-              <div className="flex-1 min-w-0">
-                <p className="font-mono text-sm truncate">{maskEmail(activity.email)}</p>
-                <p className="text-xs text-[var(--text-muted)]">
-                  {formatDistanceToNow(new Date(activity.time), {
-                    addSuffix: true,
-                  })}
-                </p>
-              </div>
-              <div className="flex items-center gap-2 ml-3 shrink-0">
-                <span className="text-sm font-bold">{activity.score}</span>
-                <StatusBadge
-                  status={activity.status as "valid" | "invalid" | "risky" | "unknown"}
-                  showDot={false}
-                />
-              </div>
-            </div>
-          ))}
+        <div className="max-h-[320px] overflow-auto">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th scope="col">Address</th>
+                <th scope="col" className="hidden sm:table-cell">
+                  When
+                </th>
+                <th scope="col">Score</th>
+                <th scope="col" className="text-right">
+                  Status
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {activities.slice(0, 10).map((activity, index) => (
+                <tr key={`${activity.email}-${index}`}>
+                  <td className="max-w-[180px] truncate font-mono text-[11px] text-[var(--ink)]">
+                    {maskEmail(activity.email)}
+                  </td>
+                  <td className="hidden whitespace-nowrap text-[11px] text-[var(--ink-3)] sm:table-cell">
+                    {formatDistanceToNow(new Date(activity.time), { addSuffix: true })}
+                  </td>
+                  <td>
+                    <ScoreMeter score={activity.score} />
+                  </td>
+                  <td className="text-right">
+                    <StatusBadge
+                      status={activity.status as "valid" | "invalid" | "risky" | "unknown"}
+                      showDot={false}
+                    />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       ) : (
-        <div className="flex flex-col items-center py-8 text-[var(--text-muted)]">
-          <Activity className="w-10 h-10 mb-3 opacity-50 animate-float-subtle" />
-          <p className="text-sm">No activity yet</p>
-          <p className="text-xs mt-1">Start validating emails to see activity here</p>
-        </div>
+        <EmptyPanel
+          title="No inspections yet"
+          body="Run the first address through the validator to start the ledger."
+          href="/validate"
+          linkLabel="Inspect an address"
+        />
       )}
-    </Card>
+    </section>
   );
 }
 
-// Skeleton and ErrorState extracted to components/dashboard/
+function jobStamp(status: string) {
+  if (status === "COMPLETED") return "stamp stamp-pass";
+  if (status === "PROCESSING") return "stamp stamp-warn";
+  if (status === "FAILED") return "stamp stamp-fail";
+  return "stamp stamp-idle";
+}
+
+function RecentBatches({ jobs }: { jobs: JobItem[] }) {
+  return (
+    <section className="panel" aria-labelledby="batches-title">
+      <PanelHead
+        title="Recent batches"
+        meta={`${jobs.length} loaded`}
+        action={
+          <Link
+            href="/bulk"
+            className="text-[11px] font-medium text-[var(--ink-2)] underline decoration-[var(--line-strong)] underline-offset-2 hover:text-[var(--ink)]"
+          >
+            Open bulk
+          </Link>
+        }
+      />
+      {jobs.length > 0 ? (
+        <div className="overflow-x-auto">
+          <table className="data-table w-full">
+            <thead>
+              <tr>
+                <th scope="col">File</th>
+                <th scope="col">Progress</th>
+                <th scope="col" className="hidden sm:table-cell">
+                  Created
+                </th>
+                <th scope="col" className="text-right">
+                  State
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {jobs.slice(0, 5).map((job) => {
+                const pct =
+                  job.totalEmails > 0
+                    ? Math.min(100, Math.round((job.processed / job.totalEmails) * 100))
+                    : 0;
+                return (
+                  <tr key={job.id}>
+                    <td className="max-w-[220px] truncate font-mono text-[11px] text-[var(--ink)]">
+                      {job.filename}
+                    </td>
+                    <td>
+                      <div className="flex items-center gap-2.5">
+                        <span className="h-1.5 w-20 bg-[var(--surface-2)]">
+                          <span
+                            className="block h-full bg-[var(--accent)]"
+                            style={{ width: `${pct}%` }}
+                          />
+                        </span>
+                        <span className="hidden font-mono text-[10px] text-[var(--ink-3)] sm:inline">
+                          {formatCount(job.processed)}/{formatCount(job.totalEmails)}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="hidden whitespace-nowrap text-[11px] text-[var(--ink-3)] sm:table-cell">
+                      {formatDistanceToNow(new Date(job.createdAt), { addSuffix: true })}
+                    </td>
+                    <td className="text-right">
+                      <span className={jobStamp(job.status)}>{job.status}</span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <EmptyPanel
+          title="No batches yet"
+          body="Upload a CSV to send a list through the line."
+          href="/bulk"
+          linkLabel="Start a batch"
+        />
+      )}
+    </section>
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Main page component
@@ -340,17 +528,14 @@ export default function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [jobsOpen, setJobsOpen] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [ticker, setTicker] = useState(0);
 
-  // Tick every 10s to keep relative timestamps fresh
   useEffect(() => {
-    const interval = setInterval(() => setTicker((t) => t + 1), 10_000);
+    const interval = setInterval(() => setTicker((value) => value + 1), 10_000);
     return () => clearInterval(interval);
   }, []);
 
-  // Fetcher used by both initial load and polling
   const fetchData = useCallback(async (): Promise<DashboardData> => {
     const res = await fetch("/api/v1/dashboard/stats");
     if (!res.ok) {
@@ -362,7 +547,6 @@ export default function DashboardPage() {
     return json.data as DashboardData;
   }, []);
 
-  // Initial load
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
@@ -387,7 +571,6 @@ export default function DashboardPage() {
     };
   }, [fetchData]);
 
-  // Auto-refresh every 30s (only after initial data is loaded)
   usePolling({
     fetcher: async () => {
       const result = await fetchData();
@@ -400,16 +583,14 @@ export default function DashboardPage() {
     interval: 30_000,
     enabled: !loading && data !== null,
     onError: () => {
-      // Silently keep existing data on auto-refresh errors
+      // Keep the last known-good state on transient refresh errors.
     },
   });
 
-  // ---- Loading state ----
   if (loading && !data) {
     return <DashboardSkeleton />;
   }
 
-  // ---- Error state ----
   if (error && !data) {
     return (
       <DashboardErrorState
@@ -429,7 +610,6 @@ export default function DashboardPage() {
     );
   }
 
-  // ---- Safe fallback when data is unexpectedly null ----
   if (!data) {
     return <DashboardSkeleton />;
   }
@@ -445,250 +625,144 @@ export default function DashboardPage() {
     recentJobs,
   } = data;
 
+  const avgBand = getScoreBand(stats.avgScore);
+  const creditsLabel = user.creditsRemaining < 0 ? "Unlimited" : formatCount(user.creditsRemaining);
+
   return (
-    <div className="p-8">
-      {/* Header */}
-      <div className="mb-8">
-        <div className="flex items-center justify-between">
+    <div className="p-4 sm:p-6 lg:p-8">
+      <header className="mb-5">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h1 className="text-3xl font-display font-bold mb-2">Dashboard</h1>
-            <p className="text-[var(--text-secondary)]">
-              Welcome back, {user?.name || user?.email || "User"}
+            <p className="label-mono flex items-center gap-2">
+              <span className="h-1.5 w-1.5 bg-[var(--accent)]" aria-hidden="true" />
+              Control room / live
+            </p>
+            <h1 className="mt-2 font-display text-[clamp(1.9rem,3.2vw,2.6rem)] font-semibold leading-none tracking-[-0.04em] text-[var(--ink)]">
+              Dashboard
+            </h1>
+            <p className="mt-2 text-[13px] text-[var(--ink-2)]">
+              Welcome back, {user.name || user.email || "operator"}. The line is running.
             </p>
           </div>
-          {/* Last updated indicator */}
+
+          <div className="flex flex-wrap items-center gap-2">
+            <Button href="/bulk" variant="secondary" size="sm">
+              New batch
+            </Button>
+            <Button href="/validate" variant="primary" size="sm">
+              Inspect address
+            </Button>
+          </div>
+        </div>
+
+        <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-[var(--line)] pt-3">
+          <span className="badge badge-accent">{user.plan}</span>
+          <span className="font-mono text-[10px] uppercase tracking-[0.04em] text-[var(--ink-3)]">
+            {creditsLabel} credits
+          </span>
+          <span className="flex items-center gap-1.5 font-mono text-[9px] uppercase tracking-[0.04em] text-[var(--ink-3)]">
+            <span className="h-1 w-1 animate-pulse-dot bg-[var(--accent)]" aria-hidden="true" />
+            Auto-refresh / 30s
+          </span>
           {lastUpdated && (
-            <div className="hidden sm:flex items-center gap-1.5 text-xs text-[var(--text-muted)]">
-              <RefreshCw className="w-3 h-3" />
+            <span className="flex items-center gap-1.5 font-mono text-[9px] uppercase tracking-[0.04em] text-[var(--ink-3)]">
+              <RefreshCw className="h-3 w-3" aria-hidden="true" />
               <span suppressHydrationWarning key={ticker}>
                 Updated {formatDistanceToNow(lastUpdated, { addSuffix: true })}
               </span>
-            </div>
+            </span>
           )}
         </div>
-        <div className="mt-2 flex items-center gap-3">
-          <span className="badge badge-accent">{user?.plan}</span>
-          <span className="text-sm text-[var(--text-muted)]">
-            {user?.creditsRemaining} credits remaining
-          </span>
-        </div>
-        {/* Mobile last updated */}
-        {lastUpdated && (
-          <div className="sm:hidden mt-2 flex items-center gap-1.5 text-xs text-[var(--text-muted)]">
-            <RefreshCw className="w-3 h-3" />
-            <span suppressHydrationWarning key={ticker}>
-              Updated {formatDistanceToNow(lastUpdated, { addSuffix: true })}
-            </span>
-          </div>
-        )}
-      </div>
+      </header>
 
-      {/* Quick Validate */}
-      <div className="mb-8">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
-          <h2 className="text-lg font-display font-semibold">Quick Validate</h2>
-          <div className="flex items-center gap-2">
-            <Button href="/validate" variant="accent" size="sm">
-              Full Validator
-            </Button>
-            <Button href="/bulk" variant="primary" size="sm">
-              Bulk Upload
-            </Button>
-          </div>
-        </div>
+      <div className="mb-4">
         <QuickValidate />
       </div>
 
-      {/* ---- KPI Cards (merged with trend data) ---- */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <Card
-          variant="default"
-          padding="md"
-          className="animate-fade-slide-up"
-          style={{ "--i": 0, backgroundColor: "var(--accent-light)" } as React.CSSProperties}
-          title="Total validations performed this month. Resets on the 1st of each month."
-        >
-          <p className="text-xs text-[var(--text-muted)] mb-1">This Month</p>
-          <div className="flex items-baseline gap-2">
-            <p className="text-3xl font-display font-bold">{stats.thisMonth}</p>
-            <span className="text-xs text-[var(--status-valid)] flex items-center gap-0.5">
-              <TrendingUp className="w-3 h-3" />
-              {trends.todayCount} today
-            </span>
+      <section
+        className="border border-[var(--line-strong)] bg-[var(--surface)]"
+        aria-label="Monthly summary"
+      >
+        <div className="grid lg:grid-cols-[1.05fr_1.95fr]">
+          <div className="border-b border-[var(--line)] p-5 sm:p-6 lg:border-b-0 lg:border-r">
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="panel-title">Average verdict</h2>
+              <span className="stamp stamp-idle">
+                {stats.thisMonth > 0 ? avgBand.short : "No data"}
+              </span>
+            </div>
+            <div className="mt-5">
+              {stats.thisMonth > 0 ? (
+                <ScoreGauge score={stats.avgScore} label="This month" showScale showBand={false} />
+              ) : (
+                <div className="flex min-h-[154px] flex-col justify-center border border-dashed border-[var(--line)] px-4 py-5">
+                  <p className="font-display text-4xl font-semibold tracking-[-0.04em] text-[var(--ink-3)]">
+                    —
+                  </p>
+                  <p className="mt-2 text-xs leading-relaxed text-[var(--ink-3)]">
+                    No scored inspections this month. Run an address to start the average.
+                  </p>
+                </div>
+              )}
+            </div>
+            <div className="mt-4 grid grid-cols-2 gap-px border-t border-[var(--line)] bg-[var(--line)]">
+              <div className="bg-[var(--surface)] pt-3 pr-3">
+                <p className="label-mono text-[8px]">7-day avg</p>
+                <p className="mt-1 font-mono text-sm text-[var(--ink)]">{trends.weekAvg}</p>
+              </div>
+              <div className="bg-[var(--surface)] pl-3 pt-3">
+                <p className="label-mono text-[8px]">30-day avg</p>
+                <p className="mt-1 font-mono text-sm text-[var(--ink)]">{trends.monthAvg}</p>
+              </div>
+            </div>
           </div>
-          <p className="text-xs text-[var(--text-muted)] mt-1">validations this month</p>
-        </Card>
 
-        <Card
-          variant="default"
-          padding="md"
-          className="animate-fade-slide-up"
-          style={{ "--i": 1 } as React.CSSProperties}
-          title="Average quality score across all validations. 80+ is highly deliverable."
-        >
-          <div className="flex items-start justify-between mb-1">
-            <p className="text-xs text-[var(--text-muted)]">Avg Score</p>
-            <span
-              className={`text-xs font-mono font-bold px-1.5 py-0.5 rounded ${
-                stats.avgScore >= 80
-                  ? "text-[var(--status-valid)] bg-[var(--status-valid)]/10"
-                  : stats.avgScore >= 60
-                    ? "text-[var(--score-medium)] bg-[var(--score-medium)]/10"
-                    : "text-[var(--status-invalid)] bg-[var(--status-invalid)]/10"
-              }`}
-            >
-              {stats.avgScore >= 80 ? "Good" : stats.avgScore >= 60 ? "Fair" : "Poor"}
-            </span>
-          </div>
-          <p className="text-3xl font-display font-bold">{stats.avgScore}</p>
-          <div className="mt-2 w-full h-1.5 bg-[var(--bg-subtle)] rounded-full overflow-hidden">
-            <div
-              className="h-full rounded-full"
-              style={{
-                width: `${stats.avgScore}%`,
-                backgroundColor:
-                  stats.avgScore >= 80
-                    ? "var(--status-valid)"
-                    : stats.avgScore >= 60
-                      ? "var(--score-medium)"
-                      : "var(--status-invalid)",
-              }}
+          <div className="grid grid-cols-2 gap-px bg-[var(--line)]">
+            <Readout
+              label="Inspections this month"
+              value={stats.thisMonth}
+              sub={`${formatCount(trends.todayCount)} today`}
             />
-          </div>
-        </Card>
-
-        <Card
-          variant="default"
-          padding="md"
-          className="animate-fade-slide-up"
-          style={{ "--i": 2 } as React.CSSProperties}
-        >
-          <p className="text-xs text-[var(--text-muted)] mb-1">Valid Rate</p>
-          <div className="flex items-baseline gap-2">
-            <p className="text-3xl font-display font-bold text-[var(--status-valid)]">
-              {stats.validRate}%
-            </p>
-            <span className="text-xs text-[var(--status-valid)]/70">deliverable</span>
-          </div>
-          <div className="mt-2 flex gap-0.5">
-            {[...Array(10)].map((_, i) => (
-              <div
-                key={i}
-                className={`flex-1 h-1.5 rounded-full ${
-                  i < Math.round(stats.validRate / 10)
-                    ? "bg-[var(--status-valid)]"
-                    : "bg-[var(--bg-subtle)]"
-                }`}
-              />
-            ))}
-          </div>
-        </Card>
-
-        <Card
-          variant="default"
-          padding="md"
-          className="bg-[var(--bg-elevated)] border border-[var(--border-strong)] animate-fade-slide-up"
-          style={{ "--i": 3 } as React.CSSProperties}
-        >
-          <p className="text-xs text-[var(--text-muted)] mb-1">Lifetime Total</p>
-          <p className="text-3xl font-display font-bold text-[var(--text-primary)]">
-            {stats.totalValidated}
-          </p>
-          <p className="text-xs text-[var(--text-muted)] mt-1">total validated</p>
-        </Card>
-      </div>
-
-      {/* ---- Charts + Activity grid (merged 2×2) ---- */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-        <ValidationByDayChart data={validationsByDay} />
-        <StatusDistribution data={validationsByStatus} />
-        <ScoreDistributionChart data={scoreDistribution} />
-        <RecentActivityFeed activities={recentActivity} />
-      </div>
-
-      {/* ---- Collapsible: Recent Bulk Jobs ---- */}
-      <Card variant="default" padding="md" className="mb-8">
-        <button
-          onClick={() => setJobsOpen((prev) => !prev)}
-          className="w-full flex items-center justify-between py-1"
-          aria-expanded={jobsOpen}
-        >
-          <h2 className="text-lg font-display font-semibold">Recent Bulk Jobs</h2>
-          <div className="flex items-center gap-2">
-            <Link
-              href="/bulk"
-              className="text-sm text-[var(--accent)] hover:underline"
-              onClick={(e) => e.stopPropagation()}
+            <Readout
+              label="Valid rate"
+              value={`${stats.validRate}%`}
+              sub={stats.thisMonth > 0 ? "deliverable" : "no inspections"}
             >
-              View all
-            </Link>
-            {jobsOpen ? (
-              <ChevronDown className="w-4 h-4 text-[var(--text-muted)]" />
-            ) : (
-              <ChevronRight className="w-4 h-4 text-[var(--text-muted)]" />
-            )}
-          </div>
-        </button>
-        {jobsOpen && (
-          <div className="mt-4 border-t border-[var(--border)] pt-4">
-            {recentJobs.length > 0 ? (
-              <div className="space-y-3">
-                {recentJobs.map((job) => (
-                  <div
-                    key={job.id}
-                    className="flex items-center justify-between py-2 border-b border-[var(--border)] last:border-0"
-                  >
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm truncate">{job.filename}</p>
-                      <p className="text-xs text-[var(--text-muted)]">
-                        {job.processed}/{job.totalEmails} processed{" "}
-                        {formatDistanceToNow(new Date(job.createdAt), {
-                          addSuffix: true,
-                        })}
-                      </p>
-                    </div>
-                    <div className="ml-4">
-                      <span
-                        className={`badge ${
-                          job.status === "COMPLETED"
-                            ? "badge-success"
-                            : job.status === "PROCESSING"
-                              ? "badge-warning"
-                              : job.status === "FAILED"
-                                ? "badge-error"
-                                : "badge-default"
-                        }`}
-                      >
-                        {job.status}
-                      </span>
-                    </div>
-                  </div>
+              <div className="mt-2.5 flex gap-px" aria-hidden="true">
+                {Array.from({ length: 10 }).map((_, index) => (
+                  <span
+                    key={index}
+                    className="h-1 flex-1"
+                    style={{
+                      backgroundColor:
+                        index < Math.round(stats.validRate / 10)
+                          ? "var(--status-valid)"
+                          : "var(--surface-3)",
+                    }}
+                  />
                 ))}
               </div>
-            ) : (
-              <div className="flex flex-col items-center py-8 text-[var(--text-muted)]">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="48"
-                  height="48"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="mb-4 opacity-50"
-                >
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                  <polyline points="17 8 12 3 7 8" />
-                  <line x1="12" y1="3" x2="12" y2="15" />
-                </svg>
-                No bulk jobs yet. Upload a CSV to get started!
-              </div>
-            )}
+            </Readout>
+            <Readout label="Lifetime total" value={stats.totalValidated} sub="all inspections" />
+            <Readout label="Credits left" value={creditsLabel} sub={`${user.plan} plan`} />
           </div>
-        )}
-      </Card>
+        </div>
+      </section>
+
+      <div className="mt-4 grid items-start gap-4 xl:grid-cols-3">
+        <div className="xl:col-span-2">
+          <ThroughputChart data={validationsByDay} />
+        </div>
+        <StatusDistribution data={validationsByStatus} />
+        <ScoreDistributionChart data={scoreDistribution} />
+        <div className="xl:col-span-2">
+          <RecentInspections activities={recentActivity} />
+        </div>
+      </div>
+
+      <div className="mt-4">
+        <RecentBatches jobs={recentJobs} />
+      </div>
     </div>
   );
 }

@@ -18,12 +18,14 @@ export function SectionHeader({
 }: SectionHeaderProps) {
   return (
     <div
-      className={cn("mb-12", align === "center" && "text-center max-w-2xl mx-auto", className)}
+      className={cn("mb-10", align === "center" && "text-center max-w-2xl mx-auto", className)}
       {...props}
     >
-      <h2 className="text-3xl font-display font-bold text-[var(--text-primary)]">{title}</h2>
+      <h2 className="text-2xl font-display font-semibold text-[var(--ink)] md:text-3xl">{title}</h2>
       {description && (
-        <p className="mt-3 text-lg text-[var(--text-secondary)] leading-relaxed">{description}</p>
+        <p className="mt-2 max-w-[62ch] text-base text-[var(--ink-2)] leading-relaxed">
+          {description}
+        </p>
       )}
     </div>
   );

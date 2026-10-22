@@ -2,7 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Button, Card, Input } from "@/components/ui";
+import { PageHeader } from "@/components/dashboard/PageHeader";
+import { Button, Input } from "@/components/ui";
 import { Modal } from "@/components/ui/Modal";
 import { useUndoDelete } from "@/hooks/useUndoDelete";
 import { logger } from "@/lib/logger";
@@ -348,416 +349,515 @@ export default function SettingsPage() {
 
   if (loading) {
     return (
-      <div className="p-8 max-w-2xl">
-        <div className="mb-8">
-          <div className="h-8 w-48 animate-skeleton rounded mb-2" />
-          <div className="h-4 w-72 animate-skeleton rounded" />
-        </div>
-        <div className="flex gap-1 mb-8 border-b border-[var(--border)]">
-          {[...Array(5)].map((_, i) => (
-            <div key={i} className="h-8 w-20 animate-skeleton rounded" />
-          ))}
-        </div>
-        <Card variant="default" padding="md">
-          <div className="space-y-4">
-            <div className="h-4 w-16 animate-skeleton rounded mb-2" />
-            <div className="h-10 w-full animate-skeleton rounded" />
-            <div className="h-4 w-16 animate-skeleton rounded mb-2" />
-            <div className="h-10 w-full animate-skeleton rounded" />
-            <div className="h-10 w-32 animate-skeleton rounded" />
+      <div className="p-4 sm:p-6 lg:p-8">
+        <div className="mx-auto max-w-4xl">
+          <PageHeader
+            eyebrow="Account / settings"
+            title="Settings."
+            description="Profile, plan, keys, and access."
+          />
+          <div className="mb-5 flex gap-1 border border-[var(--line-strong)] bg-[var(--surface)] p-0.5">
+            {[...Array(5)].map((_, i) => (
+              <div key={i} className="h-8 w-20 animate-skeleton" />
+            ))}
           </div>
-        </Card>
+          <div className="border border-[var(--line-strong)] bg-[var(--surface)] p-5">
+            <div className="space-y-4">
+              <div className="h-3 w-32 animate-skeleton" />
+              <div className="h-4 w-16 animate-skeleton" />
+              <div className="h-10 w-full animate-skeleton" />
+              <div className="h-4 w-16 animate-skeleton" />
+              <div className="h-10 w-full animate-skeleton" />
+              <div className="h-9 w-32 animate-skeleton" />
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="p-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-display font-bold mb-2">Settings</h1>
-        <p className="text-[var(--text-secondary)]">Manage your account settings and preferences</p>
-      </div>
+    <div className="p-4 sm:p-6 lg:p-8">
+      <div className="mx-auto max-w-4xl">
+        <PageHeader
+          eyebrow="Account / settings"
+          title="Settings."
+          description="Profile, plan, keys, and access. Changes are written to the same register the rest of the app reads."
+          meta={
+            <>
+              <span className="font-mono text-[9px] uppercase tracking-[0.05em] text-[var(--ink-3)]">
+                {user?.email || "No email on file"}
+              </span>
+              <span className="h-3 w-px bg-[var(--line)]" aria-hidden="true" />
+              <span className="font-mono text-[9px] uppercase tracking-[0.05em] text-[var(--ink-3)]">
+                Plan / {user?.plan || "FREE"}
+              </span>
+            </>
+          }
+        />
 
-      {/* Tabs */}
-      <div className="flex gap-1 mb-8 border-b border-[var(--border)] overflow-x-auto pb-px">
-        {["profile", "billing", "api", "security", "danger"].map((tab) => (
-          <button
-            key={tab}
-            onClick={() => {
-              setActiveTab(tab);
-              if (tab === "security" && sessions === null && !sessionsLoading) {
-                void fetchSessions();
-              }
-              if (tab === "security" && twoFactor === null && !twoFactorLoading) {
-                void fetchTwoFactorStatus();
-              }
-            }}
-            className={`px-4 py-2 text-sm font-medium capitalize transition-all duration-200 ${
-              activeTab === tab
-                ? "text-[var(--accent)] border-b-2 border-[var(--accent)] -mb-px"
-                : "text-[var(--text-muted)] hover:text-[var(--text-primary)]"
-            }`}
-          >
-            {tab}
-          </button>
-        ))}
-      </div>
-
-      {/* Profile Tab */}
-      {activeTab === "profile" && (
-        <Card variant="default" padding="md" className="animate-fade-slide-up max-w-2xl">
-          <h2 className="text-lg font-display font-semibold mb-6">Profile Information</h2>
-
-          {message && (
-            <div
-              className={`animate-fade-slide-in p-4 rounded-lg mb-6 ${message.type === "success" ? "bg-[var(--status-valid-bg)] text-[var(--status-valid)]" : "bg-[var(--status-invalid-bg)] text-[var(--status-invalid)]"}`}
+        <div
+          role="tablist"
+          aria-label="Settings sections"
+          className="mb-5 flex gap-0.5 overflow-x-auto border border-[var(--line-strong)] bg-[var(--surface)] p-0.5"
+        >
+          {[
+            ["profile", "Profile"],
+            ["billing", "Billing"],
+            ["api", "API"],
+            ["security", "Security"],
+            ["danger", "Danger"],
+          ].map(([id, label]) => (
+            <button
+              key={id}
+              role="tab"
+              aria-selected={activeTab === id}
+              onClick={() => {
+                setActiveTab(id);
+                if (id === "security" && sessions === null && !sessionsLoading) {
+                  void fetchSessions();
+                }
+                if (id === "security" && twoFactor === null && !twoFactorLoading) {
+                  void fetchTwoFactorStatus();
+                }
+              }}
+              className={`h-8 shrink-0 px-3 font-mono text-[10px] uppercase tracking-[0.05em] transition-colors ${
+                activeTab === id
+                  ? "bg-[var(--ink)] text-[var(--bg)]"
+                  : "text-[var(--ink-3)] hover:text-[var(--ink)]"
+              }`}
             >
-              {message.text}
-            </div>
-          )}
+              {label}
+            </button>
+          ))}
+        </div>
 
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium mb-2">Name</label>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="input w-full"
-                placeholder="Your name"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium mb-2">Email</label>
-              <input
-                type="email"
-                value={email}
-                disabled
-                className="input w-full bg-[var(--bg-subtle)] cursor-not-allowed"
-              />
-              <p className="text-xs text-[var(--text-muted)] mt-1">
-                Contact support to change your email address
+        {activeTab === "profile" && (
+          <section className="border border-[var(--line-strong)] bg-[var(--surface)]">
+            <div className="border-b border-[var(--line)] px-5 py-4">
+              <h2 className="font-display text-lg font-semibold tracking-[-0.02em] text-[var(--ink)]">
+                Profile Information
+              </h2>
+              <p className="mt-1 text-[12px] text-[var(--ink-3)]">
+                The name attached to your account and exports.
               </p>
             </div>
 
-            <Button onClick={saveProfile} disabled={saving} variant="primary">
-              {saving ? "Saving..." : "Save Changes"}
-            </Button>
-          </div>
-        </Card>
-      )}
+            <div className="p-5">
+              {message && (
+                <div
+                  role="alert"
+                  className={
+                    message.type === "success"
+                      ? "mb-5 border border-[var(--line-strong)] bg-[var(--surface-2)] px-4 py-3 text-[13px] text-[var(--ink-2)]"
+                      : "mb-5 border border-[var(--status-invalid)] bg-[var(--status-invalid-bg)] px-4 py-3 text-[13px] text-[var(--status-invalid-text)]"
+                  }
+                >
+                  {message.text}
+                </div>
+              )}
 
-      {/* Billing Tab */}
-      {activeTab === "billing" && (
-        <Card variant="default" padding="md" className="animate-fade-slide-up max-w-2xl">
-          <h2 className="text-lg font-display font-semibold mb-6">Billing & Subscription</h2>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label
+                    htmlFor="settings-name"
+                    className="mb-1.5 block font-mono text-[10px] uppercase tracking-[0.06em] text-[var(--ink-2)]"
+                  >
+                    Name
+                  </label>
+                  <input
+                    id="settings-name"
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="input w-full"
+                    placeholder="Your name"
+                  />
+                </div>
 
-          <div className="space-y-6">
-            <div className="flex items-center justify-between p-4 border border-[var(--border)] rounded-lg">
-              <div>
-                <p className="font-medium">Current Plan</p>
-                <p className="text-sm text-[var(--text-muted)]">
-                  {user?.plan === "FREE" ? "Free Plan" : user?.plan} • {user?.credits} credits
-                  remaining
-                </p>
+                <div>
+                  <label
+                    htmlFor="settings-email"
+                    className="mb-1.5 block font-mono text-[10px] uppercase tracking-[0.06em] text-[var(--ink-2)]"
+                  >
+                    Email
+                  </label>
+                  <input
+                    id="settings-email"
+                    type="email"
+                    value={email}
+                    disabled
+                    className="input w-full cursor-not-allowed bg-[var(--surface-2)] text-[var(--ink-3)]"
+                  />
+                  <p className="mt-1.5 text-[10px] text-[var(--ink-3)]">
+                    Contact support to change your email address.
+                  </p>
+                </div>
               </div>
-              <span className="badge badge-accent">{user?.plan || "FREE"}</span>
+
+              <Button onClick={saveProfile} disabled={saving} variant="primary" className="mt-5">
+                {saving ? "Saving..." : "Save Changes"}
+              </Button>
+            </div>
+          </section>
+        )}
+
+        {activeTab === "billing" && (
+          <section className="border border-[var(--line-strong)] bg-[var(--surface)]">
+            <div className="border-b border-[var(--line)] px-5 py-4">
+              <h2 className="font-display text-lg font-semibold tracking-[-0.02em] text-[var(--ink)]">
+                Billing & Subscription
+              </h2>
+              <p className="mt-1 text-[12px] text-[var(--ink-3)]">
+                The plan and credits currently attached to this account.
+              </p>
             </div>
 
-            <Button onClick={openStripePortal} variant="primary">
-              Manage Billing
-            </Button>
-
-            <p className="text-sm text-[var(--text-muted)]">
-              Open the Stripe customer portal to update your payment method, view invoices, or
-              change your subscription plan.
-            </p>
-          </div>
-        </Card>
-      )}
-
-      {/* API Tab */}
-      {activeTab === "api" && (
-        <Card variant="default" padding="md" className="animate-fade-slide-up max-w-2xl">
-          <h2 className="text-lg font-display font-semibold mb-6">API Access</h2>
-
-          <div className="space-y-4">
-            <p className="text-[var(--text-secondary)]">
-              Manage your API keys to access MailGuard Pro programmatically.
-            </p>
-
-            <Button href="/api-keys" variant="primary" className="inline-block">
-              Manage API Keys
-            </Button>
-          </div>
-        </Card>
-      )}
-
-      {/* Security Tab */}
-      {activeTab === "security" && (
-        <>
-          <Card variant="default" padding="md" className="animate-fade-slide-up max-w-2xl">
-            <h2 className="text-lg font-display font-semibold mb-6">Active Sessions</h2>
-
-            {message && (
-              <div
-                className={`animate-fade-slide-in p-4 rounded-lg mb-6 ${message.type === "success" ? "bg-[var(--status-valid-bg)] text-[var(--status-valid)]" : "bg-[var(--status-invalid-bg)] text-[var(--status-invalid)]"}`}
-              >
-                {message.text}
+            <div className="p-5">
+              <div className="flex flex-wrap items-center justify-between gap-4 border border-[var(--line)] bg-[var(--surface-2)] px-4 py-3">
+                <div>
+                  <p className="text-sm font-medium text-[var(--ink)]">Current Plan</p>
+                  <p className="mt-0.5 font-mono text-[10px] uppercase tracking-[0.04em] text-[var(--ink-3)]">
+                    {user?.plan === "FREE" ? "Free Plan" : user?.plan} ·{" "}
+                    {user?.credits?.toLocaleString()} credits remaining
+                  </p>
+                </div>
+                <span className="stamp stamp-idle">{user?.plan || "FREE"}</span>
               </div>
-            )}
 
-            <p className="text-[var(--text-secondary)] mb-4">
-              Devices currently signed in to your account. Revoking a session signs that device out
-              immediately. Sessions expire automatically after 30 days.
-            </p>
+              <Button onClick={openStripePortal} variant="primary" className="mt-5">
+                Manage Billing
+              </Button>
 
-            {sessionsLoading ? (
-              <div className="space-y-3">
-                {[1, 2].map((i) => (
-                  <div
-                    key={i}
-                    className="h-16 border border-[var(--border)] rounded-lg animate-skeleton"
-                  />
-                ))}
+              <p className="mt-3 max-w-[58ch] text-[11px] leading-relaxed text-[var(--ink-3)]">
+                Open the Stripe customer portal to update your payment method, view invoices, or
+                change your subscription plan.
+              </p>
+            </div>
+          </section>
+        )}
+
+        {activeTab === "api" && (
+          <section className="border border-[var(--line-strong)] bg-[var(--surface)]">
+            <div className="border-b border-[var(--line)] px-5 py-4">
+              <h2 className="font-display text-lg font-semibold tracking-[-0.02em] text-[var(--ink)]">
+                API Access
+              </h2>
+              <p className="mt-1 text-[12px] text-[var(--ink-3)]">
+                Keys, scopes, and the route into the REST API.
+              </p>
+            </div>
+
+            <div className="p-5">
+              <p className="max-w-[58ch] text-[13px] leading-relaxed text-[var(--ink-2)]">
+                Manage your API keys to access MailGuard Pro programmatically. Keys are shown once
+                and can be revoked without rotating your integration.
+              </p>
+
+              <Button href="/api-keys" variant="primary" className="mt-5">
+                Manage API Keys
+              </Button>
+            </div>
+          </section>
+        )}
+
+        {activeTab === "security" && (
+          <>
+            <section className="border border-[var(--line-strong)] bg-[var(--surface)]">
+              <div className="border-b border-[var(--line)] px-5 py-4">
+                <h2 className="font-display text-lg font-semibold tracking-[-0.02em] text-[var(--ink)]">
+                  Active Sessions
+                </h2>
+                <p className="mt-1 text-[12px] text-[var(--ink-3)]">
+                  Devices currently signed in. Revoking a session signs that device out immediately.
+                </p>
               </div>
-            ) : sessions && sessions.length > 0 ? (
-              <div className="space-y-3">
-                {sessions.map((s) => (
+
+              <div className="p-5">
+                {message && (
                   <div
-                    key={s.id}
-                    className="flex items-center justify-between p-4 border border-[var(--border)] rounded-lg"
+                    role="alert"
+                    className={
+                      message.type === "success"
+                        ? "mb-4 border border-[var(--line-strong)] bg-[var(--surface-2)] px-4 py-3 text-[13px] text-[var(--ink-2)]"
+                        : "mb-4 border border-[var(--status-invalid)] bg-[var(--status-invalid-bg)] px-4 py-3 text-[13px] text-[var(--status-invalid-text)]"
+                    }
                   >
-                    <div>
-                      <p className="font-medium flex items-center gap-2">
-                        Session {s.id.slice(0, 8)}
-                        {s.isCurrent && <span className="badge badge-success">This device</span>}
-                      </p>
-                      <p className="text-sm text-[var(--text-muted)]">
-                        Expires {new Date(s.expires).toLocaleDateString()}
-                      </p>
-                    </div>
-                    {!s.isCurrent && (
-                      <Button
-                        onClick={() => revokeSession(s.id)}
-                        variant="ghost"
-                        size="sm"
-                        className="text-[var(--status-invalid)]"
-                        disabled={revokingSessionId === s.id}
+                    {message.text}
+                  </div>
+                )}
+
+                <p className="mb-4 text-[12px] leading-relaxed text-[var(--ink-3)]">
+                  Sessions expire automatically after 30 days.
+                </p>
+
+                {sessionsLoading ? (
+                  <div className="space-y-2">
+                    {[1, 2].map((i) => (
+                      <div key={i} className="h-14 animate-skeleton border border-[var(--line)]" />
+                    ))}
+                  </div>
+                ) : sessions && sessions.length > 0 ? (
+                  <div className="border border-[var(--line)]">
+                    {sessions.map((s) => (
+                      <div
+                        key={s.id}
+                        className="flex flex-col gap-2 border-b border-[var(--line)] px-4 py-3 last:border-b-0 sm:flex-row sm:items-center sm:justify-between"
                       >
-                        {revokingSessionId === s.id ? "Revoking..." : "Revoke"}
+                        <div>
+                          <p className="flex items-center gap-2 text-[12px] font-medium text-[var(--ink)]">
+                            Session {s.id.slice(0, 8)}
+                            {s.isCurrent && <span className="stamp stamp-pass">This device</span>}
+                          </p>
+                          <p className="mt-0.5 font-mono text-[9px] uppercase tracking-[0.04em] text-[var(--ink-3)]">
+                            Expires {new Date(s.expires).toLocaleDateString()}
+                          </p>
+                        </div>
+                        {!s.isCurrent && (
+                          <Button
+                            onClick={() => revokeSession(s.id)}
+                            variant="ghost"
+                            size="sm"
+                            className="self-start text-[var(--status-invalid-text)] sm:self-auto"
+                            disabled={revokingSessionId === s.id}
+                          >
+                            {revokingSessionId === s.id ? "Revoking..." : "Revoke"}
+                          </Button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-[var(--ink-3)]">No active sessions found.</p>
+                )}
+
+                <Button
+                  onClick={signOutOtherDevices}
+                  variant="ghost"
+                  disabled={signingOutOthers}
+                  className="mt-4"
+                >
+                  {signingOutOthers ? "Signing out..." : "Sign Out Other Devices"}
+                </Button>
+              </div>
+            </section>
+
+            <section className="mt-4 border border-[var(--line-strong)] bg-[var(--surface)]">
+              <div className="border-b border-[var(--line)] px-5 py-4">
+                <h2 className="font-display text-lg font-semibold tracking-[-0.02em] text-[var(--ink)]">
+                  Two-Factor Authentication
+                </h2>
+                <p className="mt-1 text-[12px] text-[var(--ink-3)]">
+                  A second check at sign-in: a six-digit code from your authenticator app.
+                </p>
+              </div>
+
+              <div className="p-5">
+                {twoFactorMessage && (
+                  <div
+                    role="alert"
+                    className={
+                      twoFactorMessage.type === "success"
+                        ? "mb-4 border border-[var(--line-strong)] bg-[var(--surface-2)] px-4 py-3 text-[13px] text-[var(--ink-2)]"
+                        : "mb-4 border border-[var(--status-invalid)] bg-[var(--status-invalid-bg)] px-4 py-3 text-[13px] text-[var(--status-invalid-text)]"
+                    }
+                  >
+                    {twoFactorMessage.text}
+                  </div>
+                )}
+
+                {twoFactorLoading ? (
+                  <div className="h-14 animate-skeleton border border-[var(--line)]" />
+                ) : twoFactor?.enabled ? (
+                  <div className="space-y-4">
+                    <div className="flex flex-wrap items-center justify-between gap-3 border border-[var(--line)] bg-[var(--surface-2)] px-4 py-3">
+                      <div>
+                        <p className="text-sm font-medium text-[var(--ink)]">Authenticator app</p>
+                        <p className="mt-0.5 font-mono text-[10px] uppercase tracking-[0.04em] text-[var(--ink-3)]">
+                          {twoFactor.recoveryCodesRemaining} recovery code
+                          {twoFactor.recoveryCodesRemaining === 1 ? "" : "s"} remaining
+                        </p>
+                      </div>
+                      <span className="stamp stamp-pass">Enabled</span>
+                    </div>
+
+                    {twoFactorStep === "disable" ? (
+                      <div className="space-y-3 border border-[var(--line)] p-4">
+                        <p className="text-[12px] leading-relaxed text-[var(--ink-2)]">
+                          Enter a code from your authenticator app — or one of your recovery codes —
+                          to turn two-factor authentication off.
+                        </p>
+                        <Input
+                          value={twoFactorCode}
+                          onChange={(e) => setTwoFactorCode(e.target.value)}
+                          placeholder="123456 or XXXXX-XXXXX"
+                          className="font-mono"
+                          maxLength={12}
+                        />
+                        <div className="flex gap-2">
+                          <Button
+                            onClick={confirmTwoFactorDisable}
+                            variant="danger"
+                            size="sm"
+                            disabled={twoFactorBusy || !twoFactorCode.trim()}
+                          >
+                            {twoFactorBusy ? "Disabling..." : "Confirm Disable"}
+                          </Button>
+                          <Button onClick={resetTwoFactorFlow} variant="ghost" size="sm">
+                            Cancel
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <Button
+                        onClick={() => {
+                          setTwoFactorStep("disable");
+                          setTwoFactorCode("");
+                          setTwoFactorMessage(null);
+                        }}
+                        variant="ghost"
+                      >
+                        Disable Two-Factor Authentication
                       </Button>
                     )}
                   </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-[var(--text-muted)]">No active sessions found.</p>
-            )}
-
-            <div className="mt-6">
-              <Button onClick={signOutOtherDevices} variant="ghost" disabled={signingOutOthers}>
-                {signingOutOthers ? "Signing out..." : "Sign Out Other Devices"}
-              </Button>
-            </div>
-          </Card>
-
-          <Card variant="default" padding="md" className="animate-fade-slide-up max-w-2xl mt-6">
-            <h2 className="text-lg font-display font-semibold mb-6">Two-Factor Authentication</h2>
-
-            {twoFactorMessage && (
-              <div
-                className={`animate-fade-slide-in p-4 rounded-lg mb-6 ${twoFactorMessage.type === "success" ? "bg-[var(--status-valid-bg)] text-[var(--status-valid)]" : "bg-[var(--status-invalid-bg)] text-[var(--status-invalid)]"}`}
-              >
-                {twoFactorMessage.text}
-              </div>
-            )}
-
-            {twoFactorLoading ? (
-              <div className="h-16 border border-[var(--border)] rounded-lg animate-skeleton" />
-            ) : twoFactor?.enabled ? (
-              <div className="space-y-4">
-                <div className="flex items-center justify-between p-4 border border-[var(--border)] rounded-lg">
-                  <div>
-                    <p className="font-medium">Authenticator app</p>
-                    <p className="text-sm text-[var(--text-muted)]">
-                      {twoFactor.recoveryCodesRemaining} recovery code
-                      {twoFactor.recoveryCodesRemaining === 1 ? "" : "s"} remaining
+                ) : twoFactorStep === "setup" ? (
+                  <div className="space-y-4">
+                    <p className="text-[12px] leading-relaxed text-[var(--ink-2)]">
+                      1. Add this secret to your authenticator app (Google Authenticator, Authy,
+                      1Password...):
                     </p>
-                  </div>
-                  <span className="badge badge-success">Enabled</span>
-                </div>
-
-                {twoFactorStep === "disable" ? (
-                  <div className="space-y-3 p-4 border border-[var(--border)] rounded-lg">
-                    <p className="text-sm text-[var(--text-secondary)]">
-                      Enter a code from your authenticator app — or one of your recovery codes — to
-                      turn two-factor authentication off.
+                    <code className="block select-all break-all border border-[var(--line-strong)] bg-[var(--surface-2)] p-4 font-mono text-sm text-[var(--ink)]">
+                      {twoFactorSetup?.secret}
+                    </code>
+                    {twoFactorSetup?.otpauthUri && (
+                      <a
+                        href={twoFactorSetup.otpauthUri}
+                        className="block break-all font-mono text-[10px] text-[var(--accent-text)] hover:underline"
+                      >
+                        {twoFactorSetup.otpauthUri}
+                      </a>
+                    )}
+                    <p className="text-[12px] leading-relaxed text-[var(--ink-2)]">
+                      2. Enter the 6-digit code shown by your app to confirm:
                     </p>
                     <Input
                       value={twoFactorCode}
                       onChange={(e) => setTwoFactorCode(e.target.value)}
-                      placeholder="123456 or XXXXX-XXXXX"
+                      placeholder="123456"
+                      inputMode="numeric"
+                      autoComplete="one-time-code"
                       className="font-mono"
-                      maxLength={12}
+                      maxLength={6}
                     />
-                    <div className="flex gap-3">
+                    <div className="flex gap-2">
                       <Button
-                        onClick={confirmTwoFactorDisable}
-                        variant="danger"
-                        size="sm"
-                        disabled={twoFactorBusy || !twoFactorCode.trim()}
+                        onClick={confirmTwoFactorEnable}
+                        variant="primary"
+                        disabled={twoFactorBusy || twoFactorCode.trim().length < 6}
                       >
-                        {twoFactorBusy ? "Disabling..." : "Confirm Disable"}
+                        {twoFactorBusy ? "Verifying..." : "Verify & Enable"}
                       </Button>
-                      <Button onClick={resetTwoFactorFlow} variant="ghost" size="sm">
+                      <Button onClick={resetTwoFactorFlow} variant="ghost">
                         Cancel
                       </Button>
                     </div>
                   </div>
+                ) : twoFactorStep === "recovery" && twoFactorRecoveryCodes ? (
+                  <div className="space-y-4">
+                    <p className="text-[12px] leading-relaxed text-[var(--ink-2)]">
+                      Store these recovery codes somewhere safe. Each code can be used once to sign
+                      in if you lose access to your authenticator app. They are shown only this
+                      time.
+                    </p>
+                    <div className="grid grid-cols-2 gap-2 border border-[var(--line-strong)] bg-[var(--surface-2)] p-4 font-mono text-sm text-[var(--ink)]">
+                      {twoFactorRecoveryCodes.map((recoveryCode) => (
+                        <span key={recoveryCode}>{recoveryCode}</span>
+                      ))}
+                    </div>
+                    <div className="flex gap-2">
+                      <Button onClick={copyRecoveryCodes} variant="secondary">
+                        Copy codes
+                      </Button>
+                      <Button onClick={resetTwoFactorFlow} variant="ghost">
+                        Done
+                      </Button>
+                    </div>
+                  </div>
                 ) : (
-                  <Button
-                    onClick={() => {
-                      setTwoFactorStep("disable");
-                      setTwoFactorCode("");
-                      setTwoFactorMessage(null);
-                    }}
-                    variant="ghost"
-                  >
-                    Disable Two-Factor Authentication
-                  </Button>
+                  <div>
+                    <p className="max-w-[62ch] text-[12px] leading-relaxed text-[var(--ink-2)]">
+                      Add a second step to your sign-in. Even if someone gets access to your email,
+                      they cannot sign in without your device.
+                    </p>
+                    <Button
+                      onClick={startTwoFactorSetup}
+                      variant="primary"
+                      disabled={twoFactorBusy}
+                      className="mt-4"
+                    >
+                      {twoFactorBusy ? "Preparing..." : "Enable Two-Factor Authentication"}
+                    </Button>
+                  </div>
                 )}
               </div>
-            ) : twoFactorStep === "setup" ? (
-              <div className="space-y-4">
-                <p className="text-sm text-[var(--text-secondary)]">
-                  1. Add this secret to your authenticator app (Google Authenticator, Authy,
-                  1Password...):
-                </p>
-                <code className="block p-4 border border-[var(--border)] rounded-lg font-mono text-sm break-all select-all">
-                  {twoFactorSetup?.secret}
-                </code>
-                {twoFactorSetup?.otpauthUri && (
-                  <a
-                    href={twoFactorSetup.otpauthUri}
-                    className="block text-xs font-mono text-[var(--accent)] hover:underline break-all"
-                  >
-                    {twoFactorSetup.otpauthUri}
-                  </a>
-                )}
-                <p className="text-sm text-[var(--text-secondary)]">
-                  2. Enter the 6-digit code shown by your app to confirm:
-                </p>
-                <Input
-                  value={twoFactorCode}
-                  onChange={(e) => setTwoFactorCode(e.target.value)}
-                  placeholder="123456"
-                  inputMode="numeric"
-                  autoComplete="one-time-code"
-                  className="font-mono"
-                  maxLength={6}
-                />
-                <div className="flex gap-3">
-                  <Button
-                    onClick={confirmTwoFactorEnable}
-                    variant="primary"
-                    disabled={twoFactorBusy || twoFactorCode.trim().length < 6}
-                  >
-                    {twoFactorBusy ? "Verifying..." : "Verify & Enable"}
-                  </Button>
-                  <Button onClick={resetTwoFactorFlow} variant="ghost">
-                    Cancel
-                  </Button>
+            </section>
+          </>
+        )}
+
+        {activeTab === "danger" && (
+          <section className="border border-[var(--status-invalid)] bg-[var(--surface)]">
+            <div className="border-b border-[var(--status-invalid)] bg-[var(--status-invalid-bg)] px-5 py-4">
+              <h2 className="font-display text-lg font-semibold tracking-[-0.02em] text-[var(--status-invalid-text)]">
+                Danger Zone
+              </h2>
+              <p className="mt-1 text-[12px] text-[var(--status-invalid-text)]">
+                Irreversible actions. Read twice.
+              </p>
+            </div>
+
+            <div className="p-5">
+              {errorMessage && (
+                <div className="mb-4 border border-[var(--status-invalid)] bg-[var(--status-invalid-bg)] px-4 py-3 text-[13px] text-[var(--status-invalid-text)]">
+                  {errorMessage}
                 </div>
-              </div>
-            ) : twoFactorStep === "recovery" && twoFactorRecoveryCodes ? (
-              <div className="space-y-4">
-                <p className="text-sm text-[var(--text-secondary)]">
-                  Store these recovery codes somewhere safe. Each code can be used once to sign in
-                  if you lose access to your authenticator app. They are shown only this time.
+              )}
+
+              <div className="border border-[var(--line)] p-4">
+                <p className="font-medium text-[var(--ink)]">Delete Account</p>
+                <p className="mt-1 max-w-[62ch] text-[12px] leading-relaxed text-[var(--ink-2)]">
+                  Schedule deletion of your account and all associated data. You will have 5 seconds
+                  to undo this action.
                 </p>
-                <div className="grid grid-cols-2 gap-2 p-4 border border-[var(--border)] rounded-lg font-mono text-sm">
-                  {twoFactorRecoveryCodes.map((recoveryCode) => (
-                    <span key={recoveryCode}>{recoveryCode}</span>
-                  ))}
-                </div>
-                <div className="flex gap-3">
-                  <Button onClick={copyRecoveryCodes} variant="secondary">
-                    Copy codes
-                  </Button>
-                  <Button onClick={resetTwoFactorFlow} variant="ghost">
-                    Done
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                <p className="text-[var(--text-secondary)]">
-                  Add a second step to your sign-in: a 6-digit code from an authenticator app. Even
-                  if someone gets access to your email, they cannot sign in without your device.
-                </p>
-                <Button onClick={startTwoFactorSetup} variant="primary" disabled={twoFactorBusy}>
-                  {twoFactorBusy ? "Preparing..." : "Enable Two-Factor Authentication"}
+                <Button onClick={deleteAccount} variant="danger" className="mt-4">
+                  Delete My Account
                 </Button>
               </div>
-            )}
-          </Card>
-        </>
-      )}
-
-      {/* Danger Tab */}
-      {activeTab === "danger" && (
-        <Card
-          variant="default"
-          padding="md"
-          className="animate-fade-slide-up max-w-2xl border-[var(--status-invalid)]"
-        >
-          <h2 className="text-lg font-display font-semibold mb-6 text-[var(--status-invalid)]">
-            Danger Zone
-          </h2>
-
-          {errorMessage && (
-            <div className="p-4 rounded-lg mb-6 bg-[var(--status-invalid-bg)] text-[var(--status-invalid)]">
-              {errorMessage}
             </div>
-          )}
+          </section>
+        )}
+      </div>
 
-          <div className="space-y-4">
-            <div className="p-4 bg-[var(--status-invalid)]/10 rounded-lg">
-              <p className="font-medium">Delete Account</p>
-              <p className="text-sm text-[var(--text-secondary)] mt-1">
-                Schedule deletion of your account and all associated data. You will have 5 seconds
-                to undo this action.
-              </p>
-              <Button onClick={deleteAccount} variant="danger" className="mt-4">
-                Delete My Account
-              </Button>
-            </div>
-          </div>
-
-          <Modal
-            isOpen={deleteConfirmOpen}
-            onClose={() => setDeleteConfirmOpen(false)}
-            title="Delete Account"
-            size="sm"
-          >
-            <p className="text-[var(--text-secondary)] mb-6">
-              This action will schedule your account for deletion. You will have 5 seconds to undo
-              this action. All your data, including scans, reports, and account details, will be
-              permanently deleted after the undo window expires.
-            </p>
-            <div className="flex justify-end gap-3">
-              <Button onClick={() => setDeleteConfirmOpen(false)} variant="ghost">
-                Cancel
-              </Button>
-              <Button onClick={handleDeleteConfirm} variant="danger">
-                Delete Forever
-              </Button>
-            </div>
-          </Modal>
-        </Card>
-      )}
+      <Modal
+        isOpen={deleteConfirmOpen}
+        onClose={() => setDeleteConfirmOpen(false)}
+        title="Delete Account"
+        size="sm"
+      >
+        <p className="mb-6 text-sm leading-relaxed text-[var(--ink-2)]">
+          This action will schedule your account for deletion. You will have 5 seconds to undo this
+          action. All your data, including scans, reports, and account details, will be permanently
+          deleted after the undo window expires.
+        </p>
+        <div className="flex justify-end gap-2">
+          <Button onClick={() => setDeleteConfirmOpen(false)} variant="ghost">
+            Cancel
+          </Button>
+          <Button onClick={handleDeleteConfirm} variant="danger">
+            Delete Forever
+          </Button>
+        </div>
+      </Modal>
     </div>
   );
 }

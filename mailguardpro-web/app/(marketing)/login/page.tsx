@@ -1,9 +1,11 @@
 "use client";
 
+import { AlertCircle, ArrowRight, Mail } from "lucide-react";
 import Link from "next/link";
 import { signIn } from "next-auth/react";
 import { useState } from "react";
-import { Button, Card, Input } from "@/components/ui";
+import { AuthShell } from "@/components/auth/AuthShell";
+import { Button, Input } from "@/components/ui";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -22,7 +24,7 @@ export default function LoginPage() {
       if (result?.error) {
         setError(
           result.error === "OAuthSignin"
-            ? "Could not send magic link. Please try again."
+            ? "Could not send the magic link. Please try again."
             : result.error,
         );
       } else {
@@ -39,67 +41,88 @@ export default function LoginPage() {
   const handleGoogle = async () => {
     setLoading("google");
     setError(null);
-    // OAuth providers must redirect; errors surface on callback page
+    // OAuth providers must redirect; errors surface on the callback page
     await signIn("google", { callbackUrl: "/dashboard" });
   };
 
   return (
-    <div className="flex items-center justify-center min-h-[calc(100vh-73px)] px-4 py-10">
-      <div className="w-full max-w-md">
-        {/* Brand */}
-        <Link href="/" className="flex items-center justify-center gap-2.5 mb-8">
-          <span className="flex h-10 w-10 items-center justify-center rounded-[var(--radius-md)] bg-[var(--accent)] text-[var(--text-inverted)] shadow-[0_4px_12px_var(--accent-glow)]">
-            <svg
-              className="h-5 w-5"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={2}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-              <path d="m9 12 2 2 4-4" />
-            </svg>
-          </span>
-          <span className="font-display text-2xl font-bold tracking-tight">MailGuard Pro</span>
-        </Link>
+    <AuthShell
+      eyebrow="Sign in / operator"
+      title="Back to the line."
+      description="Use a magic link or Google. No password to remember, no password to leak."
+      footer={
+        <p className="text-center text-xs leading-relaxed text-[var(--ink-3)]">
+          New to MailGuard?{" "}
+          <Link
+            href="/pricing"
+            className="font-medium text-[var(--ink)] underline decoration-[var(--line-strong)] underline-offset-2 hover:text-[var(--accent-text)]"
+          >
+            Compare plans
+          </Link>{" "}
+          or{" "}
+          <Link
+            href="/"
+            className="font-medium text-[var(--ink)] underline decoration-[var(--line-strong)] underline-offset-2 hover:text-[var(--accent-text)]"
+          >
+            read the overview
+          </Link>
+          .
+        </p>
+      }
+    >
+      {error && (
+        <div
+          role="alert"
+          className="mb-5 flex items-start gap-2 border border-[var(--status-invalid)] bg-[var(--status-invalid-bg)] px-3 py-2.5 text-[12px] leading-relaxed text-[var(--status-invalid-text)]"
+        >
+          <AlertCircle size={14} className="mt-0.5 shrink-0" aria-hidden="true" />
+          <span>{error}</span>
+        </div>
+      )}
 
-        <Card variant="default" padding="lg">
-          <div className="text-center mb-7">
-            <h1 className="font-display text-2xl font-bold tracking-tight">Sign in</h1>
-            <p className="mt-1.5 text-sm text-[var(--text-secondary)]">
-              Welcome back. Secure your inbox in seconds.
-            </p>
-          </div>
-
-          {/* Error */}
-          {error && (
-            <div className="mb-5 flex items-start gap-2 rounded-[var(--radius-md)] border border-[var(--status-invalid)] bg-[var(--status-invalid-bg)] px-4 py-3 text-sm text-[var(--status-invalid)]">
-              <svg
-                className="mt-0.5 h-4 w-4 shrink-0"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={2}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <circle cx="12" cy="12" r="10" />
-                <path d="M12 8v4M12 16h.01" />
-              </svg>
-              <span>{error}</span>
+      {sent ? (
+        <div>
+          <div className="flex items-start justify-between gap-4 border-b border-[var(--line)] pb-4">
+            <div className="flex items-start gap-3">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center border border-[var(--line)] bg-[var(--accent-soft)] text-[var(--accent-text)]">
+                <Mail size={16} aria-hidden="true" />
+              </span>
+              <div>
+                <p className="font-display text-sm font-semibold text-[var(--ink)]">
+                  Check your inbox
+                </p>
+                <p className="mt-0.5 text-xs leading-relaxed text-[var(--ink-2)]">
+                  A magic link is on its way to
+                </p>
+                <p className="mt-1 break-all font-mono text-[11px] text-[var(--ink)]">{email}</p>
+              </div>
             </div>
-          )}
-
-          {/* Google */}
+            <span className="stamp stamp-idle shrink-0">Sent</span>
+          </div>
+          <p className="mt-4 text-xs leading-relaxed text-[var(--ink-3)]">
+            The link expires in 10 minutes. Check spam if it does not arrive.
+          </p>
+          <Button
+            type="button"
+            variant="ghost"
+            className="mt-4 w-full"
+            onClick={() => {
+              setSent(false);
+              setError(null);
+            }}
+          >
+            Use a different email
+          </Button>
+        </div>
+      ) : (
+        <>
           <Button
             onClick={handleGoogle}
             disabled={!!loading}
             variant="secondary"
             className="w-full"
           >
-            <svg className="h-5 w-5" viewBox="0 0 24 24">
+            <svg className="h-4 w-4" viewBox="0 0 24 24" aria-hidden="true">
               <path
                 fill="currentColor"
                 d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -120,82 +143,47 @@ export default function LoginPage() {
             Continue with Google
           </Button>
 
-          {/* Divider */}
-          <div className="my-6 flex items-center gap-4">
-            <div className="h-px flex-1 bg-[var(--border)]" />
-            <span className="text-xs font-medium uppercase tracking-wide text-[var(--text-muted)]">
-              or
+          <div className="my-5 flex items-center gap-3">
+            <div className="h-px flex-1 bg-[var(--line)]" />
+            <span className="font-mono text-[9px] uppercase tracking-[0.08em] text-[var(--ink-3)]">
+              or use email
             </span>
-            <div className="h-px flex-1 bg-[var(--border)]" />
+            <div className="h-px flex-1 bg-[var(--line)]" />
           </div>
 
-          {/* Magic link */}
-          {sent ? (
-            <div className="text-center py-2">
-              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-[var(--accent-light)] text-[var(--accent)]">
-                <svg
-                  className="h-6 w-6"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                </svg>
-              </div>
-              <h3 className="font-display text-lg font-semibold">Check your inbox</h3>
-              <p className="mt-1 text-sm text-[var(--text-secondary)]">We sent a magic link to</p>
-              <p className="mt-1 text-sm font-mono text-[var(--text-primary)]">{email}</p>
-              <button
-                onClick={() => setSent(false)}
-                className="mt-4 text-sm font-medium text-[var(--accent)] hover:underline"
-              >
-                Use a different email
-              </button>
-            </div>
-          ) : (
-            <form onSubmit={handleMagicLink}>
-              <label className="mb-2 block text-sm font-medium">Email address</label>
-              <Input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
-                className="mb-4"
-                required
-                disabled={sent}
-              />
-              <Button
-                type="submit"
-                disabled={!!loading || !email}
-                variant="accent"
-                className="w-full"
-              >
-                {loading === "magic" ? "Sending..." : "Send magic link"}
-              </Button>
-            </form>
-          )}
-
-          <p className="mt-6 text-center text-xs text-[var(--text-muted)]">
-            By continuing, you agree to our{" "}
-            <Link
-              href="/terms"
-              className="font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+          <form onSubmit={handleMagicLink} noValidate>
+            <label
+              htmlFor="login-email"
+              className="mb-1.5 block font-mono text-[10px] uppercase tracking-[0.06em] text-[var(--ink-2)]"
             >
-              Terms of Service
-            </Link>
-          </p>
-        </Card>
+              Email address
+            </label>
+            <Input
+              id="login-email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@company.com"
+              autoComplete="email"
+              required
+              disabled={!!loading}
+            />
+            <Button
+              type="submit"
+              disabled={!!loading || !email}
+              variant="accent"
+              className="mt-3 w-full"
+            >
+              {loading === "magic" ? "Sending link…" : "Send magic link"}
+              {loading !== "magic" && <ArrowRight size={14} aria-hidden="true" />}
+            </Button>
+          </form>
 
-        <p className="mt-6 text-center text-sm text-[var(--text-secondary)]">
-          New to MailGuard Pro?{" "}
-          <Link href="/" className="font-medium text-[var(--accent)] hover:underline">
-            Learn more
-          </Link>
-        </p>
-      </div>
-    </div>
+          <p className="mt-4 text-[10px] leading-relaxed text-[var(--ink-3)]">
+            By continuing, you agree to the service terms.
+          </p>
+        </>
+      )}
+    </AuthShell>
   );
 }

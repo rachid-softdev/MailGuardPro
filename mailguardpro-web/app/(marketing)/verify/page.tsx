@@ -1,9 +1,11 @@
 "use client";
 
+import { Check, Loader2, RotateCcw } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Button, Card } from "@/components/ui";
+import { AuthShell } from "@/components/auth/AuthShell";
+import { Button } from "@/components/ui";
 
 export default function VerifyPage() {
   const searchParams = useSearchParams();
@@ -17,134 +19,116 @@ export default function VerifyPage() {
 
     if (!token) {
       setStatus("error");
-      setMessage("Invalid verification link. Please request a new one.");
+      setMessage("Invalid verification link. Request a new one.");
       return;
     }
 
-    // If this is a magic link verification, we need to handle it via the session
-    // NextAuth will handle the actual verification when the user clicks the link
-    // This page is shown AFTER the link is clicked and verified
-
+    // NextAuth handles the actual verification when the link is clicked. This
+    // page is shown after that hand-off, so the remaining work is a redirect.
     if (type === "email") {
-      // Email verification complete
       setStatus("success");
-      setMessage("Your email has been verified successfully!");
-
-      // Redirect to dashboard after 3 seconds
-      setTimeout(() => {
-        router.push("/dashboard");
-      }, 3000);
+      setMessage("Your email is verified. The register is open.");
+      setTimeout(() => router.push("/dashboard"), 3000);
     } else if (type === "magic") {
-      // Magic link - sign in
       setStatus("success");
-      setMessage("Signing you in...");
-
-      setTimeout(() => {
-        router.push("/dashboard");
-      }, 2000);
+      setMessage("Signing you in. Hold the line.");
+      setTimeout(() => router.push("/dashboard"), 2000);
     } else {
-      // Default - assume success for now (NextAuth handles this)
       setStatus("success");
-      setMessage("Verification successful! Redirecting...");
-
-      setTimeout(() => {
-        router.push("/dashboard");
-      }, 3000);
+      setMessage("Verification complete. Redirecting to the dashboard.");
+      setTimeout(() => router.push("/dashboard"), 3000);
     }
   }, [searchParams, router]);
 
   const handleResend = async () => {
     try {
-      const res = await fetch("/api/auth/send-verification", {
-        method: "POST",
-      });
-
+      const res = await fetch("/api/auth/send-verification", { method: "POST" });
       if (res.ok) {
-        setMessage("Verification email sent! Please check your inbox.");
+        setMessage("Verification email sent. Check your inbox.");
         setStatus("success");
       } else {
-        setMessage("Failed to send verification email. Please try again.");
+        setMessage("Could not send the verification email. Try again.");
         setStatus("error");
       }
     } catch {
-      setMessage("Could not send verification email. Check your connection and try again.");
+      setMessage("Could not reach the server. Check your connection.");
       setStatus("error");
     }
   };
 
+  const copy =
+    status === "loading"
+      ? {
+          title: "Checking the stamp.",
+          description: "One moment while we read the verification token.",
+        }
+      : status === "success"
+        ? {
+            title: "You're through.",
+            description: "The link is valid. We're moving you to the control room.",
+          }
+        : {
+            title: "That link did not verify.",
+            description: "The token is missing or no longer valid. Request a fresh one.",
+          };
+
   return (
-    <div className="min-h-screen bg-[var(--bg-base)] flex items-center justify-center p-4">
-      <div className="max-w-md w-full">
-        <div className="text-center mb-8">
-          <Link href="/" className="inline-flex items-center gap-2 mb-8">
-            <div className="w-10 h-10 bg-[var(--accent)] rounded-lg" />
-            <span className="font-display text-2xl font-bold">MailGuard Pro</span>
-          </Link>
-        </div>
-
-        <Card variant="default" padding="md">
-          {status === "loading" && (
-            <div className="text-center py-8">
-              <div className="w-12 h-12 border-4 border-[var(--accent)] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-              <p className="text-[var(--text-secondary)]">Verifying your account...</p>
-            </div>
-          )}
-
-          {status === "success" && (
-            <div className="text-center py-8">
-              <div className="w-16 h-16 bg-[var(--status-valid)]/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg
-                  className="w-8 h-8 text-[var(--status-valid)]"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M5 13l4 4L19 7"
-                  />
-                </svg>
-              </div>
-              <h2 className="text-xl font-display font-bold mb-2">Success!</h2>
-              <p className="text-[var(--text-secondary)] mb-4">{message}</p>
-              <p className="text-sm text-[var(--text-muted)]">Redirecting to dashboard...</p>
-            </div>
-          )}
-
-          {status === "error" && (
-            <div className="text-center py-8">
-              <div className="w-16 h-16 bg-[var(--status-invalid)]/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg
-                  className="w-8 h-8 text-[var(--status-invalid)]"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                </svg>
-              </div>
-              <h2 className="text-xl font-display font-bold mb-2">Verification Failed</h2>
-              <p className="text-[var(--text-secondary)] mb-4">{message}</p>
-              <Button onClick={handleResend} variant="primary">
-                Resend Verification Email
-              </Button>
-            </div>
-          )}
-        </Card>
-
-        <p className="text-center text-sm text-[var(--text-muted)] mt-4">
-          <Link href="/login" className="hover:underline">
-            Back to Login
+    <AuthShell
+      eyebrow="Verification / access"
+      title={copy.title}
+      description={copy.description}
+      footer={
+        <p className="text-center font-mono text-[10px] uppercase tracking-[0.04em] text-[var(--ink-3)]">
+          <Link href="/login" className="hover:text-[var(--ink)]">
+            Back to sign in
           </Link>
         </p>
-      </div>
-    </div>
+      }
+    >
+      {status === "loading" && (
+        <div className="flex flex-col items-center gap-3 py-6 text-center">
+          <Loader2 className="h-5 w-5 animate-spin text-[var(--accent)]" aria-hidden="true" />
+          <p className="text-sm text-[var(--ink-2)]">Verifying your account…</p>
+        </div>
+      )}
+
+      {status === "success" && (
+        <div className="py-2">
+          <div className="flex items-start justify-between gap-4 border-b border-[var(--line)] pb-4">
+            <div className="flex items-start gap-3">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center border border-[var(--line-strong)] bg-[var(--surface-2)] text-[var(--ink)]">
+                <Check size={16} aria-hidden="true" />
+              </span>
+              <div>
+                <p className="font-display text-sm font-semibold text-[var(--ink)]">Verified</p>
+                <p className="mt-1 text-xs leading-relaxed text-[var(--ink-2)]">{message}</p>
+              </div>
+            </div>
+            <span className="stamp stamp-idle shrink-0">OK</span>
+          </div>
+          <p className="mt-4 font-mono text-[10px] uppercase tracking-[0.04em] text-[var(--ink-3)]">
+            Redirecting to dashboard…
+          </p>
+          <Button href="/dashboard" variant="primary" className="mt-4 w-full">
+            Open dashboard
+          </Button>
+        </div>
+      )}
+
+      {status === "error" && (
+        <div>
+          <p className="border border-[var(--status-invalid)] bg-[var(--status-invalid-bg)] px-3 py-2.5 text-[12px] leading-relaxed text-[var(--status-invalid-text)]">
+            {message}
+          </p>
+          <Button onClick={handleResend} variant="primary" className="mt-4 w-full">
+            <RotateCcw size={14} aria-hidden="true" />
+            Resend verification email
+          </Button>
+          <Button href="/login" variant="ghost" className="mt-2 w-full">
+            Back to sign in
+          </Button>
+        </div>
+      )}
+    </AuthShell>
   );
 }

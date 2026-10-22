@@ -8,12 +8,13 @@ export default function RootError({
   reset: () => void;
 }) {
   return (
-    <div className="min-h-screen bg-[var(--bg-base)] flex items-center justify-center p-4">
+    <div className="flex min-h-screen items-center justify-center bg-[var(--bg)] p-4">
       <div className="max-w-md text-center">
-        <h2 className="text-2xl font-bold text-[var(--text-primary)] mb-2">
-          Something went wrong!
+        <p className="label-mono mb-2">System / error</p>
+        <h2 className="mb-2 font-display text-2xl font-semibold tracking-[-0.03em] text-[var(--ink)]">
+          Something went wrong
         </h2>
-        <p className="text-[var(--text-secondary)] mb-6">An unexpected error occurred.</p>
+        <p className="mb-6 text-[13px] text-[var(--ink-2)]">An unexpected error occurred.</p>
         <button onClick={() => reset()} className="btn btn-accent btn-md">
           Try again
         </button>

@@ -78,15 +78,23 @@ export default function ValidationPlaygroundPage() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto px-6 py-12">
-      <div className="flex items-center gap-3 mb-2">
-        <h1 className="text-3xl font-bold text-[var(--text-primary)]">Validation Playground</h1>
-        <DevBadge />
-      </div>
-      <p className="text-[var(--text-secondary)] mb-10">Test email syntax validation logic.</p>
+    <div className="mx-auto max-w-4xl px-6 py-12">
+      <header className="mb-10 border-b border-[var(--line)] pb-5">
+        <div className="flex items-center gap-3">
+          <p className="label-mono flex items-center gap-2">
+            <span className="h-1.5 w-1.5 bg-[var(--accent)]" aria-hidden="true" />
+            Internal / validation
+          </p>
+          <DevBadge />
+        </div>
+        <h1 className="mt-2 font-display text-[clamp(1.9rem,3.2vw,2.6rem)] font-semibold leading-none tracking-[-0.04em] text-[var(--ink)]">
+          Validation Playground.
+        </h1>
+        <p className="mt-2 text-[13px] text-[var(--ink-2)]">Test email syntax validation logic.</p>
+      </header>
 
-      <div className="card mb-8">
-        <div className="flex gap-2">
+      <section className="mb-8 border border-[var(--line)] bg-[var(--surface)] p-5">
+        <div className="flex flex-col gap-2 sm:flex-row">
           <input
             type="email"
             value={input}
@@ -100,46 +108,42 @@ export default function ValidationPlaygroundPage() {
           </button>
         </div>
 
-        <div className="flex flex-wrap gap-2 mt-4">
-          <span className="text-xs text-[var(--text-muted)] font-mono self-center">Presets:</span>
+        <div className="mt-4 flex flex-wrap gap-1.5">
+          <span className="label-mono self-center">Presets</span>
           {PRESET_EMAILS.filter(Boolean).map((email) => (
             <button
               key={email}
               onClick={() => handlePreset(email)}
-              className="btn btn-ghost btn-sm font-mono text-xs"
+              className="btn btn-ghost btn-sm font-mono text-[11px]"
             >
               {email}
             </button>
           ))}
         </div>
-      </div>
+      </section>
 
       {results.length > 0 && (
         <div className="space-y-2">
-          <h2 className="text-sm font-bold text-[var(--text-primary)] mb-3">Results</h2>
+          <h2 className="label-mono mb-3">Results</h2>
           {results.map((result, i) => (
             <div
               key={`${result.email}-${i}`}
-              className={`card border-l-4 ${
+              className={`border border-l-2 p-4 ${
                 result.valid
-                  ? "border-l-[var(--status-valid)] bg-[var(--status-valid-bg)]"
-                  : "border-l-[var(--status-invalid)] bg-[var(--status-invalid-bg)]"
+                  ? "border-[var(--line)] border-l-[var(--status-valid)] bg-[var(--status-valid-bg)]"
+                  : "border-[var(--line)] border-l-[var(--status-invalid)] bg-[var(--status-invalid-bg)]"
               }`}
             >
-              <div className="flex items-center gap-3">
-                <span
-                  className={`text-xs font-mono font-bold uppercase ${
-                    result.valid ? "text-[var(--status-valid)]" : "text-[var(--status-invalid)]"
-                  }`}
-                >
-                  {result.valid ? "VALID" : "INVALID"}
+              <div className="flex flex-wrap items-center gap-3">
+                <span className={result.valid ? "stamp stamp-pass" : "stamp stamp-fail"}>
+                  {result.valid ? "Valid" : "Invalid"}
                 </span>
-                <span className="font-mono text-sm text-[var(--text-primary)]">{result.email}</span>
+                <span className="font-mono text-[12px] text-[var(--ink)]">{result.email}</span>
               </div>
               {result.errors.length > 0 && (
-                <ul className="mt-2 ml-16 text-xs text-[var(--text-secondary)]">
+                <ul className="mt-2 ml-1 space-y-0.5 text-[11px] text-[var(--ink-2)]">
                   {result.errors.map((err) => (
-                    <li key={err}>• {err}</li>
+                    <li key={err}>— {err}</li>
                   ))}
                 </ul>
               )}

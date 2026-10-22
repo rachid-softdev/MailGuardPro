@@ -1,11 +1,11 @@
 "use client";
 
 import { Component, ReactNode } from "react";
+import { Button, Card } from "@/components/ui";
 // Note: logger import is safe in client components — pino auto-detects browser
 // environment and uses pino/browser in production builds (no transport needed).
 import { logger } from "@/lib/logger";
 import { captureException } from "@/lib/sentry";
-import { Button, Card } from "@/components/ui";
 
 interface Props {
   children: ReactNode;
@@ -40,14 +40,15 @@ export class ErrorBoundary extends Component<Props, State> {
       }
 
       return (
-        <div className="min-h-screen flex items-center justify-center p-4 bg-[var(--bg-base)]">
+        <div className="min-h-screen flex items-center justify-center p-4 bg-[var(--bg)]">
           <Card variant="default" padding="md" className="max-w-md text-center">
-            <div className="w-16 h-16 bg-[var(--status-invalid)]/10 rounded-full flex items-center justify-center mx-auto mb-4">
+            <span className="mx-auto mb-4 flex h-12 w-12 items-center justify-center border border-[var(--status-invalid)]/40 bg-[var(--status-invalid-bg)]">
               <svg
-                className="w-8 h-8 text-[var(--status-invalid)]"
+                className="h-5 w-5 text-[var(--status-invalid-text)]"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
+                aria-hidden="true"
               >
                 <path
                   strokeLinecap="round"
@@ -56,12 +57,14 @@ export class ErrorBoundary extends Component<Props, State> {
                   d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
                 />
               </svg>
-            </div>
-            <h2 className="text-xl font-display font-bold mb-2">Something went wrong</h2>
-            <p className="text-[var(--text-muted)] mb-4">
+            </span>
+            <h2 className="mb-2 font-display text-xl font-semibold tracking-[-0.02em] text-[var(--ink)]">
+              Something went wrong
+            </h2>
+            <p className="mb-4 text-[13px] text-[var(--ink-2)]">
               {this.state.error?.message || "An unexpected error occurred"}
             </p>
-            <div className="flex gap-3 justify-center">
+            <div className="flex justify-center gap-3">
               <Button variant="primary" onClick={() => (window.location.href = "/dashboard")}>
                 Go to Dashboard
               </Button>
@@ -81,14 +84,15 @@ export class ErrorBoundary extends Component<Props, State> {
 // Simple error fallback component
 export function ErrorFallback({ message = "Something went wrong" }: { message?: string }) {
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-[var(--bg-base)]">
+    <div className="min-h-screen flex items-center justify-center p-4 bg-[var(--bg)]">
       <Card variant="default" padding="md" className="max-w-md text-center">
-        <div className="w-16 h-16 bg-[var(--status-invalid)]/10 rounded-full flex items-center justify-center mx-auto mb-4">
+        <span className="mx-auto mb-4 flex h-12 w-12 items-center justify-center border border-[var(--status-invalid)]/40 bg-[var(--status-invalid-bg)]">
           <svg
-            className="w-8 h-8 text-[var(--status-invalid)]"
+            className="h-5 w-5 text-[var(--status-invalid-text)]"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
+            aria-hidden="true"
           >
             <path
               strokeLinecap="round"
@@ -97,9 +101,11 @@ export function ErrorFallback({ message = "Something went wrong" }: { message?: 
               d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
             />
           </svg>
-        </div>
-        <h2 className="text-xl font-display font-bold mb-2">Oops!</h2>
-        <p className="text-[var(--text-muted)] mb-4">{message}</p>
+        </span>
+        <h2 className="mb-2 font-display text-xl font-semibold tracking-[-0.02em] text-[var(--ink)]">
+          Something went wrong
+        </h2>
+        <p className="mb-4 text-[13px] text-[var(--ink-2)]">{message}</p>
         <Button variant="primary" onClick={() => window.location.reload()}>
           Reload Page
         </Button>

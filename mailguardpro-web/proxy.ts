@@ -20,7 +20,7 @@ function generateNonce(): string {
 
 function buildCsp(nonce: string): string {
   const stripeOrigins = process.env.CSP_STRIPE_ORIGINS || "https://js.stripe.com";
-  const sentryOrigins = process.env.CSP_SENTRY_ORIGINS || "https://o*.ingest.sentry.io";
+  const sentryOrigins = process.env.CSP_SENTRY_ORIGINS || "https://*.ingest.sentry.io";
   const frameOrigins =
     process.env.CSP_FRAME_ORIGINS || "https://js.stripe.com https://hooks.stripe.com";
   const imgOrigins =
@@ -77,6 +77,10 @@ export default async function proxy(req: NextRequest) {
   }
 
   const nonce = generateNonce();
+  // Make the nonce available to the root layout so the theme bootstrap script
+  // can carry it. Without this request header, React renders nonce="" and the
+  // inline script is blocked by CSP (causing a light/dark flash on load).
+  requestHeaders.set("x-csp-nonce", nonce);
 
   // Idempotency-Key: signal downstream rather than checking in edge (avoids Prisma/Redis)
   if (["POST", "PUT", "PATCH"].includes(req.method)) {

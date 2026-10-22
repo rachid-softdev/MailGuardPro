@@ -10,8 +10,9 @@ import {
   Zap,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
+import { PageHeader } from "@/components/dashboard/PageHeader";
+import { Button } from "@/components/ui";
 import { Tooltip } from "@/components/ui/Tooltip";
-import { Button, Card } from "@/components/ui";
 import { logger } from "@/lib/logger";
 
 // --- Types ---
@@ -250,29 +251,26 @@ export default function BillingPage() {
   // --- Loading state ---
   if (loading) {
     return (
-      <div className="p-8 max-w-5xl">
-        <div className="mb-8">
-          <div className="h-8 w-48 animate-skeleton rounded mb-2" />
-          <div className="h-4 w-72 animate-skeleton rounded" />
-        </div>
-        <Card variant="default" padding="md" className="mb-8">
-          <div className="space-y-4">
-            <div className="h-6 w-32 animate-skeleton rounded" />
-            <div className="h-4 w-64 animate-skeleton rounded" />
-            <div className="h-2 w-full animate-skeleton rounded" />
+      <div className="p-4 sm:p-6 lg:p-8">
+        <div className="mx-auto max-w-6xl">
+          <PageHeader
+            eyebrow="Account / billing"
+            title="Billing, on the record."
+            description="Plan, usage, and payment details in one register."
+          />
+          <div className="grid gap-px border border-[var(--line-strong)] bg-[var(--line)] lg:grid-cols-[1.4fr_0.6fr]">
+            <div className="space-y-4 bg-[var(--surface)] p-5">
+              <div className="h-2.5 w-24 animate-skeleton" />
+              <div className="h-8 w-40 animate-skeleton" />
+              <div className="h-3 w-full animate-skeleton" />
+              <div className="h-3 w-2/3 animate-skeleton" />
+            </div>
+            <div className="space-y-4 bg-[var(--surface)] p-5">
+              <div className="h-2.5 w-20 animate-skeleton" />
+              <div className="h-8 w-24 animate-skeleton" />
+              <div className="h-2 w-full animate-skeleton" />
+            </div>
           </div>
-        </Card>
-        <div className="grid md:grid-cols-2 gap-6">
-          {[...Array(4)].map((_, i) => (
-            <Card key={i} variant="default" padding="md">
-              <div className="h-6 w-24 animate-skeleton rounded mb-4" />
-              <div className="space-y-2">
-                {[...Array(4)].map((_, j) => (
-                  <div key={j} className="h-4 w-full animate-skeleton rounded" />
-                ))}
-              </div>
-            </Card>
-          ))}
         </div>
       </div>
     );
@@ -281,20 +279,23 @@ export default function BillingPage() {
   // --- Error state ---
   if (error) {
     return (
-      <div className="p-8 max-w-5xl">
-        <div className="mb-8">
-          <h1 className="text-3xl font-display font-bold mb-2">Billing</h1>
-          <p className="text-[var(--text-secondary)]">Manage your subscription and billing</p>
-        </div>
-        <Card variant="default" padding="md">
-          <div className="text-center py-8">
-            <CreditCard className="mx-auto mb-4 text-[var(--text-muted)]" size={48} />
-            <p className="text-[var(--text-muted)] mb-4">{error}</p>
-            <Button onClick={() => void fetchData()} variant="primary" size="md">
+      <div className="p-4 sm:p-6 lg:p-8">
+        <div className="mx-auto max-w-6xl">
+          <PageHeader
+            eyebrow="Account / billing"
+            title="Billing, on the record."
+            description="Plan, usage, and payment details in one register."
+          />
+          <div className="border border-[var(--line-strong)] bg-[var(--surface)] px-6 py-14 text-center">
+            <span className="mx-auto flex h-10 w-10 items-center justify-center border border-[var(--line)] bg-[var(--surface-2)] text-[var(--ink-3)]">
+              <CreditCard size={17} aria-hidden="true" />
+            </span>
+            <p className="mt-4 text-sm text-[var(--ink-2)]">{error}</p>
+            <Button onClick={() => void fetchData()} variant="primary" size="md" className="mt-5">
               Retry
             </Button>
           </div>
-        </Card>
+        </div>
       </div>
     );
   }
@@ -302,17 +303,20 @@ export default function BillingPage() {
   // --- Empty state (no user data) ---
   if (!user) {
     return (
-      <div className="p-8 max-w-5xl">
-        <div className="mb-8">
-          <h1 className="text-3xl font-display font-bold mb-2">Billing</h1>
-          <p className="text-[var(--text-secondary)]">Manage your subscription and billing</p>
-        </div>
-        <Card variant="default" padding="md">
-          <div className="text-center py-8">
-            <CreditCard className="mx-auto mb-4 text-[var(--text-muted)]" size={48} />
-            <p className="text-[var(--text-muted)]">No billing information available.</p>
+      <div className="p-4 sm:p-6 lg:p-8">
+        <div className="mx-auto max-w-6xl">
+          <PageHeader
+            eyebrow="Account / billing"
+            title="Billing, on the record."
+            description="Plan, usage, and payment details in one register."
+          />
+          <div className="border border-[var(--line-strong)] bg-[var(--surface)] px-6 py-14 text-center">
+            <span className="mx-auto flex h-10 w-10 items-center justify-center border border-[var(--line)] bg-[var(--surface-2)] text-[var(--ink-3)]">
+              <CreditCard size={17} aria-hidden="true" />
+            </span>
+            <p className="mt-4 text-sm text-[var(--ink-3)]">No billing information available.</p>
           </div>
-        </Card>
+        </div>
       </div>
     );
   }
@@ -321,281 +325,356 @@ export default function BillingPage() {
   const PlanIcon = currentPlanDef.icon;
 
   return (
-    <div className="p-8 max-w-5xl">
-      {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-display font-bold mb-2">Billing</h1>
-        <p className="text-[var(--text-secondary)]">Manage your subscription and billing</p>
-      </div>
-
-      {/* Alert message */}
-      {message && (
-        <div
-          className={`p-4 rounded-lg mb-6 ${
-            message.type === "success"
-              ? "bg-[var(--status-valid-bg)] text-[var(--status-valid)]"
-              : "bg-[var(--status-invalid-bg)] text-[var(--status-invalid)]"
-          }`}
-        >
-          {message.text}
-        </div>
-      )}
-
-      {/* === Current Plan + Usage === */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-        {/* Current Plan Card */}
-        <Card variant="default" padding="md" className="lg:col-span-2">
-          <div className="flex items-start justify-between mb-6">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-[var(--accent)]/10 flex items-center justify-center">
-                <PlanIcon className="text-[var(--accent)]" size={20} />
-              </div>
-              <div>
-                <h2 className="text-lg font-display font-semibold">Current Plan</h2>
-                <p className="text-sm text-[var(--text-secondary)]">
-                  You are on the{" "}
-                  <span className="font-semibold text-[var(--text-primary)]">
-                    {currentPlanDef.label}
-                  </span>{" "}
-                  plan
-                </p>
-              </div>
-            </div>
-            <span className="badge badge-accent">{currentPlan}</span>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4 mb-6">
-            <div>
-              <p className="text-xs text-[var(--text-muted)] uppercase  mb-1">Monthly Price</p>
-              <p className="text-2xl font-mono font-bold">{currentPlanDef.monthlyPrice}</p>
-            </div>
-            <div>
-              <p className="text-xs text-[var(--text-muted)] uppercase  mb-1">Credits Remaining</p>
-              <p className="text-2xl font-mono font-bold">{user.credits.toLocaleString()}</p>
-            </div>
-          </div>
-
-          <div>
-            <p className="text-xs text-[var(--text-muted)] uppercase  mb-3">Plan Features</p>
-            <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {currentPlanDef.features.map((feature) => (
-                <li key={feature} className="flex items-center gap-2 text-sm">
-                  <Check className="shrink-0 text-[var(--accent)]" size={14} />
-                  <span>{feature}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </Card>
-
-        {/* Usage Card */}
-        <Card variant="default" padding="md">
-          <h2 className="text-lg font-display font-semibold mb-4">Monthly Usage</h2>
-
-          {usage ? (
-            <>
-              {usage.credits.included === -1 ? (
-                /* Unlimited plan */
-                <div className="flex flex-col items-center justify-center py-6">
-                  <ArrowUpCircle className="text-[var(--accent)] mb-3" size={40} />
-                  <p className="text-lg font-display font-bold">Unlimited</p>
-                  <p className="text-sm text-[var(--text-muted)]">validations</p>
-                </div>
-              ) : (
-                <>
-                  <div className="flex items-baseline justify-between mb-2">
-                    <p className="text-3xl font-display font-bold">
-                      {usage.credits.thisMonth.toLocaleString()}
-                    </p>
-                    <p className="text-sm text-[var(--text-muted)]">
-                      / {usage.credits.included.toLocaleString()}
-                    </p>
-                  </div>
-                  <p className="text-xs text-[var(--text-muted)] mb-4">validations this month</p>
-
-                  <Tooltip content={`${usagePercentage}% of monthly credits used`} side="top">
-                    <div className="w-full h-2 bg-[var(--bg-subtle)] rounded-full overflow-hidden cursor-help">
-                      <div
-                        className={`h-full rounded-full transition-all duration-500 ${
-                          usagePercentage !== null && usagePercentage >= 90
-                            ? "bg-[var(--status-invalid)]"
-                            : usagePercentage !== null && usagePercentage >= 70
-                              ? "bg-yellow-500"
-                              : "bg-[var(--accent)]"
-                        }`}
-                        style={{ width: `${usagePercentage ?? 0}%` }}
-                      />
-                    </div>
-                  </Tooltip>
-
-                  <div className="mt-4 pt-4 border-t border-[var(--border)]">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-[var(--text-muted)]">Remaining</span>
-                      <span className="font-mono font-semibold">
-                        {usage.credits.remaining.toLocaleString()}
-                      </span>
-                    </div>
-                  </div>
-                </>
-              )}
-            </>
-          ) : (
-            <div className="text-center py-6 text-[var(--text-muted)]">
-              <p className="text-sm">Usage data unavailable</p>
-            </div>
-          )}
-        </Card>
-      </div>
-
-      {/* === Plan Comparison === */}
-      <div className="mb-8">
-        <h2 className="text-lg font-display font-semibold mb-4">Compare Plans</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {PLANS.map((plan) => {
-            const isCurrentPlan = plan.name === currentPlan;
-            const Icon = plan.icon;
-            return (
-              <Card
-                key={plan.name}
-                variant="default"
-                padding="md"
-                className={`relative flex flex-col transition-all duration-200 ${
-                  isCurrentPlan
-                    ? "border-2 border-[var(--accent)] ring-1 ring-[var(--accent)]"
-                    : "hover:border-[var(--border-strong)] hover:shadow-[var(--shadow-md)] cursor-pointer"
-                }`}
-                onClick={() => {
-                  if (!isCurrentPlan) handlePlanAction(plan.name);
-                }}
-                role={isCurrentPlan ? "article" : "button"}
-                tabIndex={isCurrentPlan ? undefined : 0}
-                onKeyDown={(e) => {
-                  if (!isCurrentPlan && (e.key === "Enter" || e.key === " ")) {
-                    e.preventDefault();
-                    handlePlanAction(plan.name);
-                  }
-                }}
-                aria-current={isCurrentPlan ? true : undefined}
-              >
-                {/* Current plan indicator */}
-                {isCurrentPlan && (
-                  <div className="absolute -top-2.5 left-1/2 -translate-x-1/2 px-3 py-0.5 bg-[var(--accent)] text-white text-[10px] font-display font-semibold rounded-full whitespace-nowrap uppercase ">
-                    Current
-                  </div>
-                )}
-
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <Icon
-                      size={18}
-                      className={
-                        isCurrentPlan ? "text-[var(--accent)]" : "text-[var(--text-secondary)]"
-                      }
-                    />
-                    <h3 className="font-display font-semibold">{plan.label}</h3>
-                  </div>
-                </div>
-
-                <div className="flex items-baseline gap-1 mb-2">
-                  <span className="text-2xl font-mono font-bold">{plan.monthlyPrice}</span>
-                  <span className="text-xs text-[var(--text-muted)]">/mo</span>
-                </div>
-
-                <p className="text-xs text-[var(--text-secondary)] mb-1">
-                  {plan.credits} credits/mo
-                </p>
-                <p className="text-xs text-[var(--text-muted)] mb-5">{plan.description}</p>
-
-                <ul className="space-y-2 mb-6 flex-1">
-                  {plan.features.map((feature) => (
-                    <li key={feature} className="text-xs flex items-start gap-2">
-                      <Check
-                        className="shrink-0 mt-0.5"
-                        size={12}
-                        color={isCurrentPlan ? "var(--accent)" : "var(--text-muted)"}
-                      />
-                      <span className={isCurrentPlan ? "" : "text-[var(--text-secondary)]"}>
-                        {feature}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-
-                {/* CTA */}
-                {isCurrentPlan ? (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="w-full cursor-default"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    Current Plan
-                  </Button>
-                ) : (
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    className="w-full"
-                    disabled={portalLoading || checkoutPlan !== null}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handlePlanAction(plan.name);
-                    }}
-                  >
-                    {checkoutPlan === plan.name
-                      ? "Redirecting..."
-                      : plan.monthlyPrice === "€0"
-                        ? "Downgrade"
-                        : "Upgrade"}
-                  </Button>
-                )}
-              </Card>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* === Billing Management === */}
-      <Card variant="default" padding="md">
-        <h2 className="text-lg font-display font-semibold mb-4">Billing Management</h2>
-        <div className="space-y-4">
-          {/* Payment method row */}
-          <div className="flex items-center justify-between p-4 border border-[var(--border)] rounded-lg">
-            <div className="flex items-center gap-3">
-              <CreditCard className="text-[var(--text-secondary)]" size={20} />
-              <div>
-                <p className="font-medium">Payment Method</p>
-                <p className="text-sm text-[var(--text-muted)]">
-                  Manage your payment method in Stripe
-                </p>
-              </div>
-            </div>
+    <div className="p-4 sm:p-6 lg:p-8">
+      <div className="mx-auto max-w-6xl">
+        <PageHeader
+          eyebrow="Account / billing"
+          title="Billing, on the record."
+          description="The plan you are on, what it has consumed, and the route to change it. No hidden line items."
+          actions={
             <Button
               onClick={() => void openStripePortal()}
               disabled={portalLoading}
-              variant="ghost"
+              variant="primary"
               size="sm"
             >
-              {portalLoading ? "Opening..." : "Update"}
+              {portalLoading ? "Opening…" : "Manage in Stripe"}
             </Button>
+          }
+          meta={
+            <>
+              <span className="font-mono text-[9px] uppercase tracking-[0.05em] text-[var(--ink-3)]">
+                Plan / {currentPlanDef.label}
+              </span>
+              <span className="h-3 w-px bg-[var(--line)]" aria-hidden="true" />
+              <span className="font-mono text-[9px] uppercase tracking-[0.05em] text-[var(--ink-3)]">
+                {currentPlanDef.monthlyPrice} / month
+              </span>
+              <span className="h-3 w-px bg-[var(--line)]" aria-hidden="true" />
+              <span className="font-mono text-[9px] uppercase tracking-[0.05em] text-[var(--ink-3)]">
+                Member since{" "}
+                {new Date(user.createdAt).toLocaleDateString("en-US", {
+                  month: "short",
+                  year: "numeric",
+                })}
+              </span>
+            </>
+          }
+        />
+
+        {message && (
+          <div
+            role="alert"
+            className={
+              message.type === "success"
+                ? "mb-5 flex items-center gap-2 border border-[var(--line-strong)] bg-[var(--surface-2)] px-4 py-3 text-[13px] text-[var(--ink-2)]"
+                : "mb-5 flex items-center gap-2 border border-[var(--status-invalid)] bg-[var(--status-invalid-bg)] px-4 py-3 text-[13px] text-[var(--status-invalid-text)]"
+            }
+          >
+            {message.text}
+          </div>
+        )}
+
+        <div className="grid gap-px border border-[var(--line-strong)] bg-[var(--line)] lg:grid-cols-[1.4fr_0.6fr]">
+          <section className="bg-[var(--surface)] p-5">
+            <div className="flex items-start justify-between gap-3 border-b border-[var(--line)] pb-3">
+              <div>
+                <h2 className="font-display text-lg font-semibold tracking-[-0.02em] text-[var(--ink)]">
+                  Current Plan
+                </h2>
+                <p className="mt-0.5 text-[12px] text-[var(--ink-3)]">
+                  You are on the {currentPlanDef.label} plan
+                </p>
+              </div>
+              <span className="stamp stamp-idle">{currentPlan}</span>
+            </div>
+
+            <div className="mt-4 flex flex-wrap items-end justify-between gap-4">
+              <div className="flex items-center gap-2.5">
+                <span className="flex h-9 w-9 items-center justify-center border border-[var(--line)] bg-[var(--accent-soft)] text-[var(--accent-text)]">
+                  <PlanIcon size={17} aria-hidden="true" />
+                </span>
+                <span className="font-display text-2xl font-semibold tracking-[-0.03em] text-[var(--ink)]">
+                  {currentPlanDef.label}
+                </span>
+              </div>
+              <div className="flex items-baseline gap-1">
+                <span className="font-mono text-2xl font-semibold tracking-[-0.03em] text-[var(--ink)]">
+                  {currentPlanDef.monthlyPrice}
+                </span>
+                <span className="font-mono text-[9px] uppercase tracking-[0.04em] text-[var(--ink-3)]">
+                  / month
+                </span>
+              </div>
+            </div>
+
+            <dl className="mt-5 grid grid-cols-2 gap-px border border-[var(--line)] bg-[var(--line)]">
+              <div className="bg-[var(--surface)] px-3 py-2.5">
+                <dt className="label-mono text-[8px]">Credits remaining</dt>
+                <dd className="mt-1 font-mono text-[15px] font-semibold text-[var(--ink)] tabular">
+                  {user.credits.toLocaleString()}
+                </dd>
+              </div>
+              <div className="bg-[var(--surface)] px-3 py-2.5">
+                <dt className="label-mono text-[8px]">Monthly allowance</dt>
+                <dd className="mt-1 font-mono text-[15px] font-semibold text-[var(--ink)]">
+                  {currentPlanDef.credits}
+                </dd>
+              </div>
+            </dl>
+
+            <p className="label-mono mt-5">Plan Features</p>
+            <ul className="mt-2.5 grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+              {currentPlanDef.features.map((feature) => (
+                <li key={feature} className="flex items-start gap-2 text-[12px] leading-snug">
+                  <Check
+                    className="mt-0.5 shrink-0 text-[var(--ink-3)]"
+                    size={12}
+                    aria-hidden="true"
+                  />
+                  <span className="text-[var(--ink-2)]">{feature}</span>
+                </li>
+              ))}
+            </ul>
+          </section>
+
+          <section className="bg-[var(--surface)] p-5">
+            <div className="flex items-center justify-between border-b border-[var(--line)] pb-3">
+              <h2 className="font-display text-lg font-semibold tracking-[-0.02em] text-[var(--ink)]">
+                Monthly Usage
+              </h2>
+              <span className="label-mono">Cycle</span>
+            </div>
+
+            {usage ? (
+              <>
+                {usage.credits.included === -1 ? (
+                  <div className="py-6 text-center">
+                    <p className="font-display text-5xl font-semibold leading-none tracking-[-0.05em] text-[var(--ink)]">
+                      ∞
+                    </p>
+                    <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.05em] text-[var(--ink-3)]">
+                      Unlimited validations
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="mt-4 flex items-baseline gap-1.5">
+                      <span className="font-display text-4xl font-semibold leading-none tracking-[-0.04em] text-[var(--ink)] tabular">
+                        {usage.credits.thisMonth.toLocaleString()}
+                      </span>
+                      <span className="font-mono text-[11px] text-[var(--ink-3)]">
+                        / {usage.credits.included.toLocaleString()}
+                      </span>
+                    </div>
+                    <p className="mt-1 font-mono text-[9px] uppercase tracking-[0.05em] text-[var(--ink-3)]">
+                      validations this month
+                    </p>
+
+                    <Tooltip content={`${usagePercentage}% of monthly credits used`} side="top">
+                      <div className="mt-4 h-2 w-full cursor-help bg-[var(--surface-3)]">
+                        <div
+                          className={`h-full transition-all duration-500 ${
+                            usagePercentage !== null && usagePercentage >= 90
+                              ? "bg-[var(--status-invalid)]"
+                              : usagePercentage !== null && usagePercentage >= 70
+                                ? "bg-[var(--status-risky)]"
+                                : "bg-[var(--accent)]"
+                          }`}
+                          style={{ width: `${usagePercentage ?? 0}%` }}
+                        />
+                      </div>
+                    </Tooltip>
+
+                    <dl className="mt-5 space-y-2 border-t border-[var(--line)] pt-3">
+                      <div className="flex items-center justify-between gap-4">
+                        <dt className="text-[11px] text-[var(--ink-3)]">Remaining</dt>
+                        <dd className="font-mono text-[11px] text-[var(--ink)] tabular">
+                          {usage.credits.remaining.toLocaleString()}
+                        </dd>
+                      </div>
+                      <div className="flex items-center justify-between gap-4">
+                        <dt className="text-[11px] text-[var(--ink-3)]">Bulk processed</dt>
+                        <dd className="font-mono text-[11px] text-[var(--ink)] tabular">
+                          {usage.bulk.totalProcessed.toLocaleString()}
+                        </dd>
+                      </div>
+                      <div className="flex items-center justify-between gap-4">
+                        <dt className="text-[11px] text-[var(--ink-3)]">API keys / webhooks</dt>
+                        <dd className="font-mono text-[11px] text-[var(--ink)] tabular">
+                          {usage.apiKeys} / {usage.webhooks}
+                        </dd>
+                      </div>
+                    </dl>
+                  </>
+                )}
+              </>
+            ) : (
+              <p className="py-6 text-center text-sm text-[var(--ink-3)]">Usage data unavailable</p>
+            )}
+          </section>
+        </div>
+
+        <section className="mt-8">
+          <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <p className="label-mono flex items-center gap-2">
+                <span className="h-1.5 w-1.5 bg-[var(--accent)]" aria-hidden="true" />
+                Rate card
+              </p>
+              <h2 className="mt-2 font-display text-2xl font-semibold tracking-[-0.03em] text-[var(--ink)]">
+                Compare Plans
+              </h2>
+            </div>
+            <p className="max-w-[42ch] text-[12px] leading-relaxed text-[var(--ink-3)]">
+              Change any time. Upgrades apply immediately; downgrades start with the next cycle.
+            </p>
           </div>
 
-          {/* Portal button */}
-          <Button
-            onClick={() => void openStripePortal()}
-            disabled={portalLoading}
-            variant="primary"
-            size="md"
-          >
-            {portalLoading ? "Opening..." : "Manage in Stripe"}
-          </Button>
+          <div className="grid gap-px border border-[var(--line-strong)] bg-[var(--line)] sm:grid-cols-2 xl:grid-cols-4">
+            {PLANS.map((plan) => {
+              const isCurrentPlan = plan.name === currentPlan;
+              const Icon = plan.icon;
 
-          <p className="text-sm text-[var(--text-muted)]">
-            Open the Stripe customer portal to update your payment method, view invoices, change
-            your subscription plan, or cancel your subscription.
+              return (
+                <article
+                  key={plan.name}
+                  aria-current={isCurrentPlan ? true : undefined}
+                  className={`relative flex flex-col bg-[var(--surface)] p-5 ${
+                    isCurrentPlan
+                      ? "outline outline-1 -outline-offset-1 outline-[var(--accent)]"
+                      : ""
+                  }`}
+                >
+                  {isCurrentPlan && (
+                    <span className="absolute -top-2 left-4 bg-[var(--accent)] px-2 py-0.5 font-mono text-[8px] font-semibold uppercase tracking-[0.08em] text-white">
+                      Current
+                    </span>
+                  )}
+
+                  <div className="flex items-center gap-2">
+                    <Icon
+                      size={15}
+                      className={
+                        isCurrentPlan ? "text-[var(--accent-text)]" : "text-[var(--ink-3)]"
+                      }
+                      aria-hidden="true"
+                    />
+                    <h3 className="font-display text-base font-semibold tracking-[-0.02em] text-[var(--ink)]">
+                      {plan.label}
+                    </h3>
+                  </div>
+
+                  <div className="mt-4 flex items-baseline gap-1">
+                    <span className="font-mono text-2xl font-semibold tracking-[-0.03em] text-[var(--ink)]">
+                      {plan.monthlyPrice}
+                    </span>
+                    <span className="font-mono text-[9px] uppercase tracking-[0.04em] text-[var(--ink-3)]">
+                      /mo
+                    </span>
+                  </div>
+
+                  <p className="mt-1 font-mono text-[9px] uppercase tracking-[0.05em] text-[var(--ink-2)]">
+                    {plan.credits} credits/mo
+                  </p>
+                  <p className="mt-1 text-[11px] text-[var(--ink-3)]">{plan.description}</p>
+
+                  <ul className="mt-4 flex-1 space-y-1.5 border-t border-[var(--line)] pt-3">
+                    {plan.features.map((feature) => (
+                      <li key={feature} className="flex items-start gap-2 text-[11px] leading-snug">
+                        <Check
+                          className={
+                            isCurrentPlan
+                              ? "mt-0.5 shrink-0 text-[var(--accent-text)]"
+                              : "mt-0.5 shrink-0 text-[var(--ink-3)]"
+                          }
+                          size={11}
+                          aria-hidden="true"
+                        />
+                        <span
+                          className={isCurrentPlan ? "text-[var(--ink)]" : "text-[var(--ink-2)]"}
+                        >
+                          {feature}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+
+                  {isCurrentPlan ? (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="mt-5 w-full cursor-default"
+                      disabled
+                    >
+                      Current Plan
+                    </Button>
+                  ) : (
+                    <Button
+                      variant={plan.name === "PRO" ? "accent" : "primary"}
+                      size="sm"
+                      className="mt-5 w-full"
+                      disabled={portalLoading || checkoutPlan !== null}
+                      onClick={() => handlePlanAction(plan.name)}
+                    >
+                      {checkoutPlan === plan.name
+                        ? "Redirecting..."
+                        : plan.monthlyPrice === "€0"
+                          ? "Downgrade"
+                          : "Upgrade"}
+                    </Button>
+                  )}
+                </article>
+              );
+            })}
+          </div>
+        </section>
+
+        <section className="mt-5 border border-[var(--line-strong)] bg-[var(--surface)]">
+          <div className="border-b border-[var(--line)] px-4 py-3">
+            <h2 className="font-display text-lg font-semibold tracking-[-0.02em] text-[var(--ink)]">
+              Billing Management
+            </h2>
+          </div>
+
+          <div className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-3">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center border border-[var(--line)] bg-[var(--surface-2)] text-[var(--ink-2)]">
+                <CreditCard size={15} aria-hidden="true" />
+              </span>
+              <div>
+                <p className="text-sm font-medium text-[var(--ink)]">Payment Method</p>
+                <p className="mt-0.5 text-[11px] leading-relaxed text-[var(--ink-3)]">
+                  Manage your payment method, invoices, or cancellation in Stripe.
+                </p>
+              </div>
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              <Button
+                onClick={() => void openStripePortal()}
+                disabled={portalLoading}
+                variant="ghost"
+                size="sm"
+              >
+                {portalLoading ? "Opening..." : "Update"}
+              </Button>
+              <Button
+                onClick={() => void openStripePortal()}
+                disabled={portalLoading}
+                variant="primary"
+                size="sm"
+              >
+                {portalLoading ? "Opening..." : "Manage in Stripe"}
+              </Button>
+            </div>
+          </div>
+
+          <p className="border-t border-[var(--line)] px-4 py-3 text-[11px] leading-relaxed text-[var(--ink-3)]">
+            The Stripe customer portal is the source of truth for payment methods, invoices, plan
+            changes, and cancellation. Prices exclude VAT.
           </p>
-        </div>
-      </Card>
+        </section>
+      </div>
     </div>
   );
 }
