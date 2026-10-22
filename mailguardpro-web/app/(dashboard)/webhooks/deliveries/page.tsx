@@ -13,6 +13,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
+import { PageHeader } from "@/components/dashboard/PageHeader";
 import { Button, Card } from "@/components/ui";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { logger } from "@/lib/logger";
@@ -88,19 +89,19 @@ function truncateUrl(url: string, max = 50): string {
 
 function StatusBadgeDelivery({ status }: { status: string }) {
   const config = STATUS_STYLES[status] ?? {
-    bg: "var(--bg-subtle)",
-    color: "var(--text-muted)",
+    bg: "var(--surface-2)",
+    color: "var(--ink-3)",
     label: status,
   };
 
   return (
     <span
-      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-mono uppercase "
+      className="inline-flex items-center gap-1 border border-current px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-[0.06em]"
       style={{ backgroundColor: config.bg, color: config.color }}
     >
-      {status === "success" && <CheckCircle className="w-3 h-3" />}
-      {status === "failed" && <XCircle className="w-3 h-3" />}
-      {status === "pending" && <Clock className="w-3 h-3" />}
+      {status === "success" && <CheckCircle className="h-3 w-3" aria-hidden="true" />}
+      {status === "failed" && <XCircle className="h-3 w-3" aria-hidden="true" />}
+      {status === "pending" && <Clock className="h-3 w-3" aria-hidden="true" />}
       {config.label}
     </span>
   );
@@ -122,7 +123,7 @@ function DeliveryRow({
   return (
     <>
       <tr
-        className="border-b border-[var(--border)] hover:bg-[var(--bg-elevated)] transition-colors cursor-pointer"
+        className="cursor-pointer transition-colors hover:bg-[var(--surface-2)]"
         onClick={onToggle}
         role="button"
         tabIndex={0}
@@ -134,92 +135,90 @@ function DeliveryRow({
         }}
         aria-expanded={isExpanded}
       >
-        <td className="py-3 px-4">
-          <span className="inline-flex items-center gap-1.5 text-sm font-mono bg-[var(--bg-subtle)] px-2 py-0.5 rounded">
+        <td>
+          <span className="inline-flex items-center gap-1.5 bg-[var(--surface-2)] px-1.5 py-0.5 font-mono text-[10px] text-[var(--ink-2)]">
             {delivery.event}
           </span>
         </td>
-        <td className="py-3 px-4 text-sm text-[var(--text-secondary)] font-mono max-w-[220px] overflow-hidden text-ellipsis whitespace-nowrap">
+        <td className="max-w-[220px] overflow-hidden text-ellipsis whitespace-nowrap font-mono text-[11px] text-[var(--ink-2)]">
           <Tooltip content={delivery.url} side="top">
             <span>{truncateUrl(delivery.url)}</span>
           </Tooltip>
         </td>
-        <td className="py-3 px-4">
+        <td>
           <StatusBadgeDelivery status={delivery.status} />
         </td>
-        <td className="py-3 px-4 text-sm text-[var(--text-secondary)] font-mono">
-          {delivery.statusCode ?? "—"}
-        </td>
-        <td className="py-3 px-4 text-sm text-[var(--text-secondary)] font-mono">
+        <td className="font-mono text-[11px] text-[var(--ink-2)]">{delivery.statusCode ?? "—"}</td>
+        <td className="font-mono text-[11px] text-[var(--ink-2)]">
           {delivery.durationMs != null ? `${delivery.durationMs}ms` : "—"}
         </td>
-        <td className="py-3 px-4 text-sm text-[var(--text-muted)] whitespace-nowrap">
+        <td className="whitespace-nowrap text-[11px] text-[var(--ink-3)]">
           {formatDistanceToNow(new Date(delivery.createdAt), { addSuffix: true })}
         </td>
-        <td className="py-3 px-4 text-[var(--text-muted)]">
-          {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+        <td className="text-[var(--ink-3)]">
+          {isExpanded ? (
+            <ChevronUp className="h-3.5 w-3.5" aria-hidden="true" />
+          ) : (
+            <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
+          )}
         </td>
       </tr>
       {isExpanded && (
-        <tr className="bg-[var(--bg-elevated)]/50">
-          <td colSpan={7} className="p-4 border-b border-[var(--border)]">
-            <div className="space-y-4">
+        <tr className="bg-[var(--surface-2)]/50">
+          <td colSpan={7} className="border-b border-[var(--line)] p-4">
+            <div className="space-y-3">
               {/* Error */}
               {delivery.error && (
-                <div className="p-3 rounded-lg bg-[var(--status-invalid-bg)]/30 border border-[var(--status-invalid)]/20 text-sm text-[var(--status-invalid)]">
-                  <span className="font-semibold">Error:</span> {delivery.error}
+                <div className="border border-[var(--status-invalid)]/40 bg-[var(--status-invalid-bg)]/40 px-3 py-2 text-[12px] text-[var(--status-invalid-text)]">
+                  <span className="font-mono text-[10px] uppercase tracking-[0.05em]">Error</span>
+                  <span className="ml-2">{delivery.error}</span>
                 </div>
               )}
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 {/* Request Body */}
                 <div>
-                  <h4 className="text-xs font-semibold uppercase  text-[var(--text-muted)] mb-2">
-                    Request Body
-                  </h4>
-                  <pre className="text-xs font-mono bg-[var(--bg-subtle)] p-3 rounded-lg overflow-auto max-h-64 leading-relaxed">
+                  <h4 className="label-mono mb-1.5">Request body</h4>
+                  <pre className="max-h-64 overflow-auto border border-[var(--line)] bg-[var(--surface)] p-3 font-mono text-[11px] leading-relaxed text-[var(--ink-2)]">
                     {formatJson(delivery.requestBody)}
                   </pre>
                 </div>
 
                 {/* Response Body */}
                 <div>
-                  <h4 className="text-xs font-semibold uppercase  text-[var(--text-muted)] mb-2">
-                    Response Body
-                  </h4>
-                  <pre className="text-xs font-mono bg-[var(--bg-subtle)] p-3 rounded-lg overflow-auto max-h-64 leading-relaxed">
+                  <h4 className="label-mono mb-1.5">Response body</h4>
+                  <pre className="max-h-64 overflow-auto border border-[var(--line)] bg-[var(--surface)] p-3 font-mono text-[11px] leading-relaxed text-[var(--ink-2)]">
                     {delivery.responseBody ? formatJson(delivery.responseBody) : "No response body"}
                   </pre>
                 </div>
               </div>
 
               {/* Metadata */}
-              <div className="flex items-center gap-6 text-xs text-[var(--text-muted)] font-mono">
+              <div className="flex flex-wrap items-center gap-x-5 gap-y-2 font-mono text-[10px] text-[var(--ink-3)]">
                 <span>
-                  ID: <span className="text-[var(--text-secondary)]">{delivery.id}</span>
+                  ID <span className="text-[var(--ink-2)]">{delivery.id}</span>
                 </span>
                 {delivery.webhook?.name && (
                   <span>
-                    Webhook:{" "}
-                    <span className="text-[var(--text-secondary)]">{delivery.webhook.name}</span>
+                    Webhook <span className="text-[var(--ink-2)]">{delivery.webhook.name}</span>
                   </span>
                 )}
                 <span>
-                  Created:{" "}
-                  <span className="text-[var(--text-secondary)]">
+                  Created{" "}
+                  <span className="text-[var(--ink-2)]">
                     {new Date(delivery.createdAt).toLocaleString()}
                   </span>
                 </span>
                 {delivery.status === "failed" && (
                   <Button
-                    variant="secondary"
+                    variant="ghost"
                     size="sm"
                     className="ml-auto"
                     onClick={() => onRedeliver(delivery.id)}
                     loading={isRetrying}
                     aria-label={`Retry delivery ${delivery.id}`}
                   >
-                    <RefreshCw className="w-3.5 h-3.5" />
+                    <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
                     Retry delivery
                   </Button>
                 )}
@@ -359,207 +358,216 @@ export default function WebhookDeliveriesPage() {
   // ── Render ──────────────────────────────────────────────────────────────
 
   return (
-    <div className="p-8">
-      {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-display font-bold mb-2">Webhook Deliveries</h1>
-        <p className="text-[var(--text-secondary)]">
-          View recent webhook delivery attempts and their payloads
-        </p>
-      </div>
-
-      {/* Filters */}
-      <Card variant="default" padding="md" className="mb-6">
-        <div className="flex items-center gap-4 flex-wrap">
-          {/* Webhook filter */}
-          <div className="flex items-center gap-2">
-            <label htmlFor="filter-webhook" className="text-sm font-medium whitespace-nowrap">
-              Webhook
-            </label>
-            <select
-              id="filter-webhook"
-              value={filterWebhookId}
-              onChange={(e) => handleFilterChange(setFilterWebhookId, e.target.value)}
-              className="input text-sm min-w-[180px]"
-            >
-              <option value="">All Webhooks</option>
-              {webhooks.map((wh) => (
-                <option key={wh.id} value={wh.id}>
-                  {wh.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Status filter */}
-          <div className="flex items-center gap-2">
-            <label htmlFor="filter-status" className="text-sm font-medium whitespace-nowrap">
-              Status
-            </label>
-            <select
-              id="filter-status"
-              value={filterStatus}
-              onChange={(e) => handleFilterChange(setFilterStatus, e.target.value)}
-              className="input text-sm min-w-[140px]"
-            >
-              {STATUS_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {pagination && (
-            <span className="text-xs text-[var(--text-muted)] ml-auto">
-              {pagination.total} deliver{pagination.total === 1 ? "y" : "ies"}
-            </span>
-          )}
-        </div>
-      </Card>
-
-      {/* Redelivery feedback */}
-      {retryFeedback && (
-        <div
-          role="status"
-          className={`mb-4 px-4 py-3 rounded-lg border text-sm flex items-center gap-2 ${
-            retryFeedback.ok
-              ? "bg-[var(--status-valid-bg)]/30 border-[var(--status-valid)]/20 text-[var(--status-valid)]"
-              : "bg-[var(--status-invalid-bg)]/30 border-[var(--status-invalid)]/20 text-[var(--status-invalid)]"
-          }`}
-        >
-          {retryFeedback.ok ? (
-            <CheckCircle className="w-4 h-4 shrink-0" />
-          ) : (
-            <AlertCircle className="w-4 h-4 shrink-0" />
-          )}
-          {retryFeedback.message}
-        </div>
-      )}
-
-      {/* Error state */}
-      {error && (
-        <div className="mb-4 px-4 py-3 rounded-lg bg-[var(--status-invalid-bg)]/30 border border-[var(--status-invalid)]/20 text-sm text-[var(--status-invalid)] flex items-center justify-between">
-          <span className="flex items-center gap-2">
-            <AlertCircle className="w-4 h-4" />
-            {error}
-          </span>
-          <Button
-            onClick={handleRetry}
-            variant="ghost"
-            size="sm"
-            aria-label="Retry loading deliveries"
-          >
-            <RefreshCw className="w-4 h-4 mr-1" />
-            Retry
-          </Button>
-        </div>
-      )}
-
-      {/* Loading skeleton */}
-      {loading && (
-        <Card variant="default" padding="md" className="overflow-hidden">
-          <div className="divide-y divide-[var(--border)]">
-            {[1, 2, 3, 4, 5].map((i) => (
-              <div key={i} className="flex items-center gap-4 p-4 animate-skeleton">
-                <div className="h-5 w-28 bg-[var(--bg-subtle)] rounded" />
-                <div className="h-5 w-40 bg-[var(--bg-subtle)] rounded" />
-                <div className="h-5 w-20 bg-[var(--bg-subtle)] rounded" />
-                <div className="h-5 w-12 bg-[var(--bg-subtle)] rounded" />
-                <div className="h-5 w-16 bg-[var(--bg-subtle)] rounded" />
-                <div className="h-5 w-24 bg-[var(--bg-subtle)] rounded ml-auto" />
-              </div>
-            ))}
-          </div>
-        </Card>
-      )}
-
-      {/* Empty state */}
-      {!loading && !error && deliveries.length === 0 && (
-        <Card variant="default" padding="md" className="text-center py-12">
-          <div className="w-12 h-12 bg-[var(--bg-subtle)] rounded-full flex items-center justify-center mx-auto mb-4">
-            <Clock className="w-6 h-6 text-[var(--text-muted)]" />
-          </div>
-          <p className="text-[var(--text-secondary)] font-medium">No deliveries yet</p>
-          <p className="text-sm text-[var(--text-muted)] mt-1">
-            Deliveries will appear here when your webhooks receive events
-          </p>
-        </Card>
-      )}
-
-      {/* Table */}
-      {!loading && !error && deliveries.length > 0 && (
-        <Card variant="default" padding="md" className="overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-[var(--border)] bg-[var(--bg-subtle)]/50">
-                  <th className="text-left py-3 px-4 text-xs font-semibold uppercase  text-[var(--text-muted)]">
-                    Event
-                  </th>
-                  <th className="text-left py-3 px-4 text-xs font-semibold uppercase  text-[var(--text-muted)]">
-                    URL
-                  </th>
-                  <th className="text-left py-3 px-4 text-xs font-semibold uppercase  text-[var(--text-muted)]">
-                    Status
-                  </th>
-                  <th className="text-left py-3 px-4 text-xs font-semibold uppercase  text-[var(--text-muted)]">
-                    Code
-                  </th>
-                  <th className="text-left py-3 px-4 text-xs font-semibold uppercase  text-[var(--text-muted)]">
-                    Duration
-                  </th>
-                  <th className="text-left py-3 px-4 text-xs font-semibold uppercase  text-[var(--text-muted)]">
-                    When
-                  </th>
-                  <th className="py-3 px-4 w-10" />
-                </tr>
-              </thead>
-              <tbody>
-                {deliveries.map((delivery) => (
-                  <DeliveryRow
-                    key={delivery.id}
-                    delivery={delivery}
-                    isExpanded={expandedIds.has(delivery.id)}
-                    onToggle={() => toggleExpanded(delivery.id)}
-                    onRedeliver={handleRedeliver}
-                    isRetrying={retryingId === delivery.id}
-                  />
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Pagination */}
-          {pagination && pagination.totalPages > 1 && (
-            <div className="flex items-center justify-between px-4 py-3 border-t border-[var(--border)] bg-[var(--bg-subtle)]/30">
-              <span className="text-xs text-[var(--text-muted)]">
-                Page {pagination.page} of {pagination.totalPages}
+    <div className="p-4 sm:p-6 lg:p-8">
+      <div className="mx-auto max-w-6xl">
+        <PageHeader
+          eyebrow="Developer / delivery log"
+          title="Webhook Deliveries."
+          description="Every attempt, its payload, and the response that came back. Expand a row to inspect the exchange."
+          actions={
+            <Button onClick={handleRetry} variant="ghost" size="sm" aria-label="Refresh deliveries">
+              <RefreshCw size={13} aria-hidden="true" />
+              Refresh
+            </Button>
+          }
+          meta={
+            <>
+              <span className="font-mono text-[9px] uppercase tracking-[0.05em] text-[var(--ink-3)]">
+                {pagination ? `${pagination.total.toLocaleString()} attempts` : "Loading…"}
               </span>
-              <div className="flex items-center gap-2">
-                <Button
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  disabled={page <= 1}
-                  variant="ghost"
-                  size="sm"
-                  aria-label="Previous page"
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                </Button>
-                <Button
-                  onClick={() => setPage((p) => p + 1)}
-                  disabled={page >= (pagination.totalPages || 1)}
-                  variant="ghost"
-                  size="sm"
-                  aria-label="Next page"
-                >
-                  <ChevronRight className="w-4 h-4" />
-                </Button>
-              </div>
+              <span className="h-3 w-px bg-[var(--line)]" aria-hidden="true" />
+              <span className="font-mono text-[9px] uppercase tracking-[0.05em] text-[var(--ink-3)]">
+                Retry window / 5 attempts
+              </span>
+            </>
+          }
+        />
+
+        {/* Filters */}
+        <Card variant="default" padding="sm" className="mb-4">
+          <div className="flex flex-wrap items-end gap-3">
+            <div>
+              <label
+                htmlFor="filter-webhook"
+                className="mb-1.5 block font-mono text-[9px] uppercase tracking-[0.05em] text-[var(--ink-3)]"
+              >
+                Webhook
+              </label>
+              <select
+                id="filter-webhook"
+                value={filterWebhookId}
+                onChange={(e) => handleFilterChange(setFilterWebhookId, e.target.value)}
+                className="input min-w-[180px]"
+              >
+                <option value="">All Webhooks</option>
+                {webhooks.map((wh) => (
+                  <option key={wh.id} value={wh.id}>
+                    {wh.name}
+                  </option>
+                ))}
+              </select>
             </div>
-          )}
+
+            <div>
+              <label
+                htmlFor="filter-status"
+                className="mb-1.5 block font-mono text-[9px] uppercase tracking-[0.05em] text-[var(--ink-3)]"
+              >
+                Status
+              </label>
+              <select
+                id="filter-status"
+                value={filterStatus}
+                onChange={(e) => handleFilterChange(setFilterStatus, e.target.value)}
+                className="input min-w-[140px]"
+              >
+                {STATUS_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {pagination && (
+              <span className="ml-auto pb-2 font-mono text-[9px] uppercase tracking-[0.05em] text-[var(--ink-3)]">
+                {pagination.total} deliver{pagination.total === 1 ? "y" : "ies"}
+              </span>
+            )}
+          </div>
         </Card>
-      )}
+
+        {/* Redelivery feedback */}
+        {retryFeedback && (
+          <div
+            role="status"
+            className={`mb-4 flex items-center gap-2 border px-4 py-3 text-[13px] ${
+              retryFeedback.ok
+                ? "border-[var(--status-valid)] bg-[var(--status-valid-bg)] text-[var(--status-valid-text)]"
+                : "border-[var(--status-invalid)] bg-[var(--status-invalid-bg)] text-[var(--status-invalid-text)]"
+            }`}
+          >
+            {retryFeedback.ok ? (
+              <CheckCircle className="h-4 w-4 shrink-0" aria-hidden="true" />
+            ) : (
+              <AlertCircle className="h-4 w-4 shrink-0" aria-hidden="true" />
+            )}
+            {retryFeedback.message}
+          </div>
+        )}
+
+        {/* Error state */}
+        {error && (
+          <div className="mb-4 flex items-center justify-between border border-[var(--status-invalid)] bg-[var(--status-invalid-bg)] px-4 py-3 text-[13px] text-[var(--status-invalid-text)]">
+            <span className="flex items-center gap-2">
+              <AlertCircle className="h-4 w-4" aria-hidden="true" />
+              {error}
+            </span>
+            <Button
+              onClick={handleRetry}
+              variant="ghost"
+              size="sm"
+              aria-label="Retry loading deliveries"
+            >
+              <RefreshCw className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
+              Retry
+            </Button>
+          </div>
+        )}
+
+        {/* Loading skeleton */}
+        {loading && (
+          <Card variant="default" padding="md" className="overflow-hidden">
+            <div className="divide-y divide-[var(--line)]">
+              {[1, 2, 3, 4, 5].map((i) => (
+                <div key={i} className="flex items-center gap-4 p-4">
+                  <div className="h-4 w-28 animate-skeleton bg-[var(--surface-3)]" />
+                  <div className="h-4 w-40 animate-skeleton bg-[var(--surface-3)]" />
+                  <div className="h-4 w-20 animate-skeleton bg-[var(--surface-3)]" />
+                  <div className="h-4 w-12 animate-skeleton bg-[var(--surface-3)]" />
+                  <div className="h-4 w-16 animate-skeleton bg-[var(--surface-3)]" />
+                  <div className="ml-auto h-4 w-24 animate-skeleton bg-[var(--surface-3)]" />
+                </div>
+              ))}
+            </div>
+          </Card>
+        )}
+
+        {/* Empty state */}
+        {!loading && !error && deliveries.length === 0 && (
+          <Card variant="default" padding="md" className="py-12 text-center">
+            <span className="mx-auto flex h-10 w-10 items-center justify-center border border-[var(--line)] bg-[var(--surface-2)]">
+              <Clock className="h-4 w-4 text-[var(--ink-3)]" aria-hidden="true" />
+            </span>
+            <p className="mt-3 text-sm font-medium text-[var(--ink)]">No deliveries yet</p>
+            <p className="mt-1 text-[12px] text-[var(--ink-3)]">
+              Attempts appear here once a webhook receives an event.
+            </p>
+          </Card>
+        )}
+
+        {/* Table */}
+        {!loading && !error && deliveries.length > 0 && (
+          <Card variant="default" padding="md" className="overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Event</th>
+                    <th>URL</th>
+                    <th>Status</th>
+                    <th>Code</th>
+                    <th>Duration</th>
+                    <th>When</th>
+                    <th className="w-10" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {deliveries.map((delivery) => (
+                    <DeliveryRow
+                      key={delivery.id}
+                      delivery={delivery}
+                      isExpanded={expandedIds.has(delivery.id)}
+                      onToggle={() => toggleExpanded(delivery.id)}
+                      onRedeliver={handleRedeliver}
+                      isRetrying={retryingId === delivery.id}
+                    />
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination */}
+            {pagination && pagination.totalPages > 1 && (
+              <div className="flex items-center justify-between border-t border-[var(--line)] bg-[var(--surface-2)]/30 px-4 py-3">
+                <span className="font-mono text-[9px] uppercase tracking-[0.05em] text-[var(--ink-3)]">
+                  Page {pagination.page} of {pagination.totalPages}
+                </span>
+                <div className="flex items-center gap-1.5">
+                  <Button
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    disabled={page <= 1}
+                    variant="ghost"
+                    size="sm"
+                    aria-label="Previous page"
+                  >
+                    <ChevronLeft className="h-3.5 w-3.5" aria-hidden="true" />
+                  </Button>
+                  <Button
+                    onClick={() => setPage((p) => p + 1)}
+                    disabled={page >= (pagination.totalPages || 1)}
+                    variant="ghost"
+                    size="sm"
+                    aria-label="Next page"
+                  >
+                    <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
+                  </Button>
+                </div>
+              </div>
+            )}
+          </Card>
+        )}
+      </div>
     </div>
   );
 }

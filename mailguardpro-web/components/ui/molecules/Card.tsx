@@ -1,6 +1,6 @@
 "use client";
 
-import { forwardRef, memo, type HTMLAttributes } from "react";
+import { forwardRef, type HTMLAttributes, memo } from "react";
 import { cn } from "@/lib/cn";
 
 export type CardVariant = "default" | "elevated" | "bordered" | "interactive";
@@ -12,14 +12,14 @@ export interface CardProps extends HTMLAttributes<HTMLDivElement> {
 }
 
 const base =
-  "rounded-[var(--radius-xl)] border transition-all duration-200 ease-[var(--ease-out-quart)]";
+  "rounded-[var(--radius-sm)] border transition-colors duration-150 ease-[var(--ease-out-quart)]";
 
 const variantStyles: Record<CardVariant, string> = {
-  default: "bg-[var(--bg-surface)] border-[var(--border)] shadow-[var(--shadow-sm)]",
-  elevated: "bg-[var(--bg-surface)] border-transparent shadow-[var(--shadow-lg)]",
-  bordered: "bg-[var(--bg-surface)] border-[var(--border)]",
+  default: "bg-[var(--surface)] border-[var(--line)]",
+  elevated: "bg-[var(--surface)] border-[var(--line-strong)]",
+  bordered: "bg-[var(--surface)] border-[var(--line)]",
   interactive:
-    "bg-[var(--bg-surface)] border-[var(--border)] shadow-[var(--shadow-sm)] hover:border-[var(--border-strong)] hover:-translate-y-1 hover:shadow-[var(--shadow-lg)] cursor-pointer",
+    "bg-[var(--surface)] border-[var(--line)] hover:border-[var(--line-strong)] hover:bg-[var(--surface)] cursor-pointer",
 };
 
 const paddingStyles: Record<CardPadding, string> = {
@@ -70,7 +70,7 @@ export const CardTitle = memo(
       <h3
         ref={ref}
         className={cn(
-          "font-sans font-semibold text-lg tracking-tight text-[var(--text-primary)]",
+          "font-sans font-semibold text-lg tracking-tight text-[var(--ink)]",
           className,
         )}
         {...props}
@@ -88,7 +88,7 @@ export const CardDescription = memo(
     ref,
   ) {
     return (
-      <p ref={ref} className={cn("text-sm text-[var(--text-secondary)]", className)} {...props}>
+      <p ref={ref} className={cn("text-sm text-[var(--ink-2)]", className)} {...props}>
         {children}
       </p>
     );

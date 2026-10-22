@@ -14,7 +14,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 function buildCsp(nonce: string): string {
   const stripeOrigins = process.env.CSP_STRIPE_ORIGINS || "https://js.stripe.com";
-  const sentryOrigins = process.env.CSP_SENTRY_ORIGINS || "https://o*.ingest.sentry.io";
+  const sentryOrigins = process.env.CSP_SENTRY_ORIGINS || "https://*.ingest.sentry.io";
   const frameOrigins =
     process.env.CSP_FRAME_ORIGINS || "https://js.stripe.com https://hooks.stripe.com";
   const imgOrigins =
@@ -109,11 +109,11 @@ describe("SEC-3: CSP header unification", () => {
   // ---------------------------------------------------------------------------
   // Test 3 — Inclut Sentry origins par défaut
   // ---------------------------------------------------------------------------
-  it("should include default Sentry origins (https://o*.ingest.sentry.io) in connect-src", () => {
+  it("should include default Sentry origins (https://*.ingest.sentry.io) in connect-src", () => {
     const csp = buildCsp(testNonce);
     const connectSrc = extractDirective(csp, "connect-src");
 
-    expect(connectSrc).toContain("https://o*.ingest.sentry.io");
+    expect(connectSrc).toContain("https://*.ingest.sentry.io");
   });
 
   // ---------------------------------------------------------------------------
@@ -138,7 +138,7 @@ describe("SEC-3: CSP header unification", () => {
     const connectSrc = extractDirective(csp, "connect-src");
 
     expect(connectSrc).toContain("https://sentry.custom.io");
-    expect(connectSrc).not.toContain("https://o*.ingest.sentry.io");
+    expect(connectSrc).not.toContain("https://*.ingest.sentry.io");
   });
 
   it("should use CSP_FRAME_ORIGINS env var when set", () => {

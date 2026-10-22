@@ -24,14 +24,12 @@ export function PagePreview({ html, title, height = 600 }: PagePreviewProps) {
   }, [html]);
 
   return (
-    <div className="rounded-[var(--radius-lg)] border border-[var(--border)] overflow-hidden bg-white">
-      <div className="flex items-center gap-2 px-3 py-2 bg-[var(--bg-subtle)] border-b border-[var(--border)]">
-        <div className="flex gap-1.5">
-          <span className="w-2.5 h-2.5 rounded-full bg-[var(--status-invalid)]/60" />
-          <span className="w-2.5 h-2.5 rounded-full bg-[var(--status-risky)]/60" />
-          <span className="w-2.5 h-2.5 rounded-full bg-[var(--status-valid)]/60" />
-        </div>
-        <span className="text-xs font-mono text-[var(--text-muted)] ml-2">{title}</span>
+    <div className="overflow-hidden border border-[var(--line)] bg-white">
+      <div className="flex items-center gap-2 border-b border-[var(--line)] bg-[var(--surface-2)] px-3 py-2">
+        <span className="h-1.5 w-1.5 bg-[var(--accent)]" aria-hidden="true" />
+        <span className="font-mono text-[10px] uppercase tracking-[0.05em] text-[var(--ink-3)]">
+          {title}
+        </span>
       </div>
       <iframe
         ref={iframeRef}

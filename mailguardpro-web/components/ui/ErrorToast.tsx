@@ -88,7 +88,7 @@ export function ErrorToast({ id, type, title, message, onRetry, onDismiss }: Err
       aria-live="assertive"
       className={`
         flex items-start gap-3 px-4 py-3
-        border rounded-[var(--radius-lg)] shadow-[var(--shadow-lg)]
+        border
         transition-all duration-300 ease-in-out max-w-sm w-full
         motion-reduce:transition-none
         ${visible && !exiting ? "translate-x-0 opacity-100" : "translate-x-full opacity-0"}
@@ -100,10 +100,10 @@ export function ErrorToast({ id, type, title, message, onRetry, onDismiss }: Err
     >
       <Icon className="w-5 h-5 shrink-0 mt-0.5" style={{ color: config.text }} aria-hidden="true" />
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+        <p className="text-sm font-semibold" style={{ color: "var(--ink)" }}>
           {title}
         </p>
-        <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>
+        <p className="text-xs mt-0.5" style={{ color: "var(--ink-2)" }}>
           {message}
         </p>
         {onRetry && (
@@ -121,8 +121,8 @@ export function ErrorToast({ id, type, title, message, onRetry, onDismiss }: Err
       </div>
       <button
         onClick={handleDismiss}
-        className="shrink-0 p-0.5 rounded-md hover:opacity-70 transition-opacity"
-        style={{ color: "var(--text-muted)" }}
+        className="shrink-0 p-0.5 hover:opacity-70 transition-opacity"
+        style={{ color: "var(--ink-3)" }}
         aria-label="Dismiss notification"
       >
         <X className="w-4 h-4" />

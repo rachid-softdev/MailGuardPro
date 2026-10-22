@@ -9,14 +9,51 @@ export default function GlobalError({
 }) {
   return (
     <html lang="en">
-      <body>
-        <div className="min-h-screen bg-[#FAFAF8] flex items-center justify-center p-4">
-          <div className="max-w-md text-center">
-            <h2 className="text-2xl font-bold text-[#1a1a2e] mb-2">Something went wrong!</h2>
-            <p className="text-[#6b7280] mb-6">A critical error occurred. Please try again.</p>
+      <body style={{ margin: 0 }}>
+        <div
+          style={{
+            minHeight: "100vh",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "24px",
+            background: "#f2f4ef",
+            color: "#1b1f1c",
+            fontFamily: '"Archivo", "Segoe UI", system-ui, -apple-system, sans-serif',
+          }}
+        >
+          <div style={{ maxWidth: "420px", textAlign: "center" }}>
+            <p
+              style={{
+                margin: "0 0 8px",
+                fontFamily: '"Spline Sans Mono", Consolas, monospace',
+                fontSize: "10px",
+                letterSpacing: "0.08em",
+                textTransform: "uppercase",
+                color: "#6b7069",
+              }}
+            >
+              System / critical error
+            </p>
+            <h2 style={{ margin: "0 0 8px", fontSize: "24px", fontWeight: 600 }}>
+              Something went wrong
+            </h2>
+            <p style={{ margin: "0 0 24px", fontSize: "13px", color: "#4d534d" }}>
+              A critical error occurred. Please try again.
+            </p>
             <button
               onClick={() => reset()}
-              className="px-4 py-2 bg-[#00A36C] text-white rounded-lg hover:bg-[#008F5E] transition-colors text-sm font-medium"
+              style={{
+                padding: "10px 16px",
+                background: "#e05a2b",
+                color: "#ffffff",
+                border: "1px solid #e05a2b",
+                borderRadius: "2px",
+                fontFamily: "inherit",
+                fontSize: "13px",
+                fontWeight: 600,
+                cursor: "pointer",
+              }}
             >
               Try again
             </button>

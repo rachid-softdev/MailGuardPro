@@ -99,11 +99,11 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
         role="dialog"
         aria-modal="true"
         aria-label="Command palette"
-        className="relative bg-[var(--bg-surface)] border border-[var(--border)] rounded-[var(--radius-xl)] shadow-[var(--shadow-xl)] w-full max-w-md mx-4 overflow-hidden"
+        className="relative bg-[var(--surface)] border border-[var(--line)] rounded-[var(--radius-xl)] shadow-[var(--shadow-xl)] w-full max-w-md mx-4 overflow-hidden"
       >
         {/* Search input */}
-        <div className="flex items-center gap-3 px-4 py-3 border-b border-[var(--border)]">
-          <Search className="w-4 h-4 text-[var(--text-muted)] shrink-0" />
+        <div className="flex items-center gap-3 px-4 py-3 border-b border-[var(--line)]">
+          <Search className="w-4 h-4 text-[var(--ink-3)] shrink-0" />
           <input
             ref={inputRef}
             type="text"
@@ -114,7 +114,7 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
               setSelectedIndex(0);
             }}
             onKeyDown={handleInputKeyDown}
-            className="flex-1 bg-transparent text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] outline-none"
+            className="flex-1 bg-transparent text-sm text-[var(--ink)] placeholder:text-[var(--ink-3)] outline-none"
             aria-label="Search commands"
           />
         </div>
@@ -122,12 +122,12 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
         {/* Command list */}
         <div className="max-h-80 overflow-y-auto p-2">
           {filteredCommands.length === 0 && (
-            <p className="text-sm text-[var(--text-muted)] text-center py-8">No commands found</p>
+            <p className="text-sm text-[var(--ink-3)] text-center py-8">No commands found</p>
           )}
 
           {navigationCommands.length > 0 && (
             <div>
-              <div className="px-3 py-1.5 text-xs font-medium text-[var(--text-muted)] uppercase ">
+              <div className="px-3 py-1.5 text-xs font-medium text-[var(--ink-3)] uppercase ">
                 Navigation
               </div>
               {navigationCommands.map((cmd, i) => (
@@ -145,12 +145,12 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
           )}
 
           {navigationCommands.length > 0 && actionCommands.length > 0 && (
-            <div className="border-t border-[var(--border)] mt-1 pt-1" />
+            <div className="border-t border-[var(--line)] mt-1 pt-1" />
           )}
 
           {actionCommands.length > 0 && (
             <div>
-              <div className="px-3 py-1.5 text-xs font-medium text-[var(--text-muted)] uppercase ">
+              <div className="px-3 py-1.5 text-xs font-medium text-[var(--ink-3)] uppercase ">
                 Actions
               </div>
               {actionCommands.map((cmd, i) => (
@@ -169,11 +169,11 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
         </div>
 
         {/* Footer hint */}
-        <div className="px-4 py-2.5 border-t border-[var(--border)] bg-[var(--bg-elevated)]">
-          <p className="text-xs text-[var(--text-muted)]">
-            <kbd className="font-mono text-[var(--text-secondary)]">↑↓</kbd> Navigate{" "}
-            <kbd className="font-mono text-[var(--text-secondary)] ml-2">↵</kbd> Open{" "}
-            <kbd className="font-mono text-[var(--text-secondary)] ml-2">Esc</kbd> Close
+        <div className="px-4 py-2.5 border-t border-[var(--line)] bg-[var(--surface-2)]">
+          <p className="text-xs text-[var(--ink-3)]">
+            <kbd className="font-mono text-[var(--ink-2)]">↑↓</kbd> Navigate{" "}
+            <kbd className="font-mono text-[var(--ink-2)] ml-2">↵</kbd> Open{" "}
+            <kbd className="font-mono text-[var(--ink-2)] ml-2">Esc</kbd> Close
           </p>
         </div>
       </div>
@@ -196,7 +196,7 @@ function CommandItem({ command, isSelected, onSelect }: CommandItemProps) {
       className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-[var(--radius-md)] text-left transition-colors ${
         isSelected
           ? "bg-[var(--accent)]/10 text-[var(--accent)]"
-          : "text-[var(--text-primary)] hover:bg-[var(--bg-elevated)]"
+          : "text-[var(--ink)] hover:bg-[var(--surface-2)]"
       }`}
       onClick={onSelect}
       role="option"
@@ -207,14 +207,14 @@ function CommandItem({ command, isSelected, onSelect }: CommandItemProps) {
         <div className="text-sm font-medium truncate">{command.label}</div>
         <div
           className={`text-xs truncate ${
-            isSelected ? "text-[var(--accent)]/70" : "text-[var(--text-muted)]"
+            isSelected ? "text-[var(--accent)]/70" : "text-[var(--ink-3)]"
           }`}
         >
           {command.description}
         </div>
       </div>
       {shortcut && (
-        <kbd className="shrink-0 inline-flex items-center justify-center min-w-[22px] h-6 px-1.5 text-[11px] font-mono font-medium bg-[var(--bg-subtle)] border border-[var(--border)] rounded-[var(--radius-sm)] text-[var(--text-secondary)]">
+        <kbd className="shrink-0 inline-flex items-center justify-center min-w-[22px] h-6 px-1.5 text-[11px] font-mono font-medium bg-[var(--surface-2)] border border-[var(--line)] rounded-[var(--radius-sm)] text-[var(--ink-2)]">
           {shortcut}
         </kbd>
       )}

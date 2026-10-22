@@ -9,9 +9,9 @@ interface DevBadgeProps {
 export function DevBadge({ className = "" }: DevBadgeProps) {
   return (
     <span
-      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-mono font-medium bg-[var(--accent-light)] text-[var(--accent)] border border-[var(--accent)]/20 ${className}`}
+      className={`inline-flex items-center gap-1.5 border border-[var(--accent)]/30 bg-[var(--accent-soft)] px-1.5 py-0.5 font-mono text-[9px] font-medium uppercase tracking-[0.08em] text-[var(--accent)] ${className}`}
     >
-      <Code className="w-3 h-3" />
+      <Code className="h-2.5 w-2.5" aria-hidden="true" />
       DEV
     </span>
   );

@@ -1,5 +1,4 @@
 "use client";
-import { Button, Card } from "@/components/ui";
 
 import { format, formatDistanceToNow } from "date-fns";
 import {
@@ -16,8 +15,11 @@ import {
 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { PageHeader } from "@/components/dashboard/PageHeader";
+import { Button } from "@/components/ui";
 import { Modal } from "@/components/ui/Modal";
 import { StatusBadge } from "@/components/ui/StatusBadge";
+import { ScoreMeter } from "@/components/validator/ScoreGauge";
 import { useOnlineStatusSync } from "@/hooks/useOnlineStatusSync";
 import { useSelection } from "@/hooks/useSelection";
 import { useUndoHistory } from "@/hooks/useUndoHistory";
@@ -402,61 +404,31 @@ export default function HistoryPage() {
   }, [page, statusFilter, searchQuery]);
 
   return (
-    <div className="p-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-display font-bold mb-2">Validation History</h1>
-        <p className="text-[var(--text-secondary)]">View all your email validations</p>
-      </div>
-
-      {/* Filters */}
-      <Card variant="default" padding="md" className="mb-6">
-        <div className="flex flex-col gap-4">
-          {/* Row 1: Search + Status + Export */}
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="flex-1 relative">
-              <Search
-                size={16}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] pointer-events-none"
-                aria-hidden="true"
-              />
-              <input
-                type="text"
-                value={searchInput}
-                onChange={(e) => handleSearchInput(e.target.value)}
-                placeholder="Search by email…"
-                className="input flex-1 pl-9"
-              />
-            </div>
-
-            <div className="flex gap-2 items-start">
-              <select
-                value={statusFilter}
-                onChange={(e) => handleStatusFilter(e.target.value)}
-                className="input"
-              >
-                <option value="">All Status</option>
-                <option value="valid">Valid</option>
-                <option value="invalid">Invalid</option>
-                <option value="risky">Risky</option>
-                <option value="unknown">Unknown</option>
-              </select>
-
-              {/* Export button */}
+    <div className="p-4 sm:p-6 lg:p-8">
+      <div className="mx-auto max-w-6xl">
+        <PageHeader
+          eyebrow="Register / validation history"
+          title="Every verdict, on file."
+          description="Search the register, refine by domain or score, and act on a selection without leaving the page."
+          actions={
+            <>
+              <Button href="/validate" variant="primary" size="sm">
+                Validate one
+              </Button>
               <div className="relative" ref={exportRef}>
                 <Button
                   onClick={() => setExportOpen((prev) => !prev)}
                   disabled={exportLoading}
                   variant="ghost"
                   size="sm"
-                  className="gap-1.5"
                   aria-haspopup="menu"
                   aria-expanded={exportOpen}
                   aria-controls="export-menu"
                 >
                   {exportLoading ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
                   ) : (
-                    <Download className="w-4 h-4" />
+                    <Download className="h-3.5 w-3.5" aria-hidden="true" />
                   )}
                   Export
                 </Button>
@@ -465,422 +437,524 @@ export default function HistoryPage() {
                   <div
                     id="export-menu"
                     role="menu"
-                    className="animate-fade-slide-in absolute right-0 top-full mt-1 z-50 w-56 rounded-lg border border-[var(--border)] bg-[var(--bg-primary)] shadow-lg py-1"
+                    className="absolute right-0 top-full z-50 mt-1 w-52 border border-[var(--line-strong)] bg-[var(--surface)] py-1"
                   >
                     <button
                       role="menuitem"
                       onClick={() => handleExport("csv")}
-                      className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-[var(--text-primary)] hover:bg-[var(--bg-elevated)] transition-colors"
+                      className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-[12px] text-[var(--ink)] transition-colors hover:bg-[var(--surface-2)]"
                     >
-                      <FileText className="w-4 h-4 text-[var(--text-muted)]" />
-                      <span>Export as CSV</span>
+                      <FileText className="h-3.5 w-3.5 text-[var(--ink-3)]" aria-hidden="true" />
+                      Export as CSV
                     </button>
                     <button
                       role="menuitem"
                       onClick={() => handleExport("xlsx")}
-                      className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-[var(--text-primary)] hover:bg-[var(--bg-elevated)] transition-colors"
+                      className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-[12px] text-[var(--ink)] transition-colors hover:bg-[var(--surface-2)]"
                     >
-                      <FileSpreadsheet className="w-4 h-4 text-[var(--text-muted)]" />
-                      <span>Export as XLSX</span>
+                      <FileSpreadsheet
+                        className="h-3.5 w-3.5 text-[var(--ink-3)]"
+                        aria-hidden="true"
+                      />
+                      Export as XLSX
                     </button>
                     <button
                       role="menuitem"
                       onClick={() => handleExport("pdf")}
-                      className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-[var(--text-primary)] hover:bg-[var(--bg-elevated)] transition-colors"
+                      className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-[12px] text-[var(--ink)] transition-colors hover:bg-[var(--surface-2)]"
                     >
-                      <FileText className="w-4 h-4 text-[var(--text-muted)]" />
-                      <span>Export as PDF</span>
+                      <FileText className="h-3.5 w-3.5 text-[var(--ink-3)]" aria-hidden="true" />
+                      Export as PDF
                     </button>
                   </div>
                 )}
               </div>
-            </div>
+            </>
+          }
+          meta={
+            <>
+              <span className="font-mono text-[9px] uppercase tracking-[0.05em] text-[var(--ink-3)]">
+                {pagination.total.toLocaleString()} records
+              </span>
+              <span className="h-3 w-px bg-[var(--line)]" aria-hidden="true" />
+              <span className="font-mono text-[9px] uppercase tracking-[0.05em] text-[var(--ink-3)]">
+                Page {pagination.page} of {Math.max(1, pagination.totalPages)}
+              </span>
+              {selection.count > 0 && (
+                <>
+                  <span className="h-3 w-px bg-[var(--line)]" aria-hidden="true" />
+                  <span className="font-mono text-[9px] uppercase tracking-[0.05em] text-[var(--accent-text)]">
+                    {selection.count} selected
+                  </span>
+                </>
+              )}
+            </>
+          }
+        />
+
+        {fetchError && (
+          <div
+            role="alert"
+            className="mb-4 flex flex-wrap items-center justify-between gap-3 border border-[var(--status-invalid)] bg-[var(--status-invalid-bg)] px-4 py-3 text-[13px] text-[var(--status-invalid-text)]"
+          >
+            <span>{fetchError}</span>
+            <button
+              onClick={() => {
+                setFetchError(null);
+                fetchValidations();
+              }}
+              className="font-mono text-[10px] uppercase tracking-[0.04em] underline"
+            >
+              Retry
+            </button>
+          </div>
+        )}
+
+        {exportMessage && (
+          <div
+            role="status"
+            className="mb-4 flex flex-wrap items-center justify-between gap-3 border border-[var(--line-strong)] bg-[var(--surface-2)] px-4 py-3 text-[13px] text-[var(--ink-2)]"
+          >
+            <span>{exportMessage}</span>
+            <button
+              onClick={() => setExportMessage(null)}
+              className="font-mono text-[10px] uppercase tracking-[0.04em] text-[var(--ink-3)] underline"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
+
+        <section className="mb-5 border border-[var(--line-strong)] bg-[var(--surface)]">
+          <div className="flex items-center justify-between gap-4 border-b border-[var(--line)] px-4 py-2.5">
+            <p className="label-mono flex items-center gap-2">
+              <span className="h-1.5 w-1.5 bg-[var(--accent)]" aria-hidden="true" />
+              Filters / ledger
+            </p>
+            <p className="font-mono text-[9px] uppercase tracking-[0.05em] text-[var(--ink-3)]">
+              {loading ? "Reading…" : `${pagination.total.toLocaleString()} records`}
+            </p>
           </div>
 
-          {/* Row 2: Extended filters */}
-          <div className="flex flex-col md:flex-row gap-3 md:items-center">
-            <div className="flex items-center gap-1.5 text-xs text-[var(--text-muted)]">
-              <Filter className="w-3.5 h-3.5" />
-              <span>Refine</span>
-            </div>
+          <div className="p-4">
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <div className="relative flex-1">
+                <Search
+                  size={15}
+                  className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--ink-3)]"
+                  aria-hidden="true"
+                />
+                <input
+                  type="text"
+                  value={searchInput}
+                  onChange={(e) => handleSearchInput(e.target.value)}
+                  placeholder="Search by email…"
+                  aria-label="Search validations by email"
+                  className="input w-full pl-9"
+                />
+              </div>
 
-            {/* Domain filter */}
-            <input
-              type="text"
-              value={domainFilter}
-              onChange={(e) => setDomainFilter(e.target.value)}
-              placeholder="Filter by domain…"
-              className="input flex-1 max-w-[180px] text-sm"
-            />
-
-            {/* Date range */}
-            <div className="flex items-center gap-2">
-              <Calendar className="w-3.5 h-3.5 text-[var(--text-muted)] shrink-0" />
-              <input
-                type="date"
-                value={dateFrom}
-                onChange={(e) => setDateFrom(e.target.value)}
-                className="input text-sm w-[140px]"
-                aria-label="From date"
-              />
-              <span className="text-xs text-[var(--text-muted)]">—</span>
-              <input
-                type="date"
-                value={dateTo}
-                onChange={(e) => setDateTo(e.target.value)}
-                className="input text-sm w-[140px]"
-                aria-label="To date"
-              />
-            </div>
-
-            {/* Score range */}
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-[var(--text-muted)]">Score:</span>
-              <input
-                type="number"
-                min={0}
-                max={100}
-                value={scoreMin}
-                onChange={(e) => setScoreMin(e.target.value)}
-                placeholder="Min"
-                className="input text-sm w-[70px]"
-                aria-label="Minimum score"
-              />
-              <span className="text-xs text-[var(--text-muted)]">—</span>
-              <input
-                type="number"
-                min={0}
-                max={100}
-                value={scoreMax}
-                onChange={(e) => setScoreMax(e.target.value)}
-                placeholder="Max"
-                className="input text-sm w-[70px]"
-                aria-label="Maximum score"
-              />
-            </div>
-
-            {/* Clear filters */}
-            {(domainFilter || dateFrom || dateTo || scoreMin || scoreMax) && (
-              <button
-                onClick={() => {
-                  setDomainFilter("");
-                  setDateFrom("");
-                  setDateTo("");
-                  setScoreMin("");
-                  setScoreMax("");
-                }}
-                className="text-xs text-[var(--accent)] hover:underline whitespace-nowrap"
+              <select
+                value={statusFilter}
+                onChange={(e) => handleStatusFilter(e.target.value)}
+                aria-label="Filter by status"
+                className="input sm:w-40"
               >
-                Clear
-              </button>
-            )}
+                <option value="">All Status</option>
+                <option value="valid">Valid</option>
+                <option value="invalid">Invalid</option>
+                <option value="risky">Risky</option>
+                <option value="unknown">Unknown</option>
+              </select>
+            </div>
+
+            <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-[var(--line)] pt-3">
+              <span className="flex items-center gap-1.5 font-mono text-[9px] uppercase tracking-[0.05em] text-[var(--ink-3)]">
+                <Filter className="h-3 w-3" aria-hidden="true" />
+                Refine
+              </span>
+
+              <input
+                type="text"
+                value={domainFilter}
+                onChange={(e) => setDomainFilter(e.target.value)}
+                placeholder="Domain…"
+                aria-label="Filter by domain"
+                className="input w-[150px]"
+              />
+
+              <span className="flex items-center gap-1.5">
+                <Calendar className="h-3.5 w-3.5 text-[var(--ink-3)]" aria-hidden="true" />
+                <input
+                  type="date"
+                  value={dateFrom}
+                  onChange={(e) => setDateFrom(e.target.value)}
+                  className="input w-[135px]"
+                  aria-label="From date"
+                />
+                <span className="font-mono text-[10px] text-[var(--ink-3)]">—</span>
+                <input
+                  type="date"
+                  value={dateTo}
+                  onChange={(e) => setDateTo(e.target.value)}
+                  className="input w-[135px]"
+                  aria-label="To date"
+                />
+              </span>
+
+              <span className="flex items-center gap-1.5">
+                <span className="font-mono text-[9px] uppercase tracking-[0.05em] text-[var(--ink-3)]">
+                  Score
+                </span>
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  value={scoreMin}
+                  onChange={(e) => setScoreMin(e.target.value)}
+                  placeholder="Min"
+                  aria-label="Minimum score"
+                  className="input w-[64px]"
+                />
+                <span className="font-mono text-[10px] text-[var(--ink-3)]">—</span>
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  value={scoreMax}
+                  onChange={(e) => setScoreMax(e.target.value)}
+                  placeholder="Max"
+                  aria-label="Maximum score"
+                  className="input w-[64px]"
+                />
+              </span>
+
+              {(domainFilter || dateFrom || dateTo || scoreMin || scoreMax) && (
+                <button
+                  onClick={() => {
+                    setDomainFilter("");
+                    setDateFrom("");
+                    setDateTo("");
+                    setScoreMin("");
+                    setScoreMax("");
+                  }}
+                  className="font-mono text-[9px] uppercase tracking-[0.04em] text-[var(--accent-text)] hover:underline"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
           </div>
-        </div>
-      </Card>
+        </section>
 
-      {/* Error state */}
-      {fetchError && (
-        <div className="animate-fade-slide-in mb-4 px-4 py-3 rounded-lg bg-[var(--status-invalid)]/10 border border-[var(--status-invalid)]/30 text-sm text-[var(--status-invalid)] flex items-center justify-between">
-          <span>{fetchError}</span>
-          <button
-            onClick={() => {
-              setFetchError(null);
-              fetchValidations();
-            }}
-            className="text-xs font-medium underline hover:no-underline"
-          >
-            Retry
-          </button>
-        </div>
-      )}
-
-      {/* Export notification */}
-      {exportMessage && (
-        <div className="animate-fade-slide-in mb-4 px-4 py-3 rounded-lg bg-[var(--accent-light)]/30 border border-[var(--accent)]/20 text-sm text-[var(--accent)] flex items-center justify-between">
-          <span>{exportMessage}</span>
-          <button
-            onClick={() => setExportMessage(null)}
-            className="text-xs font-medium underline hover:no-underline"
-          >
-            Dismiss
-          </button>
-        </div>
-      )}
-
-      {/* Results */}
-      <Card variant="default" padding="md">
-        {loading ? (
-          <div className="divide-y divide-[var(--border)]">
-            {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="flex items-center gap-6 py-4 px-4">
-                <div className="h-4 w-48 bg-[var(--bg-subtle)] animate-skeleton rounded" />
-                <div className="h-4 w-12 bg-[var(--bg-subtle)] animate-skeleton rounded" />
-                <div className="h-5 w-20 bg-[var(--bg-subtle)] animate-skeleton rounded-full" />
-                <div className="h-4 w-28 bg-[var(--bg-subtle)] animate-skeleton rounded" />
-                <div className="h-4 w-16 bg-[var(--bg-subtle)] animate-skeleton rounded ml-auto" />
-              </div>
-            ))}
+        <section className="border border-[var(--line-strong)] bg-[var(--surface)]">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--line)] px-4 py-3">
+            <div>
+              <p className="label-mono">Register</p>
+              <h2 className="mt-1 font-display text-lg font-semibold tracking-[-0.02em] text-[var(--ink)]">
+                Validations
+              </h2>
+            </div>
+            <p className="font-mono text-[9px] uppercase tracking-[0.05em] text-[var(--ink-3)]">
+              {loading ? "Loading…" : `${pagination.total.toLocaleString()} total`}
+            </p>
           </div>
-        ) : validations.length > 0 ? (
-          <>
-            {/* Batch action bar */}
-            {selection.count > 0 && (
-              <div className="flex items-center justify-between px-4 py-3 bg-[var(--accent-light)] border-b border-[var(--border)] rounded-t-lg">
-                <p className="text-sm font-medium text-[var(--accent)]">
-                  {selection.count} selected
-                </p>
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={selection.clear}
-                    className="text-sm text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
-                  >
-                    Deselect all
-                  </button>
-                  <Button
-                    onClick={() => handleBatchExport()}
-                    variant="ghost"
-                    size="sm"
-                    className="gap-1.5"
-                  >
-                    <Download className="w-3.5 h-3.5" />
-                    Export
-                  </Button>
-                  <Button
-                    onClick={() => setConfirmDelete(true)}
-                    variant="ghost"
-                    size="sm"
-                    className="gap-1.5 text-[var(--status-invalid)]"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    Delete
-                  </Button>
-                  <Button
-                    onClick={() => setConfirmRevalidate(true)}
-                    disabled={batchValidating}
-                    variant="accent"
-                    size="sm"
-                  >
-                    {batchValidating ? (
-                      <>
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        Validating...
-                      </>
-                    ) : (
-                      `Revalidate (${selection.count})`
-                    )}
-                  </Button>
-                </div>
-              </div>
-            )}
-            {batchError && (
-              <div className="px-4 py-2 text-sm text-[var(--status-invalid)] bg-[var(--status-invalid)]/5 border-b border-[var(--border)]">
-                {batchError}
-              </div>
-            )}
 
+          {selection.count > 0 && (
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--line)] bg-[var(--accent-soft)] px-4 py-2.5">
+              <p className="font-mono text-[10px] uppercase tracking-[0.05em] text-[var(--accent-text)]">
+                {selection.count} selected
+              </p>
+              <div className="flex flex-wrap items-center gap-1.5">
+                <button
+                  onClick={selection.clear}
+                  className="px-2 py-1 font-mono text-[9px] uppercase tracking-[0.04em] text-[var(--ink-2)] hover:text-[var(--ink)]"
+                >
+                  Deselect all
+                </button>
+                <Button
+                  onClick={() => handleBatchExport()}
+                  variant="ghost"
+                  size="sm"
+                  className="gap-1.5"
+                >
+                  <Download className="h-3.5 w-3.5" aria-hidden="true" />
+                  Export
+                </Button>
+                <Button
+                  onClick={() => setConfirmDelete(true)}
+                  variant="ghost"
+                  size="sm"
+                  className="gap-1.5 text-[var(--status-invalid-text)]"
+                >
+                  <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                  Delete
+                </Button>
+                <Button
+                  onClick={() => setConfirmRevalidate(true)}
+                  disabled={batchValidating}
+                  variant="accent"
+                  size="sm"
+                >
+                  {batchValidating ? (
+                    <>
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+                      Validating…
+                    </>
+                  ) : (
+                    `Revalidate (${selection.count})`
+                  )}
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {batchError && (
+            <div className="border-b border-[var(--line)] bg-[var(--status-invalid-bg)] px-4 py-2 text-[12px] text-[var(--status-invalid-text)]">
+              {batchError}
+            </div>
+          )}
+
+          {loading ? (
             <div className="overflow-x-auto">
-              <table className="w-full">
+              <table className="data-table">
                 <thead>
-                  <tr className="border-b border-[var(--border)]">
-                    <th className="w-10 py-3 px-4 text-left">
-                      <input
-                        type="checkbox"
-                        checked={
-                          selection.allSelected(validations.map((v) => v.id)) &&
-                          validations.length > 0
-                        }
-                        onChange={() => selection.toggleAll(validations.map((v) => v.id))}
-                        className="rounded border-[var(--border-strong)]"
-                        aria-label="Select all validations"
-                      />
+                  <tr>
+                    <th className="w-8" scope="col">
+                      <span className="sr-only">Select</span>
                     </th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-[var(--text-muted)]">
-                      Email
-                    </th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-[var(--text-muted)]">
-                      Score
-                    </th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-[var(--text-muted)]">
-                      Status
-                    </th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-[var(--text-muted)]">
-                      Date
-                    </th>
-                    <th className="text-right py-3 px-4 text-sm font-medium text-[var(--text-muted)]">
+                    <th scope="col">Email</th>
+                    <th scope="col">Score</th>
+                    <th scope="col">Status</th>
+                    <th scope="col">Date</th>
+                    <th scope="col" className="text-right">
                       Actions
                     </th>
                   </tr>
                 </thead>
                 <tbody>
-                  {validations.map((validation) => (
-                    <tr
-                      key={validation.id}
-                      className={`border-b border-[var(--border)] last:border-0 transition-colors ${
-                        selection.isSelected(validation.id)
-                          ? "bg-[var(--accent-light)]"
-                          : "hover:bg-[var(--bg-elevated)]"
-                      }`}
-                    >
-                      <td className="w-10 py-3 px-4">
-                        <input
-                          type="checkbox"
-                          checked={selection.isSelected(validation.id)}
-                          onChange={() => selection.toggle(validation.id)}
-                          className="rounded border-[var(--border-strong)]"
-                          aria-label={`Select ${validation.email}`}
-                        />
+                  {[1, 2, 3, 4].map((i) => (
+                    <tr key={i}>
+                      <td>
+                        <div className="h-3.5 w-3.5 animate-skeleton" />
                       </td>
-                      <td className="py-3 px-4 font-mono text-sm">{validation.email}</td>
-                      <td className="py-3 px-4">
-                        <span
-                          className={`font-bold ${
-                            validation.score >= 75
-                              ? "text-[var(--status-valid)]"
-                              : validation.score >= 40
-                                ? "text-[var(--status-risky)]"
-                                : "text-[var(--status-invalid)]"
-                          }`}
-                        >
-                          {validation.score}
-                        </span>
+                      <td>
+                        <div className="h-3 w-48 animate-skeleton" />
                       </td>
-                      <td className="py-3 px-4">
-                        <StatusBadge
-                          status={validation.status as "valid" | "invalid" | "risky" | "unknown"}
-                        />
+                      <td>
+                        <div className="h-3 w-16 animate-skeleton" />
                       </td>
-                      <td className="py-3 px-4 text-sm text-[var(--text-muted)]">
-                        {formatDistanceToNow(new Date(validation.createdAt), {
-                          addSuffix: true,
-                        })}
+                      <td>
+                        <div className="h-4 w-16 animate-skeleton" />
                       </td>
-                      <td className="py-3 px-4 text-right">
-                        <Button
-                          onClick={() =>
-                            router.push(`/validate?email=${encodeURIComponent(validation.email)}`)
-                          }
-                          variant="ghost"
-                          size="sm"
-                        >
-                          Revalidate
-                        </Button>
+                      <td>
+                        <div className="h-3 w-24 animate-skeleton" />
+                      </td>
+                      <td>
+                        <div className="ml-auto h-6 w-20 animate-skeleton" />
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-
-            {/* Pagination */}
-            {pagination.totalPages > 1 && (
-              <div className="flex items-center justify-between mt-4 pt-4 border-t border-[var(--border)]">
-                <p className="text-sm text-[var(--text-muted)]">
-                  Showing {(pagination.page - 1) * pagination.limit + 1} to{" "}
-                  {Math.min(pagination.page * pagination.limit, pagination.total)} of{" "}
-                  {pagination.total} results
-                </p>
-                <div className="flex gap-2">
-                  <Button
-                    onClick={() => handlePageChange(pagination.page - 1)}
-                    disabled={pagination.page <= 1}
-                    variant="ghost"
-                    size="sm"
-                    className="disabled:opacity-40 disabled:cursor-not-allowed"
-                  >
-                    Previous
-                  </Button>
-                  <span className="px-3 py-1 text-sm">
-                    Page {pagination.page} of {pagination.totalPages}
-                  </span>
-                  <Button
-                    onClick={() => handlePageChange(pagination.page + 1)}
-                    disabled={pagination.page >= pagination.totalPages}
-                    variant="ghost"
-                    size="sm"
-                    className="disabled:opacity-40 disabled:cursor-not-allowed"
-                  >
-                    Next
-                  </Button>
-                </div>
+          ) : validations.length > 0 ? (
+            <>
+              <div className="overflow-x-auto">
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th className="w-8" scope="col">
+                        <input
+                          type="checkbox"
+                          checked={
+                            selection.allSelected(validations.map((v) => v.id)) &&
+                            validations.length > 0
+                          }
+                          onChange={() => selection.toggleAll(validations.map((v) => v.id))}
+                          className="h-3.5 w-3.5 cursor-pointer accent-[var(--accent)]"
+                          aria-label="Select all validations"
+                        />
+                      </th>
+                      <th scope="col">Email</th>
+                      <th scope="col">Score</th>
+                      <th scope="col">Status</th>
+                      <th scope="col">Date</th>
+                      <th scope="col" className="text-right">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {validations.map((validation) => (
+                      <tr
+                        key={validation.id}
+                        className={
+                          selection.isSelected(validation.id)
+                            ? "bg-[var(--accent-soft)]"
+                            : undefined
+                        }
+                      >
+                        <td>
+                          <input
+                            type="checkbox"
+                            checked={selection.isSelected(validation.id)}
+                            onChange={() => selection.toggle(validation.id)}
+                            className="h-3.5 w-3.5 cursor-pointer accent-[var(--accent)]"
+                            aria-label={`Select ${validation.email}`}
+                          />
+                        </td>
+                        <td>
+                          <span className="font-mono text-[12px] text-[var(--ink)]">
+                            {validation.email}
+                          </span>
+                        </td>
+                        <td>
+                          <ScoreMeter score={validation.score} />
+                        </td>
+                        <td>
+                          <StatusBadge
+                            status={validation.status as "valid" | "invalid" | "risky" | "unknown"}
+                          />
+                        </td>
+                        <td>
+                          <span className="font-mono text-[10px] text-[var(--ink-3)]">
+                            {formatDistanceToNow(new Date(validation.createdAt), {
+                              addSuffix: true,
+                            })}
+                          </span>
+                        </td>
+                        <td className="text-right">
+                          <Button
+                            onClick={() =>
+                              router.push(`/validate?email=${encodeURIComponent(validation.email)}`)
+                            }
+                            variant="ghost"
+                            size="sm"
+                          >
+                            Revalidate
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-            )}
-          </>
-        ) : (
-          <div className="flex flex-col items-center justify-center py-16 text-[var(--text-muted)]">
-            <div className="w-16 h-16 rounded-full bg-[var(--bg-elevated)] flex items-center justify-center mb-4">
-              <Inbox className="w-8 h-8 text-[var(--text-muted)] animate-float-subtle" />
-            </div>
-            <p className="text-base font-medium mb-1">No validations found</p>
-            <p className="text-sm text-[var(--text-muted)] mb-6">
-              {searchQuery || statusFilter
-                ? "Try adjusting your filters or search query"
-                : "Validated emails will appear here"}
-            </p>
-            {(searchQuery || statusFilter) && (
-              <Button onClick={() => router.replace("/history")} variant="ghost">
-                Clear filters
-              </Button>
-            )}
-          </div>
-        )}
-      </Card>
 
-      {/* Scheduled Exports */}
-      {scheduledExports.length > 0 && (
-        <Card variant="default" padding="md" className="mt-6">
-          <div className="flex items-center gap-2 px-4 py-3 border-b border-[var(--border)]">
-            <CalendarClock className="w-4 h-4 text-[var(--text-muted)]" />
-            <h2 className="text-sm font-semibold text-[var(--text-primary)]">Scheduled Exports</h2>
-            {schedulesLoading && (
-              <Loader2 className="w-3.5 h-3.5 animate-spin text-[var(--text-muted)]" />
-            )}
-          </div>
-          <div className="divide-y divide-[var(--border)]">
-            {scheduledExports.map((schedule) => (
-              <div key={schedule.id} className="flex items-center justify-between px-4 py-3">
-                <div className="flex items-center gap-3">
-                  {schedule.format === "xlsx" ? (
-                    <FileSpreadsheet className="w-4 h-4 text-[var(--text-muted)]" />
-                  ) : (
-                    <FileText className="w-4 h-4 text-[var(--text-muted)]" />
-                  )}
-                  <div>
-                    <p className="text-sm font-medium text-[var(--text-primary)]">
-                      {schedule.format.toUpperCase()} — {schedule.frequency}
-                    </p>
-                    <p className="text-xs text-[var(--text-muted)]">
-                      Next run: {format(new Date(schedule.nextRunAt), "MMM d, yyyy HH:mm")}
-                    </p>
+              {pagination.totalPages > 1 && (
+                <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--line)] px-4 py-3">
+                  <p className="font-mono text-[9px] uppercase tracking-[0.04em] text-[var(--ink-3)]">
+                    Showing {(pagination.page - 1) * pagination.limit + 1} to{" "}
+                    {Math.min(pagination.page * pagination.limit, pagination.total)} of{" "}
+                    {pagination.total} results
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      onClick={() => handlePageChange(pagination.page - 1)}
+                      disabled={pagination.page <= 1}
+                      variant="ghost"
+                      size="sm"
+                    >
+                      Previous
+                    </Button>
+                    <span className="font-mono text-[9px] uppercase tracking-[0.04em] text-[var(--ink-3)]">
+                      {pagination.page} / {pagination.totalPages}
+                    </span>
+                    <Button
+                      onClick={() => handlePageChange(pagination.page + 1)}
+                      disabled={pagination.page >= pagination.totalPages}
+                      variant="ghost"
+                      size="sm"
+                    >
+                      Next
+                    </Button>
                   </div>
                 </div>
-                <Button
-                  onClick={() => handleDeleteSchedule(schedule.id)}
-                  disabled={deletingSchedule === schedule.id}
-                  variant="ghost"
-                  size="sm"
-                  className="text-[var(--status-invalid)] hover:bg-[var(--status-invalid)]/10"
-                  aria-label="Delete scheduled export"
-                >
-                  {deletingSchedule === schedule.id ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  ) : (
-                    <Trash2 className="w-3.5 h-3.5" />
-                  )}
+              )}
+            </>
+          ) : (
+            <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
+              <span className="flex h-10 w-10 items-center justify-center border border-[var(--line)] bg-[var(--surface-2)] text-[var(--ink-3)]">
+                <Inbox className="h-4 w-4" aria-hidden="true" />
+              </span>
+              <p className="mt-3 text-sm font-medium text-[var(--ink)]">No validations found</p>
+              <p className="mt-1 max-w-[38ch] text-[12px] leading-relaxed text-[var(--ink-3)]">
+                {searchQuery || statusFilter
+                  ? "Try adjusting your filters or search query."
+                  : "Validated emails will appear here once the line has run."}
+              </p>
+              {(searchQuery || statusFilter) && (
+                <Button onClick={() => router.replace("/history")} variant="ghost" className="mt-4">
+                  Clear filters
                 </Button>
-              </div>
-            ))}
-          </div>
-        </Card>
-      )}
+              )}
+            </div>
+          )}
+        </section>
 
-      {/* Credit cost confirmation modal */}
+        {scheduledExports.length > 0 && (
+          <section className="mt-5 border border-[var(--line-strong)] bg-[var(--surface)]">
+            <div className="flex items-center gap-2 border-b border-[var(--line)] px-4 py-3">
+              <CalendarClock className="h-3.5 w-3.5 text-[var(--ink-3)]" aria-hidden="true" />
+              <h2 className="font-mono text-[10px] uppercase tracking-[0.05em] text-[var(--ink-2)]">
+                Scheduled exports
+              </h2>
+              {schedulesLoading && (
+                <Loader2 className="h-3 w-3 animate-spin text-[var(--ink-3)]" aria-hidden="true" />
+              )}
+            </div>
+            <div>
+              {scheduledExports.map((schedule) => (
+                <div
+                  key={schedule.id}
+                  className="flex items-center justify-between gap-3 border-b border-[var(--line)] px-4 py-3 last:border-b-0"
+                >
+                  <div className="flex items-center gap-3">
+                    {schedule.format === "xlsx" ? (
+                      <FileSpreadsheet
+                        className="h-3.5 w-3.5 text-[var(--ink-3)]"
+                        aria-hidden="true"
+                      />
+                    ) : (
+                      <FileText className="h-3.5 w-3.5 text-[var(--ink-3)]" aria-hidden="true" />
+                    )}
+                    <div>
+                      <p className="font-mono text-[10px] uppercase tracking-[0.04em] text-[var(--ink)]">
+                        {schedule.format.toUpperCase()} — {schedule.frequency}
+                      </p>
+                      <p className="mt-0.5 font-mono text-[9px] text-[var(--ink-3)]">
+                        Next run: {format(new Date(schedule.nextRunAt), "MMM d, yyyy HH:mm")}
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    onClick={() => handleDeleteSchedule(schedule.id)}
+                    disabled={deletingSchedule === schedule.id}
+                    variant="ghost"
+                    size="sm"
+                    className="text-[var(--status-invalid-text)]"
+                    aria-label="Delete scheduled export"
+                  >
+                    {deletingSchedule === schedule.id ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+                    ) : (
+                      <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                    )}
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+      </div>
+
       <Modal
         isOpen={confirmRevalidate}
         onClose={() => setConfirmRevalidate(false)}
         title="Confirm Batch Revalidation"
         size="sm"
       >
-        <p className="text-sm text-[var(--text-secondary)] mb-4">
+        <p className="mb-4 text-sm leading-relaxed text-[var(--ink-2)]">
           Revalidating <strong>{selection.count}</strong> email{selection.count > 1 ? "s" : ""} will
           consume{" "}
           <strong>
@@ -903,14 +977,13 @@ export default function HistoryPage() {
         </div>
       </Modal>
 
-      {/* Batch delete confirmation modal */}
       <Modal
         isOpen={confirmDelete}
         onClose={() => setConfirmDelete(false)}
         title="Delete Selected Validations"
         size="sm"
       >
-        <p className="text-sm text-[var(--text-secondary)] mb-4">
+        <p className="mb-4 text-sm leading-relaxed text-[var(--ink-2)]">
           Are you sure you want to delete <strong>{selection.count}</strong> validation
           {selection.count > 1 ? "s" : ""}? This action cannot be undone.
         </p>
@@ -921,8 +994,8 @@ export default function HistoryPage() {
           <Button onClick={handleBatchDelete} disabled={deleteLoading} variant="danger" size="sm">
             {deleteLoading ? (
               <>
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                Deleting...
+                <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+                Deleting…
               </>
             ) : (
               `Delete (${selection.count})`

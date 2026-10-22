@@ -11,6 +11,7 @@ import {
   Webhook,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
+import { PageHeader } from "@/components/dashboard/PageHeader";
 import { Button, Card } from "@/components/ui";
 
 // ---------------------------------------------------------------------------
@@ -47,34 +48,19 @@ interface AdminStats {
 // Helpers
 // ---------------------------------------------------------------------------
 
-const planColors: Record<string, string> = {
-  FREE: "bg-zinc-500/20 text-zinc-400",
-  STARTER: "bg-blue-500/20 text-blue-400",
-  GROWTH: "bg-violet-500/20 text-violet-400",
-  SCALE: "bg-amber-500/20 text-amber-400",
-  ENTERPRISE: "bg-emerald-500/20 text-emerald-400",
-};
-
 function PlanBadge({ plan }: { plan: string }) {
-  const colorClass = planColors[plan] || "bg-zinc-500/20 text-zinc-400";
-  return (
-    <span
-      className={`inline-block px-2 py-0.5 rounded-full text-xs font-mono font-semibold uppercase  ${colorClass}`}
-    >
-      {plan}
-    </span>
-  );
+  return <span className="stamp stamp-idle">{plan}</span>;
 }
 
 function ActiveBadge({ isActive }: { isActive: boolean }) {
   return isActive ? (
-    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-mono uppercase  text-[var(--status-valid)] bg-[var(--status-valid-bg)]">
-      <span className="w-1.5 h-1.5 rounded-full bg-[var(--status-valid)]" />
+    <span className="stamp stamp-pass">
+      <span className="h-1 w-1 rounded-full bg-[var(--status-valid)]" aria-hidden="true" />
       Active
     </span>
   ) : (
-    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-mono uppercase  text-[var(--text-muted)] bg-[var(--bg-subtle)]">
-      <span className="w-1.5 h-1.5 rounded-full bg-[var(--text-muted)]" />
+    <span className="stamp stamp-idle">
+      <span className="h-1 w-1 rounded-full bg-[var(--ink-3)]" aria-hidden="true" />
       Inactive
     </span>
   );
@@ -99,13 +85,15 @@ function StatCard({ icon, label, value, accentColor = "var(--accent)" }: StatCar
       className="border-t-2"
       style={{ borderTopColor: accentColor }}
     >
-      <div className="flex items-start justify-between mb-1">
-        <p className="text-xs text-[var(--text-muted)] uppercase ">{label}</p>
-        <span className="text-[var(--text-muted)]" aria-hidden="true">
+      <div className="mb-1 flex items-start justify-between">
+        <p className="label-mono">{label}</p>
+        <span className="text-[var(--ink-3)]" aria-hidden="true">
           {icon}
         </span>
       </div>
-      <p className="text-3xl font-display font-bold">{value}</p>
+      <p className="mt-2 font-display text-3xl font-semibold tracking-[-0.03em] text-[var(--ink)]">
+        {value}
+      </p>
     </Card>
   );
 }
@@ -117,17 +105,17 @@ function StatCard({ icon, label, value, accentColor = "var(--accent)" }: StatCar
 function StatCardSkeleton() {
   return (
     <Card variant="default" padding="md">
-      <div className="h-3 w-20 bg-[var(--bg-subtle)] animate-skeleton rounded mb-3" />
-      <div className="h-8 w-16 bg-[var(--bg-subtle)] animate-skeleton rounded" />
+      <div className="h-3 w-20 bg-[var(--surface-3)] animate-skeleton mb-3" />
+      <div className="h-8 w-16 bg-[var(--surface-3)] animate-skeleton" />
     </Card>
   );
 }
 
 function TableRowSkeleton({ cols = 4 }: { cols?: number }) {
   return (
-    <div className="flex items-center gap-4 py-3 px-4 border-b border-[var(--border)] last:border-0">
+    <div className="flex items-center gap-4 py-3 px-4 border-b border-[var(--line)] last:border-0">
       {Array.from({ length: cols }).map((_, i) => (
-        <div key={i} className="h-4 bg-[var(--bg-subtle)] animate-skeleton rounded flex-1" />
+        <div key={i} className="h-3 flex-1 animate-skeleton bg-[var(--surface-3)]" />
       ))}
     </div>
   );
@@ -140,15 +128,17 @@ function TableRowSkeleton({ cols = 4 }: { cols?: number }) {
 function AccessDenied() {
   return (
     <div className="flex flex-col items-center justify-center py-24 text-center">
-      <div className="w-16 h-16 rounded-full bg-[var(--status-invalid)]/10 flex items-center justify-center mb-4">
-        <ShieldAlert className="w-8 h-8 text-[var(--status-invalid)]" aria-hidden="true" />
-      </div>
-      <h2 className="text-xl font-display font-bold mb-2">Access Denied</h2>
-      <p className="text-[var(--text-secondary)] mb-1">
+      <span className="mb-4 flex h-12 w-12 items-center justify-center border border-[var(--status-invalid)]/40 bg-[var(--status-invalid-bg)]">
+        <ShieldAlert className="h-5 w-5 text-[var(--status-invalid-text)]" aria-hidden="true" />
+      </span>
+      <h2 className="mb-2 font-display text-xl font-semibold tracking-[-0.02em] text-[var(--ink)]">
+        Access denied
+      </h2>
+      <p className="mb-1 text-[13px] text-[var(--ink-2)]">
         You do not have permission to view this page.
       </p>
-      <p className="text-sm text-[var(--text-muted)]">
-        Only users with the Admin role can access the admin dashboard.
+      <p className="text-[12px] text-[var(--ink-3)]">
+        Only users with the admin role can open this register.
       </p>
     </div>
   );
@@ -160,10 +150,10 @@ function AccessDenied() {
 
 function ErrorBanner({ message, onRetry }: { message: string; onRetry: () => void }) {
   return (
-    <div className="mb-6 px-4 py-3 rounded-lg bg-[var(--status-invalid)]/10 border border-[var(--status-invalid)]/30 text-sm text-[var(--status-invalid)] flex items-center justify-between">
+    <div className="mb-6 flex items-center justify-between border border-[var(--status-invalid)] bg-[var(--status-invalid-bg)] px-4 py-3 text-[13px] text-[var(--status-invalid-text)]">
       <span>{message}</span>
       <Button onClick={onRetry} variant="ghost" size="sm">
-        <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
+        <RefreshCw className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
         Retry
       </Button>
     </div>
@@ -215,12 +205,15 @@ export default function AdminPage() {
   // -----------------------------------------------------------------------
   if (accessDenied) {
     return (
-      <div className="p-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-display font-bold mb-2">Admin</h1>
-          <p className="text-[var(--text-secondary)]">Administration dashboard</p>
+      <div className="p-4 sm:p-6 lg:p-8">
+        <div className="mx-auto max-w-6xl">
+          <PageHeader
+            eyebrow="Operations / admin"
+            title="Admin."
+            description="System-wide overview and user management."
+          />
+          <AccessDenied />
         </div>
-        <AccessDenied />
       </div>
     );
   }
@@ -230,40 +223,43 @@ export default function AdminPage() {
   // -----------------------------------------------------------------------
   if (loading) {
     return (
-      <div className="p-8">
-        <div className="mb-8">
-          <div className="h-8 w-40 bg-[var(--bg-subtle)] animate-skeleton rounded mb-2" />
-          <div className="h-4 w-56 bg-[var(--bg-subtle)] animate-skeleton rounded" />
-        </div>
+      <div className="p-4 sm:p-6 lg:p-8">
+        <div className="mx-auto max-w-6xl">
+          <PageHeader
+            eyebrow="Operations / admin"
+            title="Admin."
+            description="System-wide overview and user management."
+          />
 
-        {/* Stat card skeletons */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <StatCardSkeleton key={i} />
-          ))}
-        </div>
-
-        {/* Plan distribution skeleton */}
-        <Card variant="default" padding="md" className="mb-8">
-          <div className="h-5 w-40 bg-[var(--bg-subtle)] animate-skeleton rounded mb-4" />
-          <div className="space-y-2">
-            {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="flex items-center gap-3">
-                <div className="h-4 w-20 bg-[var(--bg-subtle)] animate-skeleton rounded" />
-                <div className="flex-1 h-4 bg-[var(--bg-subtle)] animate-skeleton rounded" />
-                <div className="h-4 w-8 bg-[var(--bg-subtle)] animate-skeleton rounded" />
-              </div>
+          {/* Stat card skeletons */}
+          <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <StatCardSkeleton key={i} />
             ))}
           </div>
-        </Card>
 
-        {/* Recent users skeleton */}
-        <Card variant="default" padding="md">
-          <div className="h-5 w-40 bg-[var(--bg-subtle)] animate-skeleton rounded mb-4" />
-          {Array.from({ length: 5 }).map((_, i) => (
-            <TableRowSkeleton key={i} cols={4} />
-          ))}
-        </Card>
+          {/* Plan distribution skeleton */}
+          <Card variant="default" padding="md" className="mb-6">
+            <div className="mb-4 h-3 w-32 animate-skeleton" />
+            <div className="space-y-2">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="flex items-center gap-3">
+                  <div className="h-3 w-20 animate-skeleton" />
+                  <div className="h-2 flex-1 animate-skeleton" />
+                  <div className="h-3 w-8 animate-skeleton" />
+                </div>
+              ))}
+            </div>
+          </Card>
+
+          {/* Recent users skeleton */}
+          <Card variant="default" padding="md">
+            <div className="mb-4 h-3 w-32 animate-skeleton" />
+            {Array.from({ length: 5 }).map((_, i) => (
+              <TableRowSkeleton key={i} cols={4} />
+            ))}
+          </Card>
+        </div>
       </div>
     );
   }
@@ -273,12 +269,15 @@ export default function AdminPage() {
   // -----------------------------------------------------------------------
   if (error) {
     return (
-      <div className="p-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-display font-bold mb-2">Admin</h1>
-          <p className="text-[var(--text-secondary)]">Administration dashboard</p>
+      <div className="p-4 sm:p-6 lg:p-8">
+        <div className="mx-auto max-w-6xl">
+          <PageHeader
+            eyebrow="Operations / admin"
+            title="Admin."
+            description="System-wide overview and user management."
+          />
+          <ErrorBanner message={error} onRetry={fetchStats} />
         </div>
-        <ErrorBanner message={error} onRetry={fetchStats} />
       </div>
     );
   }
@@ -288,17 +287,20 @@ export default function AdminPage() {
   // -----------------------------------------------------------------------
   if (!stats) {
     return (
-      <div className="p-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-display font-bold mb-2">Admin</h1>
-          <p className="text-[var(--text-secondary)]">Administration dashboard</p>
-        </div>
-        <div className="flex flex-col items-center justify-center py-24 text-[var(--text-muted)]">
-          <p className="text-base">No data available.</p>
-          <Button onClick={fetchStats} variant="ghost" className="mt-4">
-            <RefreshCw className="w-4 h-4 mr-2" />
-            Reload
-          </Button>
+      <div className="p-4 sm:p-6 lg:p-8">
+        <div className="mx-auto max-w-6xl">
+          <PageHeader
+            eyebrow="Operations / admin"
+            title="Admin."
+            description="System-wide overview and user management."
+          />
+          <div className="flex flex-col items-center justify-center py-24 text-[var(--ink-3)]">
+            <p className="text-base">No data available.</p>
+            <Button onClick={fetchStats} variant="ghost" className="mt-4">
+              <RefreshCw size={14} className="mr-2" aria-hidden="true" />
+              Reload
+            </Button>
+          </div>
         </div>
       </div>
     );
@@ -310,136 +312,157 @@ export default function AdminPage() {
   const maxPlanCount = Math.max(...stats.usersByPlan.map((p) => p.count), 1);
 
   return (
-    <div className="p-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-display font-bold mb-2">Admin</h1>
-        <p className="text-[var(--text-secondary)]">System-wide overview and user management</p>
-      </div>
+    <div className="p-4 sm:p-6 lg:p-8">
+      <div className="mx-auto max-w-6xl">
+        <PageHeader
+          eyebrow="Operations / admin"
+          title="Admin."
+          description="System-wide overview and user management. Numbers are read directly from the register."
+          actions={
+            <Button onClick={fetchStats} variant="ghost" size="sm">
+              <RefreshCw size={13} aria-hidden="true" />
+              Refresh
+            </Button>
+          }
+          meta={
+            <>
+              <span className="font-mono text-[9px] uppercase tracking-[0.05em] text-[var(--ink-3)]">
+                {stats.totalUsers.toLocaleString()} users
+              </span>
+              <span className="h-3 w-px bg-[var(--line)]" aria-hidden="true" />
+              <span className="font-mono text-[9px] uppercase tracking-[0.05em] text-[var(--ink-3)]">
+                {stats.totalValidations.toLocaleString()} validations
+              </span>
+              <span className="h-3 w-px bg-[var(--line)]" aria-hidden="true" />
+              <span className="font-mono text-[9px] uppercase tracking-[0.05em] text-[var(--ink-3)]">
+                {stats.activeWebhooks} webhooks live
+              </span>
+            </>
+          }
+        />
 
-      {/* Stats cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
-        <StatCard icon={<Users size={18} />} label="Total Users" value={stats.totalUsers} />
-        <StatCard
-          icon={<UserCheck size={18} />}
-          label="Active Users"
-          value={stats.activeUsers}
-          accentColor="var(--status-valid)"
-        />
-        <StatCard
-          icon={<CheckCircle size={18} />}
-          label="Validations Today"
-          value={stats.validationsToday}
-          accentColor="var(--accent)"
-        />
-        <StatCard
-          icon={<BarChart3 size={18} />}
-          label="Total Validations"
-          value={stats.totalValidations}
-          accentColor="var(--status-risky)"
-        />
-        <StatCard
-          icon={<Webhook size={18} />}
-          label="Active Webhooks"
-          value={stats.activeWebhooks}
-          accentColor="var(--status-unknown)"
-        />
-      </div>
+        {/* Stats cards */}
+        <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          <StatCard icon={<Users size={18} />} label="Total Users" value={stats.totalUsers} />
+          <StatCard
+            icon={<UserCheck size={18} />}
+            label="Active Users"
+            value={stats.activeUsers}
+            accentColor="var(--status-valid)"
+          />
+          <StatCard
+            icon={<CheckCircle size={18} />}
+            label="Validations Today"
+            value={stats.validationsToday}
+            accentColor="var(--accent)"
+          />
+          <StatCard
+            icon={<BarChart3 size={18} />}
+            label="Total Validations"
+            value={stats.totalValidations}
+            accentColor="var(--status-risky)"
+          />
+          <StatCard
+            icon={<Webhook size={18} />}
+            label="Active Webhooks"
+            value={stats.activeWebhooks}
+            accentColor="var(--status-unknown)"
+          />
+        </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-        {/* Users by Plan */}
-        <Card variant="default" padding="md">
-          <h2 className="text-lg font-display font-semibold mb-4">Users by Plan</h2>
-          {stats.usersByPlan.length > 0 ? (
-            <div className="space-y-3">
-              {stats.usersByPlan.map((entry) => (
-                <div key={entry.plan} className="flex items-center gap-3">
-                  <PlanBadge plan={entry.plan} />
-                  <div className="flex-1 h-5 bg-[var(--bg-subtle)] rounded-full overflow-hidden">
-                    <div
-                      className="h-full rounded-full transition-all duration-500"
-                      style={{
-                        width: `${(entry.count / maxPlanCount) * 100}%`,
-                        backgroundColor: "var(--accent)",
-                      }}
-                    />
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+          {/* Users by Plan */}
+          <Card variant="default" padding="md">
+            <h2 className="text-lg font-display font-semibold mb-4">Users by Plan</h2>
+            {stats.usersByPlan.length > 0 ? (
+              <div className="space-y-3">
+                {stats.usersByPlan.map((entry) => (
+                  <div key={entry.plan} className="flex items-center gap-3">
+                    <PlanBadge plan={entry.plan} />
+                    <div className="h-2 flex-1 bg-[var(--surface-3)]">
+                      <div
+                        className="h-full bg-[var(--accent)] transition-all duration-500"
+                        style={{ width: `${(entry.count / maxPlanCount) * 100}%` }}
+                      />
+                    </div>
+                    <span className="text-sm font-mono font-semibold text-[var(--ink-2)] w-8 text-right">
+                      {entry.count}
+                    </span>
                   </div>
-                  <span className="text-sm font-mono font-semibold text-[var(--text-secondary)] w-8 text-right">
-                    {entry.count}
-                  </span>
-                </div>
-              ))}
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-[var(--ink-3)]">No user data available.</p>
+            )}
+          </Card>
+
+          {/* Quick stats */}
+          <Card variant="default" padding="md">
+            <h2 className="text-lg font-display font-semibold mb-4">System Overview</h2>
+            <div className="space-y-3">
+              <StatRow label="Bulk Jobs" value={stats.totalBulkJobs} />
+              <StatRow label="API Keys" value={stats.totalApiKeys} />
+              <StatRow label="Active Webhooks" value={stats.activeWebhooks} />
+              <StatRow label="Total Users" value={stats.totalUsers} />
+              <StatRow label="Active Users" value={stats.activeUsers} />
+            </div>
+          </Card>
+        </div>
+
+        {/* Recent Users */}
+        <Card variant="default" padding="md">
+          <h2 className="text-lg font-display font-semibold mb-4">Recent Users</h2>
+          {stats.recentUsers.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="data-table">
+                <thead>
+                  <tr className="border-b border-[var(--line)]">
+                    <th className="text-left py-3 px-4 text-sm font-medium text-[var(--ink-3)]">
+                      Name
+                    </th>
+                    <th className="text-left py-3 px-4 text-sm font-medium text-[var(--ink-3)]">
+                      Email
+                    </th>
+                    <th className="text-left py-3 px-4 text-sm font-medium text-[var(--ink-3)]">
+                      Plan
+                    </th>
+                    <th className="text-left py-3 px-4 text-sm font-medium text-[var(--ink-3)]">
+                      Created
+                    </th>
+                    <th className="text-left py-3 px-4 text-sm font-medium text-[var(--ink-3)]">
+                      Status
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {stats.recentUsers.map((user) => (
+                    <tr
+                      key={user.id}
+                      className="border-b border-[var(--line)] last:border-0 hover:bg-[var(--surface-2)] transition-colors"
+                    >
+                      <td className="py-3 px-4 text-sm font-medium">{user.name || "—"}</td>
+                      <td className="py-3 px-4 text-sm font-mono text-[var(--ink-2)]">
+                        {user.email}
+                      </td>
+                      <td className="py-3 px-4">
+                        <PlanBadge plan={user.plan} />
+                      </td>
+                      <td className="py-3 px-4 text-sm text-[var(--ink-3)]">
+                        {formatDistanceToNow(new Date(user.createdAt), { addSuffix: true })}
+                      </td>
+                      <td className="py-3 px-4">
+                        <ActiveBadge isActive={user.isActive} />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           ) : (
-            <p className="text-sm text-[var(--text-muted)]">No user data available.</p>
+            <p className="text-sm text-[var(--ink-3)]">No users found.</p>
           )}
         </Card>
-
-        {/* Quick stats */}
-        <Card variant="default" padding="md">
-          <h2 className="text-lg font-display font-semibold mb-4">System Overview</h2>
-          <div className="space-y-3">
-            <StatRow label="Bulk Jobs" value={stats.totalBulkJobs} />
-            <StatRow label="API Keys" value={stats.totalApiKeys} />
-            <StatRow label="Active Webhooks" value={stats.activeWebhooks} />
-            <StatRow label="Total Users" value={stats.totalUsers} />
-            <StatRow label="Active Users" value={stats.activeUsers} />
-          </div>
-        </Card>
       </div>
-
-      {/* Recent Users */}
-      <Card variant="default" padding="md">
-        <h2 className="text-lg font-display font-semibold mb-4">Recent Users</h2>
-        {stats.recentUsers.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-[var(--border)]">
-                  <th className="text-left py-3 px-4 text-sm font-medium text-[var(--text-muted)]">
-                    Name
-                  </th>
-                  <th className="text-left py-3 px-4 text-sm font-medium text-[var(--text-muted)]">
-                    Email
-                  </th>
-                  <th className="text-left py-3 px-4 text-sm font-medium text-[var(--text-muted)]">
-                    Plan
-                  </th>
-                  <th className="text-left py-3 px-4 text-sm font-medium text-[var(--text-muted)]">
-                    Created
-                  </th>
-                  <th className="text-left py-3 px-4 text-sm font-medium text-[var(--text-muted)]">
-                    Status
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {stats.recentUsers.map((user) => (
-                  <tr
-                    key={user.id}
-                    className="border-b border-[var(--border)] last:border-0 hover:bg-[var(--bg-elevated)] transition-colors"
-                  >
-                    <td className="py-3 px-4 text-sm font-medium">{user.name || "—"}</td>
-                    <td className="py-3 px-4 text-sm font-mono text-[var(--text-secondary)]">
-                      {user.email}
-                    </td>
-                    <td className="py-3 px-4">
-                      <PlanBadge plan={user.plan} />
-                    </td>
-                    <td className="py-3 px-4 text-sm text-[var(--text-muted)]">
-                      {formatDistanceToNow(new Date(user.createdAt), { addSuffix: true })}
-                    </td>
-                    <td className="py-3 px-4">
-                      <ActiveBadge isActive={user.isActive} />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <p className="text-sm text-[var(--text-muted)]">No users found.</p>
-        )}
-      </Card>
     </div>
   );
 }
@@ -450,8 +473,8 @@ export default function AdminPage() {
 
 function StatRow({ label, value }: { label: string; value: number }) {
   return (
-    <div className="flex items-center justify-between py-1.5 border-b border-[var(--border)] last:border-0">
-      <span className="text-sm text-[var(--text-secondary)]">{label}</span>
+    <div className="flex items-center justify-between py-1.5 border-b border-[var(--line)] last:border-0">
+      <span className="text-sm text-[var(--ink-2)]">{label}</span>
       <span className="text-sm font-mono font-semibold">{value}</span>
     </div>
   );

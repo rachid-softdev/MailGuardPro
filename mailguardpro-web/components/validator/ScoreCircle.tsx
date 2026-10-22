@@ -38,7 +38,7 @@ function ScoreCircleBase({ score, size = "md", animated = true }: ScoreCirclePro
   const glowStyle =
     score > 75
       ? {
-          filter: "drop-shadow(0 0 8px var(--accent-glow))",
+          filter: "drop-shadow(0 0 8px var(--accent-soft))",
         }
       : undefined;
 
@@ -74,7 +74,7 @@ function ScoreCircleBase({ score, size = "md", animated = true }: ScoreCirclePro
             cx={diameter / 2}
             cy={diameter / 2}
             r={radius}
-            stroke="var(--bg-subtle)"
+            stroke="var(--surface-2)"
             strokeWidth={strokeWidth}
             fill="none"
           />

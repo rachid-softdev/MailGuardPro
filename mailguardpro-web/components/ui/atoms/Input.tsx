@@ -1,6 +1,6 @@
 "use client";
 
-import { forwardRef, memo, type InputHTMLAttributes } from "react";
+import { forwardRef, type InputHTMLAttributes, memo } from "react";
 import { cn } from "@/lib/cn";
 
 export type InputVariant = "outlined" | "filled" | "flushed";
@@ -11,12 +11,12 @@ export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
 }
 
 const base =
-  "w-full rounded-[var(--radius-md)] text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] transition-all duration-150 outline-none focus:ring-0";
+  "w-full h-[38px] rounded-[var(--radius-sm)] font-mono text-sm text-[var(--ink)] placeholder:text-[var(--ink-3)] transition-colors duration-150 outline-none";
 
 const variantStyles: Record<InputVariant, string> = {
-  outlined: "bg-[var(--bg-surface)] border px-3 py-2",
-  filled: "bg-[var(--bg-subtle)] border border-transparent px-3 py-2",
-  flushed: "bg-transparent border-0 border-b border-[var(--border)] rounded-none px-0 py-2",
+  outlined: "bg-[var(--surface)] border px-3",
+  filled: "bg-[var(--surface-2)] border border-transparent px-3",
+  flushed: "bg-transparent border-0 border-b border-[var(--line)] rounded-none px-0",
 };
 
 export const Input = memo(
@@ -33,7 +33,7 @@ export const Input = memo(
           variantStyles[variant],
           error
             ? "border-[var(--status-invalid)] focus:border-[var(--status-invalid)]"
-            : "border-[var(--border)] hover:border-[var(--border-strong)] focus:border-[var(--border-focus)]",
+            : "border-[var(--line)] hover:border-[var(--line-strong)] focus:border-[var(--line-focus)]",
           className,
         )}
         {...props}

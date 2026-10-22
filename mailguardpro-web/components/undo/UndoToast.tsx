@@ -68,7 +68,7 @@ export function UndoToast({ item, onDismiss }: UndoToastProps) {
 
   return (
     <div
-      className={`relative flex items-center gap-3 px-4 py-3 bg-[var(--bg-surface)] border border-[var(--border)] rounded-[var(--radius-lg)] shadow-[var(--shadow-lg)] transition-all duration-200 ${
+      className={`relative flex items-center gap-3 border border-[var(--line-strong)] bg-[var(--surface)] px-4 py-3 transition-all duration-200 ${
         exiting ? "translate-x-full opacity-0" : "translate-x-0 opacity-100"
       }`}
       role="alert"
@@ -76,11 +76,11 @@ export function UndoToast({ item, onDismiss }: UndoToastProps) {
     >
       {/* Progress bar */}
       <div
-        className="absolute bottom-0 left-0 h-0.5 bg-[var(--accent)] rounded-full transition-none"
+        className="absolute bottom-0 left-0 h-0.5 bg-[var(--accent)] transition-none"
         style={{ width: `${progress}%` }}
         aria-hidden="true"
       />
-      <p className="text-sm text-[var(--text-primary)] flex-1 min-w-0">{item.message}</p>
+      <p className="text-sm text-[var(--ink)] flex-1 min-w-0">{item.message}</p>
       <button
         onClick={handleAction}
         className="text-sm font-medium text-[var(--accent)] hover:text-[var(--accent-hover)] transition-colors whitespace-nowrap"

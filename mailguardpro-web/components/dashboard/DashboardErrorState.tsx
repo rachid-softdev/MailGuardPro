@@ -8,13 +8,16 @@ interface DashboardErrorStateProps {
 
 export function DashboardErrorState({ message, onRetry }: DashboardErrorStateProps) {
   return (
-    <div className="p-8">
-      <div className="flex flex-col items-center justify-center min-h-[400px] text-center">
-        <AlertCircle className="w-12 h-12 text-[var(--status-invalid)] mb-4" />
-        <h2 className="text-xl font-display font-bold mb-2">Failed to load dashboard</h2>
-        <p className="text-sm text-[var(--text-muted)] mb-6 max-w-md">{message}</p>
-        <Button onClick={onRetry} variant="accent" type="button">
-          Try Again
+    <div className="p-4 sm:p-6 lg:p-8">
+      <div className="flex min-h-[420px] flex-col items-center justify-center border border-[var(--line-strong)] bg-[var(--surface)] px-6 text-center">
+        <AlertCircle className="h-7 w-7 text-[var(--status-invalid)]" aria-hidden="true" />
+        <p className="mt-4 font-mono text-[10px] uppercase tracking-[0.06em] text-[var(--ink-3)]">
+          Connection error
+        </p>
+        <h2 className="mt-2 text-xl font-semibold text-[var(--ink)]">Failed to load dashboard</h2>
+        <p className="mt-2 max-w-md text-sm text-[var(--ink-2)]">{message}</p>
+        <Button onClick={onRetry} variant="primary" type="button" className="mt-5">
+          Try again
         </Button>
       </div>
     </div>

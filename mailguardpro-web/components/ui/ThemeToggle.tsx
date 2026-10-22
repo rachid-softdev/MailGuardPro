@@ -22,7 +22,7 @@ const nextLabel = {
   system: "light" as const,
 };
 
-export function ThemeToggle() {
+export function ThemeToggle({ compact = false }: { compact?: boolean }) {
   const { theme, cycleTheme } = useTheme();
   const Icon = icons[theme];
 
@@ -30,11 +30,11 @@ export function ThemeToggle() {
     <Tooltip content={`${labels[theme]} — next: ${labels[nextLabel[theme]]}`} side="top">
       <button
         onClick={cycleTheme}
-        className="flex items-center gap-2 px-2 py-1.5 rounded-md text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-subtle)] transition-colors"
+        className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] px-2 text-xs text-[var(--ink-3)] transition-colors hover:bg-[var(--surface-2)] hover:text-[var(--ink)]"
         aria-label={`Current: ${labels[theme]}. Click to switch to ${labels[nextLabel[theme]]}.`}
       >
         <Icon size={14} aria-hidden="true" />
-        <span className="hidden sm:inline capitalize">{theme}</span>
+        {!compact && <span className="hidden capitalize sm:inline">{theme}</span>}
       </button>
     </Tooltip>
   );

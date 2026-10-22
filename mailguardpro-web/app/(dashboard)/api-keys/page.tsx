@@ -1,10 +1,10 @@
 "use client";
 
-import { Check, Copy, Trash2 } from "lucide-react";
+import { Check, Copy, KeyRound, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { PageHeader } from "@/components/dashboard/PageHeader";
 import { Button, Card } from "@/components/ui";
 import { Modal } from "@/components/ui/Modal";
-import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { useOnlineStatusSync } from "@/hooks/useOnlineStatusSync";
 import { useUndoDelete } from "@/hooks/useUndoDelete";
@@ -124,190 +124,184 @@ export default function ApiKeysPage() {
   };
 
   return (
-    <div className="p-8">
-      <div className="mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h1 className="text-3xl font-display font-bold mb-2">API Keys</h1>
-          <p className="text-[var(--text-secondary)]">
-            Manage your API keys for programmatic access
-          </p>
-        </div>
-        <Button
-          variant="primary"
-          className="self-start sm:self-auto"
-          onClick={() => setShowCreateModal(true)}
-          aria-haspopup="dialog"
-          aria-expanded={showCreateModal}
-          aria-controls="modal-create-api-key"
-        >
-          Create New Key
-        </Button>
-      </div>
+    <div className="p-4 sm:p-6 lg:p-8">
+      <div className="mx-auto max-w-6xl">
+        <PageHeader
+          eyebrow="Developer / credentials"
+          title="API keys."
+          description="Programmatic access to the validation API. Keys are shown once at creation — store them in a secret manager, not in client code."
+          actions={
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => setShowCreateModal(true)}
+              aria-haspopup="dialog"
+              aria-expanded={showCreateModal}
+              aria-controls="modal-create-api-key"
+            >
+              Create New Key
+            </Button>
+          }
+          meta={
+            <>
+              <span className="font-mono text-[9px] uppercase tracking-[0.05em] text-[var(--ink-3)]">
+                {loading
+                  ? "Reading register…"
+                  : `${keys.length} key${keys.length === 1 ? "" : "s"}`}
+              </span>
+              <span className="h-3 w-px bg-[var(--line)]" aria-hidden="true" />
+              <span className="font-mono text-[9px] uppercase tracking-[0.05em] text-[var(--ink-3)]">
+                Bearer auth / scoped access
+              </span>
+            </>
+          }
+        />
 
-      {/* Warning */}
-      <Card
-        variant="default"
-        padding="md"
-        className="mb-8 bg-[var(--accent-light)] border-[var(--accent)]"
-      >
-        <div className="flex items-start gap-3">
-          <svg
-            className="w-5 h-5 text-[var(--accent)] mt-0.5"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-            />
-          </svg>
+        {/* Security notice */}
+        <section
+          aria-label="API key security"
+          className="mb-5 flex items-start gap-3 border border-[var(--line)] border-l-2 border-l-[var(--accent)] bg-[var(--surface-2)] px-4 py-3"
+        >
+          <KeyRound className="mt-0.5 h-4 w-4 shrink-0 text-[var(--accent)]" aria-hidden="true" />
           <div>
-            <p className="font-medium">Keep your API keys secure</p>
-            <p className="text-sm text-[var(--text-secondary)] mt-1">
-              Never share your API keys in public repositories or client-side code. Rotate keys
-              immediately if you suspect they have been compromised.
+            <p className="font-mono text-[10px] uppercase tracking-[0.08em] text-[var(--ink)]">
+              Keep your API keys secure
+            </p>
+            <p className="mt-1 max-w-[80ch] text-[12px] leading-relaxed text-[var(--ink-2)]">
+              Never share keys in public repositories or client-side code. Rotate a key immediately
+              if you suspect it has been exposed.
             </p>
           </div>
-        </div>
-      </Card>
+        </section>
 
-      {/* Keys List */}
-      <Card variant="default" padding="md">
-        <h2 className="text-lg font-display font-semibold mb-4">Your API Keys</h2>
-
-        {errorMessage && (
-          <div className="animate-fade-slide-in mb-4 bg-[var(--status-invalid-bg)] border border-[var(--status-invalid)] rounded-lg p-3 flex items-start gap-3">
-            <svg
-              className="w-5 h-5 text-[var(--status-invalid)] mt-0.5 shrink-0"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-            </svg>
-            <p className="text-sm text-[var(--status-invalid)]">{errorMessage}</p>
-          </div>
-        )}
-
-        {loading ? (
-          <div className="space-y-0 divide-y divide-[var(--border)]">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="flex items-center gap-6 py-4 px-4">
-                <div className="h-4 w-28 bg-[var(--bg-subtle)] animate-skeleton rounded" />
-                <div className="h-4 w-20 bg-[var(--bg-subtle)] animate-skeleton rounded" />
-                <div className="h-5 w-14 bg-[var(--bg-subtle)] animate-skeleton rounded-full" />
-                <div className="h-4 w-16 bg-[var(--bg-subtle)] animate-skeleton rounded" />
-                <div className="h-4 w-16 bg-[var(--bg-subtle)] animate-skeleton rounded" />
-                <div className="h-4 w-16 bg-[var(--bg-subtle)] animate-skeleton rounded" />
-                <div className="h-4 w-14 bg-[var(--bg-subtle)] animate-skeleton rounded ml-auto" />
-              </div>
-            ))}
-          </div>
-        ) : keys.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-[var(--border)]">
-                  <th className="text-left py-3 px-4 text-sm font-medium text-[var(--text-muted)]">
-                    Name
-                  </th>
-                  <th className="text-left py-3 px-4 text-sm font-medium text-[var(--text-muted)]">
-                    Key
-                  </th>
-                  <th className="text-left py-3 px-4 text-sm font-medium text-[var(--text-muted)]">
-                    Status
-                  </th>
-                  <th className="text-left py-3 px-4 text-sm font-medium text-[var(--text-muted)]">
-                    Access
-                  </th>
-                  <th className="text-left py-3 px-4 text-sm font-medium text-[var(--text-muted)]">
-                    Last Used
-                  </th>
-                  <th className="text-left py-3 px-4 text-sm font-medium text-[var(--text-muted)]">
-                    Created
-                  </th>
-                  <th className="text-right py-3 px-4 text-sm font-medium text-[var(--text-muted)]">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {keys.map((key) => (
-                  <tr
-                    key={key.id}
-                    className="border-b border-[var(--border)] last:border-0 hover:bg-[var(--bg-elevated)] transition-colors"
-                  >
-                    <td className="py-3 px-4 font-medium">{key.name}</td>
-                    <td className="py-3 px-4">
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono text-sm">{key.keyPrefix}...</span>
-                        <Tooltip content="Copy key prefix" side="top">
-                          <button
-                            onClick={() => handleCopyPrefix(key.id, key.keyPrefix)}
-                            className="text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
-                            aria-label="Copy key prefix"
-                          >
-                            {copiedPrefixKey === key.id ? (
-                              <Check className="w-4 h-4 text-[var(--status-valid)]" />
-                            ) : (
-                              <Copy className="w-4 h-4" />
-                            )}
-                          </button>
-                        </Tooltip>
-                      </div>
-                    </td>
-                    <td className="py-3 px-4">
-                      <StatusBadge status={key.isActive ? "valid" : "unknown"} showDot={true} />
-                    </td>
-                    <td className="py-3 px-4 text-sm text-[var(--text-muted)]">
-                      {formatScopes(key.scopes)}
-                    </td>
-                    <td className="py-3 px-4 text-sm text-[var(--text-muted)]">
-                      {formatDate(key.lastUsedAt)}
-                    </td>
-                    <td className="py-3 px-4 text-sm text-[var(--text-muted)]">
-                      {formatDate(key.createdAt)}
-                    </td>
-                    <td className="py-3 px-4 text-right">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-[var(--status-invalid)]"
-                        onClick={() => setDeleteTarget(key)}
-                      >
-                        Delete
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <div className="text-center py-8 text-[var(--text-muted)]">
-            <div className="w-12 h-12 bg-[var(--bg-subtle)] rounded-full flex items-center justify-center mx-auto mb-4">
-              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"
-                />
-              </svg>
+        {/* Keys register */}
+        <Card variant="default" padding="md">
+          <div className="mb-4 flex flex-wrap items-end justify-between gap-3 border-b border-[var(--line)] pb-3">
+            <div>
+              <p className="label-mono">Credentials</p>
+              <h2 className="mt-1 font-display text-lg font-semibold tracking-[-0.02em] text-[var(--ink)]">
+                Your API Keys
+              </h2>
             </div>
-            <p>No API keys yet</p>
-            <p className="text-sm mt-1">Create your first API key to get started</p>
+            <p className="font-mono text-[9px] uppercase tracking-[0.05em] text-[var(--ink-3)]">
+              {loading ? "Reading…" : `${keys.filter((key) => key.isActive).length} active`}
+            </p>
           </div>
-        )}
-      </Card>
+
+          {errorMessage && (
+            <div
+              role="alert"
+              className="mb-4 border border-[var(--status-invalid)] bg-[var(--status-invalid-bg)] px-4 py-3 text-[13px] text-[var(--status-invalid-text)]"
+            >
+              {errorMessage}
+            </div>
+          )}
+
+          {loading ? (
+            <div className="space-y-px border border-[var(--line)] bg-[var(--line)]">
+              {[1, 2, 3].map((i) => (
+                <div
+                  key={i}
+                  className="grid grid-cols-2 items-center gap-4 bg-[var(--surface)] px-4 py-4 sm:grid-cols-6"
+                >
+                  <div className="h-3 w-28 animate-skeleton bg-[var(--surface-3)]" />
+                  <div className="h-3 w-24 animate-skeleton bg-[var(--surface-3)]" />
+                  <div className="h-3 w-14 animate-skeleton bg-[var(--surface-3)]" />
+                  <div className="h-3 w-16 animate-skeleton bg-[var(--surface-3)]" />
+                  <div className="h-3 w-16 animate-skeleton bg-[var(--surface-3)]" />
+                  <div className="ml-auto h-3 w-12 animate-skeleton bg-[var(--surface-3)]" />
+                </div>
+              ))}
+            </div>
+          ) : keys.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Key</th>
+                    <th>Status</th>
+                    <th>Access</th>
+                    <th>Last Used</th>
+                    <th>Created</th>
+                    <th className="text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {keys.map((key) => (
+                    <tr key={key.id}>
+                      <td className="font-medium text-[var(--ink)]">{key.name}</td>
+                      <td>
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-[11px] text-[var(--ink-2)]">
+                            {key.keyPrefix}…
+                          </span>
+                          <Tooltip content="Copy key prefix" side="top">
+                            <button
+                              type="button"
+                              onClick={() => handleCopyPrefix(key.id, key.keyPrefix)}
+                              className="text-[var(--ink-3)] transition-colors hover:text-[var(--ink)]"
+                              aria-label="Copy key prefix"
+                            >
+                              {copiedPrefixKey === key.id ? (
+                                <Check className="h-3.5 w-3.5 text-[var(--status-valid)]" />
+                              ) : (
+                                <Copy className="h-3.5 w-3.5" />
+                              )}
+                            </button>
+                          </Tooltip>
+                        </div>
+                      </td>
+                      <td>
+                        <span className={key.isActive ? "stamp stamp-pass" : "stamp stamp-idle"}>
+                          {key.isActive ? "Active" : "Revoked"}
+                        </span>
+                      </td>
+                      <td className="font-mono text-[10px] uppercase tracking-[0.04em] text-[var(--ink-3)]">
+                        {formatScopes(key.scopes)}
+                      </td>
+                      <td className="whitespace-nowrap text-[var(--ink-2)]">
+                        {formatDate(key.lastUsedAt)}
+                      </td>
+                      <td className="whitespace-nowrap text-[var(--ink-2)]">
+                        {formatDate(key.createdAt)}
+                      </td>
+                      <td className="text-right">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-[var(--status-invalid)]"
+                          onClick={() => setDeleteTarget(key)}
+                        >
+                          Delete
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center px-6 py-14 text-center">
+              <span className="flex h-10 w-10 items-center justify-center border border-[var(--line)] bg-[var(--surface-2)]">
+                <KeyRound className="h-4 w-4 text-[var(--ink-3)]" aria-hidden="true" />
+              </span>
+              <p className="mt-3 text-sm font-medium text-[var(--ink)]">No API keys yet</p>
+              <p className="mt-1 text-[12px] text-[var(--ink-3)]">
+                Create your first key to call the API programmatically.
+              </p>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="mt-4"
+                onClick={() => setShowCreateModal(true)}
+              >
+                Create New Key
+              </Button>
+            </div>
+          )}
+        </Card>
+      </div>
 
       {/* Create Modal */}
       <Modal
@@ -322,35 +316,37 @@ export default function ApiKeysPage() {
       >
         {newKey ? (
           <div>
-            <div className="bg-[var(--status-valid-bg)] border border-[var(--status-valid)] rounded-lg p-4 mb-4">
-              <div className="flex items-center gap-2 mb-3">
-                <Check className="w-5 h-5 text-[var(--status-valid)]" />
-                <p className="font-medium text-[var(--status-valid)]">
-                  API Key Created Successfully
+            <div className="border border-[var(--status-valid)] bg-[var(--status-valid-bg)] p-4">
+              <div className="flex items-center gap-2 border-b border-[var(--status-valid)]/40 pb-3">
+                <Check className="h-4 w-4 text-[var(--status-valid-text)]" aria-hidden="true" />
+                <p className="font-mono text-[10px] uppercase tracking-[0.08em] text-[var(--status-valid-text)]">
+                  Key created / copy now
                 </p>
               </div>
-              <p className="text-sm text-[var(--text-muted)] mb-2">Your new API key:</p>
-              <div className="flex items-center gap-2 bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg p-3 font-mono text-sm">
-                <span className="flex-1 break-all">{newKey}</span>
+              <p className="label-mono mt-3 text-[var(--ink-3)]">Raw key</p>
+              <div className="mt-2 flex items-center gap-2 border border-[var(--line-strong)] bg-[var(--surface)] p-3 font-mono text-[11px]">
+                <span className="flex-1 break-all text-[var(--ink)]">{newKey}</span>
                 <button
+                  type="button"
                   onClick={handleCopyNewKey}
-                  className="shrink-0 text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
+                  className="shrink-0 text-[var(--ink-3)] transition-colors hover:text-[var(--ink)]"
                   aria-label={newKeyCopied ? "Copied" : "Copy API key"}
                 >
                   {newKeyCopied ? (
-                    <Check className="w-4 h-4 text-[var(--status-valid)] animate-pulse-dot" />
+                    <Check className="h-4 w-4 text-[var(--status-valid)] animate-pulse-dot" />
                   ) : (
-                    <Copy className="w-4 h-4" />
+                    <Copy className="h-4 w-4" />
                   )}
                 </button>
               </div>
             </div>
-            <p className="text-sm text-[var(--text-muted)] mb-4">
-              Make sure to copy this key now. You won&apos;t be able to see it again!
+            <p className="mt-4 text-[12px] leading-relaxed text-[var(--ink-2)]">
+              This is the only time the key will be shown. Copy it into your secret manager before
+              closing this panel.
             </p>
             <Button
               variant="primary"
-              className="w-full"
+              className="mt-4 w-full"
               onClick={() => {
                 navigator.clipboard.writeText(newKey);
                 setNewKey(null);
@@ -364,37 +360,42 @@ export default function ApiKeysPage() {
           </div>
         ) : (
           <>
-            <div className="mb-4">
-              <label className="block text-sm font-medium mb-2">Key Name</label>
-              <input
-                type="text"
-                value={newKeyName}
-                onChange={(e) => setNewKeyName(e.target.value)}
-                placeholder="e.g., Production API"
-                className="input w-full"
-              />
+            <div className="space-y-4">
+              <div>
+                <label htmlFor="api-key-name" className="label-mono mb-1.5 block">
+                  Key name
+                </label>
+                <input
+                  id="api-key-name"
+                  type="text"
+                  value={newKeyName}
+                  onChange={(e) => setNewKeyName(e.target.value)}
+                  placeholder="e.g., Production API"
+                  className="input w-full"
+                />
+              </div>
+              <div>
+                <label htmlFor="api-key-scope" className="label-mono mb-1.5 block">
+                  Access level
+                </label>
+                <select
+                  id="api-key-scope"
+                  value={newKeyScope}
+                  onChange={(e) => setNewKeyScope(e.target.value)}
+                  className="input w-full"
+                >
+                  {SCOPE_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-1.5 text-[11px] leading-relaxed text-[var(--ink-3)]">
+                  {SCOPE_OPTIONS.find((option) => option.value === newKeyScope)?.description}
+                </p>
+              </div>
             </div>
-            <div className="mb-4">
-              <label htmlFor="api-key-scope" className="block text-sm font-medium mb-2">
-                Access level
-              </label>
-              <select
-                id="api-key-scope"
-                value={newKeyScope}
-                onChange={(e) => setNewKeyScope(e.target.value)}
-                className="input w-full"
-              >
-                {SCOPE_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-              <p className="text-xs text-[var(--text-muted)] mt-1">
-                {SCOPE_OPTIONS.find((option) => option.value === newKeyScope)?.description}
-              </p>
-            </div>
-            <div className="flex gap-3">
+            <div className="mt-6 flex gap-3">
               <Button
                 variant="ghost"
                 className="flex-1"
@@ -412,7 +413,7 @@ export default function ApiKeysPage() {
                 onClick={createKey}
                 disabled={creating || !newKeyName.trim()}
               >
-                {creating ? "Creating..." : "Create Key"}
+                {creating ? "Creating…" : "Create Key"}
               </Button>
             </div>
           </>
@@ -426,18 +427,18 @@ export default function ApiKeysPage() {
         title="Delete API Key"
         size="sm"
       >
-        <p className="text-sm text-[var(--text-muted)] mb-6">
-          Are you sure you want to delete{" "}
-          <span className="font-medium text-[var(--text-primary)]">{deleteTarget?.name}</span>? You
-          will have 5 seconds to undo this action.
+        <p className="text-[13px] leading-relaxed text-[var(--ink-2)]">
+          Delete{" "}
+          <span className="font-mono text-[12px] text-[var(--ink)]">{deleteTarget?.name}</span>? The
+          key stops authenticating immediately. You have 5 seconds to undo this action.
         </p>
-        <div className="flex gap-3">
+        <div className="mt-6 flex gap-3">
           <Button variant="ghost" className="flex-1" onClick={() => setDeleteTarget(null)}>
             Cancel
           </Button>
           <Button variant="danger" className="flex-1" onClick={handleDeleteConfirm}>
-            <Trash2 className="w-4 h-4 mr-1.5" />
-            Delete
+            <Trash2 className="mr-1.5 h-4 w-4" aria-hidden="true" />
+            Delete Key
           </Button>
         </div>
       </Modal>

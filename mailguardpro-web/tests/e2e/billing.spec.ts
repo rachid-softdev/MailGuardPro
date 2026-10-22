@@ -15,7 +15,7 @@ test.describe("Billing", () => {
     expect(pageContent).toMatch(/Business/);
 
     // Pricing amounts should be visible
-    expect(pageContent).toMatch(/\$0/);
+    expect(pageContent).toMatch(/€0/);
     expect(pageContent).toMatch(/€9/);
     expect(pageContent).toMatch(/€29/);
     expect(pageContent).toMatch(/€99/);

@@ -35,12 +35,12 @@ interface UpgradeBannerProps {
 
 export function UpgradeBanner({ message = "Upgrade to access this feature" }: UpgradeBannerProps) {
   return (
-    <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-center dark:border-amber-800 dark:bg-amber-950">
-      <p className="text-sm text-amber-800 dark:text-amber-200">{message}</p>
-      <a
-        href="/billing/upgrade"
-        className="mt-2 inline-block rounded-md bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700"
-      >
+    <div className="border border-[var(--line)] border-l-2 border-l-[var(--accent)] bg-[var(--surface-2)] p-4 text-center">
+      <p className="font-mono text-[10px] uppercase tracking-[0.08em] text-[var(--ink-3)]">
+        Plan limit
+      </p>
+      <p className="mt-1 text-[13px] text-[var(--ink-2)]">{message}</p>
+      <a href="/billing/upgrade" className="btn btn-primary btn-sm mt-3">
         Upgrade Plan
       </a>
     </div>
@@ -60,7 +60,7 @@ export function UsageMeter({ feature, showLabel = true }: UsageMeterProps) {
   if (limit === null) {
     // Unlimited
     return (
-      <div className="text-sm text-green-600 dark:text-green-400">
+      <div className="font-mono text-[10px] uppercase tracking-[0.05em] text-[var(--ink-3)]">
         {showLabel && <span>Unlimited</span>}
       </div>
     );
@@ -73,27 +73,39 @@ export function UsageMeter({ feature, showLabel = true }: UsageMeterProps) {
   return (
     <div className="space-y-1">
       {showLabel && (
-        <div className="flex justify-between text-sm">
-          <span className="text-gray-600 dark:text-gray-400">
+        <div className="flex justify-between font-mono text-[10px] uppercase tracking-[0.05em]">
+          <span className="text-[var(--ink-3)]">
             {used} / {limit}
           </span>
           <span
-            className={isCritical ? "text-red-600" : isWarning ? "text-amber-600" : "text-gray-500"}
+            className={
+              isCritical
+                ? "text-[var(--status-invalid-text)]"
+                : isWarning
+                  ? "text-[var(--status-risky-text)]"
+                  : "text-[var(--ink-2)]"
+            }
           >
             {percentage}%
           </span>
         </div>
       )}
-      <div className="h-2 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
+      <div className="h-1.5 w-full overflow-hidden bg-[var(--surface-3)]">
         <div
-          className={`h-full rounded-full transition-all ${
-            isCritical ? "bg-red-500" : isWarning ? "bg-amber-500" : "bg-blue-500"
+          className={`h-full transition-all ${
+            isCritical
+              ? "bg-[var(--status-invalid)]"
+              : isWarning
+                ? "bg-[var(--status-risky)]"
+                : "bg-[var(--accent)]"
           }`}
           style={{ width: `${percentage}%` }}
         />
       </div>
       {resetAt && (
-        <p className="text-xs text-gray-400">Resets {new Date(resetAt).toLocaleDateString()}</p>
+        <p className="font-mono text-[9px] uppercase tracking-[0.05em] text-[var(--ink-3)]">
+          Resets {new Date(resetAt).toLocaleDateString()}
+        </p>
       )}
     </div>
   );

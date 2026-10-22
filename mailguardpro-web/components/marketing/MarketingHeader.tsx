@@ -1,64 +1,107 @@
 "use client";
 
+import { Menu, X } from "lucide-react";
 import Link from "next/link";
-import { Tooltip } from "@/components/ui/Tooltip";
-import { Button } from "@/components/ui";
+import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
+import { Wordmark } from "@/components/brand/BrandMark";
+import { ThemeToggle } from "@/components/ui/ThemeToggle";
+
+const navItems = [
+  { href: "/#anatomy", label: "Product" },
+  { href: "/#workflow", label: "Workflow" },
+  { href: "/#api", label: "API" },
+  { href: "/pricing", label: "Pricing" },
+  { href: "/docs", label: "Docs" },
+] as const;
 
 export function MarketingHeader() {
+  const [open, setOpen] = useState(false);
+  const pathname = usePathname();
+
+  useEffect(() => {
+    setOpen(false);
+  }, [pathname]);
+
   return (
-    <header className="border-b border-[var(--border)]">
-      <div className="max-w-[var(--container-xl)] mx-auto px-6 py-4 flex items-center justify-between">
-        <Link href="/" className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-[var(--accent)] rounded-lg" />
-          <span className="font-display text-xl font-bold">MailGuard Pro</span>
+    <header className="sticky top-0 z-30 border-b border-[var(--line)] bg-[var(--bg)]">
+      <div className="mx-auto flex h-16 max-w-[1280px] items-center justify-between gap-6 px-5 lg:px-8">
+        <Link href="/" className="shrink-0" aria-label="MailGuard Pro home">
+          <Wordmark />
         </Link>
-        <nav className="hidden md:flex items-center gap-8">
-          <Link
-            href="/docs"
-            className="text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-          >
-            Docs
-          </Link>
-          <Link
-            href="/docs/api-reference"
-            className="text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-          >
-            API
-          </Link>
-          <Link
-            href="/pricing"
-            className="text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-          >
-            Pricing
-          </Link>
-          <Tooltip content="Press ? in the dashboard for keyboard shortcuts" side="bottom">
+
+        <nav className="hidden items-center gap-0.5 lg:flex" aria-label="Primary">
+          {navItems.map((item) => (
             <Link
-              href="/docs"
-              className="w-7 h-7 rounded-md border border-[var(--border)] flex items-center justify-center text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:border-[var(--text-muted)] transition-colors"
-              aria-label="Keyboard shortcuts"
+              key={item.href}
+              href={item.href}
+              className="px-3 py-2 text-[13px] font-medium text-[var(--ink-2)] transition-colors hover:text-[var(--ink)]"
             >
-              <svg
-                className="w-3.5 h-3.5"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2}
-              >
-                <rect x="2" y="4" width="20" height="16" rx="2" />
-                <path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M8 12h.01M12 12h.01M16 12h.01M6 16h.01M10 16h.01M14 16h.01M18 16h.01" />
-              </svg>
+              {item.label}
             </Link>
-          </Tooltip>
+          ))}
         </nav>
-        <div className="flex items-center gap-3">
-          <Button href="/login" variant="ghost" size="sm">
-            Log in
-          </Button>
-          <Button href="/login" variant="accent" size="sm">
+
+        <div className="flex items-center gap-1.5 sm:gap-3">
+          <ThemeToggle compact />
+          <Link
+            href="/login"
+            className="hidden px-2 py-2 text-[13px] font-medium text-[var(--ink-2)] transition-colors hover:text-[var(--ink)] sm:inline-flex"
+          >
+            Sign in
+          </Link>
+          <Link
+            href="/login"
+            className="hidden h-8 items-center rounded-[var(--radius-sm)] bg-[var(--ink)] px-3.5 text-[13px] font-medium text-[var(--bg)] transition-colors hover:bg-[var(--ink-2)] sm:inline-flex"
+          >
             Start free
-          </Button>
+          </Link>
+          <button
+            type="button"
+            onClick={() => setOpen((value) => !value)}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-[var(--radius-sm)] border border-[var(--line)] text-[var(--ink-2)] transition-colors hover:bg-[var(--surface-2)] hover:text-[var(--ink)] lg:hidden"
+            aria-expanded={open}
+            aria-controls="mobile-menu"
+            aria-label={open ? "Close menu" : "Open menu"}
+          >
+            {open ? <X size={18} /> : <Menu size={18} />}
+          </button>
         </div>
       </div>
+
+      {open && (
+        <div
+          id="mobile-menu"
+          className="animate-fade-slide-in border-t border-[var(--line)] bg-[var(--bg)] px-5 pb-5 pt-2 lg:hidden"
+        >
+          <nav className="flex flex-col" aria-label="Mobile">
+            {navItems.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={() => setOpen(false)}
+                className="border-b border-[var(--line)] py-3.5 text-[15px] font-medium text-[var(--ink)] transition-colors hover:text-[var(--accent-text)]"
+              >
+                {item.label}
+              </Link>
+            ))}
+          </nav>
+          <div className="mt-4 flex gap-2">
+            <Link
+              href="/login"
+              className="inline-flex h-10 flex-1 items-center justify-center rounded-[var(--radius-sm)] border border-[var(--line)] text-[13px] font-medium text-[var(--ink)] transition-colors hover:bg-[var(--surface-2)]"
+            >
+              Sign in
+            </Link>
+            <Link
+              href="/login"
+              className="inline-flex h-10 flex-1 items-center justify-center rounded-[var(--radius-sm)] bg-[var(--ink)] text-[13px] font-medium text-[var(--bg)] transition-colors hover:bg-[var(--ink-2)]"
+            >
+              Start free
+            </Link>
+          </div>
+        </div>
+      )}
     </header>
   );
 }

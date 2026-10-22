@@ -1,7 +1,7 @@
 "use client";
 
-import { forwardRef, memo, type ButtonHTMLAttributes, type ReactNode } from "react";
 import Link from "next/link";
+import { type ButtonHTMLAttributes, forwardRef, memo, type ReactNode } from "react";
 import { cn } from "@/lib/cn";
 
 export type ButtonVariant = "primary" | "accent" | "secondary" | "ghost" | "danger" | "link";
@@ -18,28 +18,27 @@ export interface ButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement
 }
 
 const base =
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap font-semibold font-sans leading-none select-none rounded-[var(--radius-md)] border border-transparent transition-all duration-200 ease-[var(--ease-out-quart)] cursor-pointer " +
-  "active:translate-y-px " +
-  "disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--border-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-base)]";
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap font-medium font-sans leading-none select-none rounded-[var(--radius-sm)] border border-transparent transition-colors duration-150 ease-[var(--ease-out-quart)] cursor-pointer " +
+  "disabled:opacity-40 disabled:cursor-not-allowed";
 
 const variantStyles: Record<ButtonVariant, string> = {
-  primary:
-    "bg-[var(--text-primary)] text-[var(--text-inverted)] hover:bg-[var(--text-secondary)] hover:-translate-y-0.5 hover:shadow-[var(--shadow-md)]",
+  primary: "bg-[var(--ink)] text-[var(--bg)] border-[var(--ink)] hover:bg-[var(--ink-2)]",
   accent:
-    "bg-[var(--accent)] text-[var(--text-inverted)] hover:bg-[var(--accent-dark)] hover:-translate-y-0.5 hover:shadow-[var(--shadow-lg)] shadow-[0_4px_12px_var(--accent-glow)]",
+    "bg-[var(--accent)] text-[var(--accent-ink)] border-[var(--accent)] hover:bg-[var(--accent-hover)]",
   secondary:
-    "bg-[var(--bg-surface)] text-[var(--text-primary)] border-[var(--border)] hover:border-[var(--border-strong)] hover:-translate-y-0.5 hover:shadow-[var(--shadow-sm)]",
+    "bg-[var(--surface)] text-[var(--ink)] border-[var(--line)] hover:border-[var(--line-strong)] hover:bg-[var(--surface-2)]",
   ghost:
-    "bg-transparent text-[var(--text-primary)] border-[var(--border)] hover:bg-[var(--bg-subtle)]",
-  danger: "bg-[var(--status-invalid)] text-white hover:opacity-90 hover:-translate-y-0.5",
-  link: "bg-transparent text-[var(--accent)] underline-offset-4 hover:underline border-0 p-0 h-auto",
+    "bg-transparent text-[var(--ink-2)] border-[var(--line)] hover:bg-[var(--surface-2)] hover:text-[var(--ink)]",
+  danger:
+    "bg-transparent text-[var(--status-invalid-text)] border-[var(--status-invalid)] hover:bg-[var(--status-invalid-bg)]",
+  link: "bg-transparent text-[var(--accent-text)] underline-offset-4 hover:underline border-0 p-0 h-auto",
 };
 
 const sizeStyles: Record<ButtonSize, string> = {
-  sm: "h-8 px-3 text-xs",
-  md: "h-10 px-4 text-sm",
-  lg: "h-12 px-6 text-base tracking-tight",
-  xl: "h-14 px-8 text-lg tracking-tight",
+  sm: "h-7 px-2.5 text-xs",
+  md: "h-9 px-3.5 text-sm",
+  lg: "h-11 px-5 text-base",
+  xl: "h-[52px] px-7 text-md",
 };
 
 function Spinner({ className }: { className?: string }) {

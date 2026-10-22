@@ -1,9 +1,10 @@
 "use client";
 
-import Link from "next/link";
+import { AlertCircle, ArrowRight } from "lucide-react";
 import { signOut } from "next-auth/react";
 import { useState } from "react";
-import { Button, Card, Input } from "@/components/ui";
+import { AuthShell } from "@/components/auth/AuthShell";
+import { Button, Input } from "@/components/ui";
 
 export function TwoFactorChallengeForm() {
   const [recoveryMode, setRecoveryMode] = useState(false);
@@ -33,11 +34,11 @@ export function TwoFactorChallengeForm() {
 
       const data = await res.json().catch(() => null);
       if (res.status === 429) {
-        setError("Too many attempts. Please wait a few minutes and try again.");
+        setError("Too many attempts. Wait a few minutes and try again.");
       } else if (res.status === 409 || data?.error === "No pending two-factor challenge") {
-        setError("This verification window has expired. Please sign in again.");
+        setError("This verification window has expired. Sign in again.");
       } else {
-        setError("Invalid code. Please try again.");
+        setError("Invalid code. Check the six digits and try again.");
       }
     } catch {
       setError("An unexpected error occurred. Please try again.");
@@ -47,106 +48,90 @@ export function TwoFactorChallengeForm() {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-[calc(100vh-73px)] px-4 py-10">
-      <div className="w-full max-w-md">
-        {/* Brand */}
-        <Link href="/" className="flex items-center justify-center gap-2.5 mb-8">
-          <span className="flex h-10 w-10 items-center justify-center rounded-[var(--radius-md)] bg-[var(--accent)] text-[var(--text-inverted)] shadow-[0_4px_12px_var(--accent-glow)]">
-            <svg
-              className="h-5 w-5"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={2}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-              <path d="m9 12 2 2 4-4" />
-            </svg>
-          </span>
-          <span className="font-display text-2xl font-bold tracking-tight">MailGuard Pro</span>
-        </Link>
-
-        <Card variant="default" padding="lg">
-          <div className="text-center mb-7">
-            <h1 className="font-display text-2xl font-bold tracking-tight">
-              Two-factor verification
-            </h1>
-            <p className="mt-1.5 text-sm text-[var(--text-secondary)]">
-              {recoveryMode
-                ? "Enter one of your saved recovery codes."
-                : "Enter the 6-digit code from your authenticator app."}
-            </p>
-          </div>
-
-          {/* Error */}
-          {error && (
-            <div className="mb-5 flex items-start gap-2 rounded-[var(--radius-md)] border border-[var(--status-invalid)] bg-[var(--status-invalid-bg)] px-4 py-3 text-sm text-[var(--status-invalid)]">
-              <svg
-                className="mt-0.5 h-4 w-4 shrink-0"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={2}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <circle cx="12" cy="12" r="10" />
-                <path d="M12 8v4M12 16h.01" />
-              </svg>
-              <span>{error}</span>
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit}>
-            <label className="mb-2 block text-sm font-medium" htmlFor="two-factor-code">
-              {recoveryMode ? "Recovery code" : "Authentication code"}
-            </label>
-            <Input
-              id="two-factor-code"
-              value={value}
-              onChange={(e) => setValue(e.target.value)}
-              placeholder={recoveryMode ? "XXXXX-XXXXX" : "123456"}
-              inputMode={recoveryMode ? "text" : "numeric"}
-              autoComplete={recoveryMode ? "off" : "one-time-code"}
-              autoFocus
-              className="mb-4 font-mono"
-              maxLength={recoveryMode ? 12 : 6}
-              required
-            />
-            <Button
-              type="submit"
-              disabled={loading || !value.trim()}
-              variant="accent"
-              className="w-full"
-            >
-              {loading ? "Verifying..." : "Verify"}
-            </Button>
-          </form>
-
-          <div className="mt-6 flex items-center justify-between text-sm">
-            <button
-              type="button"
-              onClick={() => {
-                setRecoveryMode(!recoveryMode);
-                setValue("");
-                setError(null);
-              }}
-              className="font-medium text-[var(--accent)] hover:underline"
-            >
-              {recoveryMode ? "Use authenticator code" : "Use a recovery code"}
-            </button>
-            <button
-              type="button"
-              onClick={() => void signOut({ callbackUrl: "/login" })}
-              className="font-medium text-[var(--text-muted)] hover:text-[var(--text-primary)]"
-            >
-              Sign out
-            </button>
-          </div>
-        </Card>
+    <AuthShell
+      eyebrow="Second check / access"
+      title="One more stamp."
+      description={
+        recoveryMode
+          ? "Enter one of the recovery codes you saved when you enabled two-factor authentication."
+          : "Enter the six-digit code from your authenticator app to finish signing in."
+      }
+      footer={
+        <div className="flex items-center justify-between gap-4 font-mono text-[10px] uppercase tracking-[0.04em]">
+          <button
+            type="button"
+            onClick={() => {
+              setRecoveryMode(!recoveryMode);
+              setValue("");
+              setError(null);
+            }}
+            className="text-[var(--accent-text)] hover:underline"
+          >
+            {recoveryMode ? "Use authenticator code" : "Use a recovery code"}
+          </button>
+          <button
+            type="button"
+            onClick={() => void signOut({ callbackUrl: "/login" })}
+            className="text-[var(--ink-3)] hover:text-[var(--ink)]"
+          >
+            Sign out
+          </button>
+        </div>
+      }
+    >
+      <div className="mb-5 flex items-center justify-between border-b border-[var(--line)] pb-4">
+        <div>
+          <p className="label-mono">Method</p>
+          <p className="mt-1 text-sm text-[var(--ink)]">
+            {recoveryMode ? "Recovery code" : "Authenticator app"}
+          </p>
+        </div>
+        <span className="stamp stamp-warn">Required</span>
       </div>
-    </div>
+
+      {error && (
+        <div
+          role="alert"
+          className="mb-5 flex items-start gap-2 border border-[var(--status-invalid)] bg-[var(--status-invalid-bg)] px-3 py-2.5 text-[12px] leading-relaxed text-[var(--status-invalid-text)]"
+        >
+          <AlertCircle size={14} className="mt-0.5 shrink-0" aria-hidden="true" />
+          <span>{error}</span>
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit} noValidate>
+        <label
+          htmlFor="two-factor-code"
+          className="mb-1.5 block font-mono text-[10px] uppercase tracking-[0.06em] text-[var(--ink-2)]"
+        >
+          {recoveryMode ? "Recovery code" : "Authentication code"}
+        </label>
+        <Input
+          id="two-factor-code"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          placeholder={recoveryMode ? "XXXXX-XXXXX" : "000000"}
+          inputMode={recoveryMode ? "text" : "numeric"}
+          autoComplete={recoveryMode ? "off" : "one-time-code"}
+          autoFocus
+          className="font-mono tracking-[0.18em]"
+          maxLength={recoveryMode ? 12 : 6}
+          required
+        />
+        <Button
+          type="submit"
+          disabled={loading || !value.trim()}
+          variant="accent"
+          className="mt-3 w-full"
+        >
+          {loading ? "Verifying…" : "Verify and continue"}
+          {!loading && <ArrowRight size={14} aria-hidden="true" />}
+        </Button>
+      </form>
+
+      <p className="mt-4 font-mono text-[9px] uppercase tracking-[0.04em] text-[var(--ink-3)]">
+        Codes rotate every 30 seconds
+      </p>
+    </AuthShell>
   );
 }

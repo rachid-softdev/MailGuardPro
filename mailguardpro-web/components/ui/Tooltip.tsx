@@ -76,7 +76,7 @@ export function Tooltip({ content, children, side = "top", shortcut }: TooltipPr
           role="tooltip"
           className={`absolute z-50 pointer-events-none ${sideClasses[side]}`}
         >
-          <span className="block px-2.5 py-1.5 text-xs leading-snug bg-[var(--text-primary)] text-[var(--text-inverted)] rounded-[var(--radius-md)] shadow-[var(--shadow-lg)] whitespace-nowrap max-w-[260px]">
+          <span className="block px-2.5 py-1.5 text-xs leading-snug bg-[var(--ink)] text-[var(--ink-inverse)] rounded-[var(--radius-md)] shadow-[var(--shadow-lg)] whitespace-nowrap max-w-[260px]">
             {content}
             {shortcut && (
               <kbd className="ml-1.5 px-1 py-[1px] text-[10px] font-mono rounded bg-white/20">

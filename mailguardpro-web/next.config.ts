@@ -123,6 +123,15 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  async redirects() {
+    return [
+      {
+        source: "/docs/api-reference",
+        destination: "/docs#single-validation",
+        permanent: false,
+      },
+    ];
+  },
   async headers() {
     return [
       {
