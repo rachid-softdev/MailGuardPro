@@ -60,9 +60,10 @@ test.describe("Dark Mode / Theme System", () => {
   // ===========================================================================
 
   test("should cycle from light to dark mode via localStorage", async ({ page }) => {
-    // Start with light mode
+    // Start with light mode. Only seed the value on the first load so the
+    // reload below observes the dark value set by the test.
     await page.addInitScript(() => {
-      localStorage.setItem("mg-theme", "light");
+      if (!localStorage.getItem("mg-theme")) localStorage.setItem("mg-theme", "light");
     });
     await page.goto("/");
     let themeAttr = await page.evaluate(() => document.documentElement.getAttribute("data-theme"));
@@ -194,7 +195,7 @@ test.describe("Dark Mode / Theme System", () => {
     if (currentUrl.includes("/login")) {
       // Not authenticated — the ThemeToggle is only in the sidebar
       // Verify the redirect happened and mark test as informative
-      await expect(page.locator("h1")).toContainText(/sign in|log in/i);
+      await expect(page.locator("h1")).toContainText(/back to the line|sign in|log in/i);
       test.info().annotations.push({
         type: "info",
         description:
@@ -275,7 +276,7 @@ test.describe("Dark Mode / Theme System", () => {
     await page.setViewportSize({ width: 375, height: 667 });
 
     await page.addInitScript(() => {
-      localStorage.setItem("mg-theme", "dark");
+      if (!localStorage.getItem("mg-theme")) localStorage.setItem("mg-theme", "dark");
     });
 
     await page.goto("/");

@@ -274,15 +274,12 @@ présents.
 - `MarketingHeader`, `MarketingFooter`, `BrandMark`, `ScoreGauge`, `lib/score.ts`
 - Page de référence interne : `/brand` (développement uniquement)
 
-**Encore sur les alias legacy :**
+**Migration terminée :**
 
-- Pricing, docs, login / 2FA / verify
-- Validator, bulk, history
-- Billing, settings, API keys, webhooks
-- Admin
+Toutes les surfaces sont passées sur le nouveau système : landing, dashboard, pricing, auth,
+docs, validator, bulk, history, billing, settings, API keys, webhooks, deliveries et admin.
 
-Les alias `--bg-base`, `--bg-surface`, `--text-primary`, `--border`, etc. existent uniquement
-pour ces pages. Ils disparaîtront à la fin de la migration.
+Les alias `--bg-base`, `--bg-surface`, `--text-primary`, `--border`, etc. ont été supprimés.
 
 **Fichiers de référence :**
 
