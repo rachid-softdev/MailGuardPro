@@ -22,8 +22,9 @@ export function useTheme() {
 
   // Init from localStorage on mount
   useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY) as Theme | null;
-    const initial = stored ?? "system";
+    const stored = localStorage.getItem(STORAGE_KEY);
+    const initial: Theme =
+      stored === "light" || stored === "dark" || stored === "system" ? stored : "system";
     setThemeState(initial);
     applyTheme(initial);
   }, []);

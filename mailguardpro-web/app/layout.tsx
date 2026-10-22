@@ -23,7 +23,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           dangerouslySetInnerHTML={{
             __html: `
               (function() {
-                var t = localStorage.getItem('mg-theme') || 'system';
+                var t = localStorage.getItem('mg-theme');
+                if (t !== 'light' && t !== 'dark' && t !== 'system') t = 'system';
                 var d = t === 'system'
                   ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
                   : t;
