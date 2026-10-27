@@ -26,6 +26,7 @@ import { signOutAction } from "./actions";
 
 interface SidebarProps {
   credits: number;
+  plan: string;
   onClose?: () => void;
 }
 
@@ -83,7 +84,7 @@ function UndoHints() {
   );
 }
 
-export function Sidebar({ credits, onClose }: SidebarProps) {
+export function Sidebar({ credits, plan, onClose }: SidebarProps) {
   const pathname = usePathname();
 
   return (
@@ -159,7 +160,7 @@ export function Sidebar({ credits, onClose }: SidebarProps) {
               </p>
             </Tooltip>
             <p className="mt-0.5 font-mono text-lg leading-none text-[var(--ink)]">
-              {credits < 0 ? "Unlimited" : credits.toLocaleString("en-US")}
+              {plan === "BUSINESS" ? "Unlimited" : credits.toLocaleString("en-US")}
             </p>
           </div>
           <Link

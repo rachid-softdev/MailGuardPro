@@ -626,7 +626,7 @@ export default function DashboardPage() {
   } = data;
 
   const avgBand = getScoreBand(stats.avgScore);
-  const creditsLabel = user.creditsRemaining < 0 ? "Unlimited" : formatCount(user.creditsRemaining);
+  const creditsLabel = user.plan === "BUSINESS" ? "Unlimited" : formatCount(user.creditsRemaining);
 
   return (
     <div className="p-4 sm:p-6 lg:p-8">
@@ -726,7 +726,7 @@ export default function DashboardPage() {
             <Readout
               label="Valid rate"
               value={`${stats.validRate}%`}
-              sub={stats.thisMonth > 0 ? "deliverable" : "no inspections"}
+              sub={stats.thisMonth > 0 ? "valid status" : "no inspections"}
             >
               <div className="mt-2.5 flex gap-px" aria-hidden="true">
                 {Array.from({ length: 10 }).map((_, index) => (

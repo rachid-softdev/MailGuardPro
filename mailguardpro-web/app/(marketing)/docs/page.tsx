@@ -135,8 +135,8 @@ export default function ApiDocsPage() {
                 <em className="font-normal italic text-[var(--accent-text)]">inspection</em> in.
               </h1>
               <p className="mt-4 max-w-[58ch] text-[15px] leading-relaxed text-[var(--ink-2)]">
-                One REST API for single addresses and batches. Send an email, receive a calibrated
-                score, the six checks, and a status you can act on.
+                One REST API for single addresses and batches. Send an email, receive a weighted
+                score, eleven checks, and a status you can act on.
               </p>
             </div>
 
@@ -155,7 +155,7 @@ export default function ApiDocsPage() {
             <div className="bg-[var(--surface)] px-4 py-3">
               <p className="label-mono">Base URL</p>
               <p className="mt-1 break-all font-mono text-[11px] text-[var(--ink)]">
-                https://api.mailguard.pro/v1
+                https://mailguard.pro/api/v1
               </p>
             </div>
             <div className="bg-[var(--surface)] px-4 py-3">
@@ -164,7 +164,7 @@ export default function ApiDocsPage() {
             </div>
             <div className="bg-[var(--surface)] px-4 py-3">
               <p className="label-mono">Payload</p>
-              <p className="mt-1 font-mono text-[11px] text-[var(--ink)]">JSON / multipart</p>
+              <p className="mt-1 font-mono text-[11px] text-[var(--ink)]">Query / multipart</p>
             </div>
           </div>
         </div>
@@ -205,7 +205,7 @@ export default function ApiDocsPage() {
                   index="01"
                   id="authentication"
                   title="Authentication"
-                  description="Every request carries an API key in the X-API-Key header. Keys are scoped and can be revoked from the dashboard without rotating your integration."
+                  description="Single-address requests accept an API key in the X-API-Key header or a signed-in dashboard session. Keys are scoped and can be revoked from the dashboard without rotating your integration. Bulk uploads and job endpoints currently use the dashboard session."
                 />
                 <p className="mt-4 text-sm leading-relaxed text-[var(--ink-2)]">
                   Generate a key under <strong className="text-[var(--ink)]">API Keys</strong>. Keep
@@ -215,10 +215,8 @@ export default function ApiDocsPage() {
                 <div className="mt-4">
                   <CodeBlock
                     label="Request / headers"
-                    code={`curl -X POST https://api.mailguard.pro/v1/validate \\
-  -H "X-API-Key: mg_live_xxxxxxxxxxxx" \\
-  -H "Content-Type: application/json" \\
-  -d '{"email": "user@example.com"}'`}
+                    code={`curl "https://mailguard.pro/api/v1/validate?email=user%40example.com" \\
+  -H "X-API-Key: mg_live_xxxxxxxxxxxx"`}
                   />
                 </div>
                 <div className="mt-4 border-l-2 border-[var(--status-risky)] bg-[var(--status-risky-bg)] px-4 py-3">
@@ -237,11 +235,11 @@ export default function ApiDocsPage() {
                   index="02"
                   id="single-validation"
                   title="Single validation"
-                  description="Inspect one address and receive a quality score from 0 to 100, the six checks, and a status. This is the same reading the dashboard displays."
+                  description="Inspect one address and receive a quality score from 0 to 100, all eleven checks, and a status. This is the same reading the dashboard displays."
                 />
-                <Endpoint method="POST" path="/v1/validate" />
+                <Endpoint method="GET" path="/api/v1/validate?email=user@example.com" />
 
-                <Subheading>Request body</Subheading>
+                <Subheading>Query parameters</Subheading>
                 <DataTable
                   columns={["Field", "Type", "Required", "Description"]}
                   rows={[
@@ -251,15 +249,7 @@ export default function ApiDocsPage() {
                         string
                       </span>,
                       "Yes",
-                      "The address to inspect.",
-                    ],
-                    [
-                      <InlineCode key="webhook">webhook_url</InlineCode>,
-                      <span className="font-mono" key="type">
-                        string
-                      </span>,
-                      "No",
-                      "Optional URL to receive the result asynchronously.",
+                      "The address to inspect. URL-encode the @ sign as %40.",
                     ],
                   ]}
                 />
@@ -268,28 +258,39 @@ export default function ApiDocsPage() {
                 <CodeBlock
                   label="200 / application/json"
                   code={`{
-  "email": "user@example.com",
-  "score": 95,
-  "status": "valid",
-  "checks": {
-    "syntax": true,
-    "domain": true,
-    "mx": true,
-    "disposable": false,
-    "typo": null
+  "success": true,
+  "data": {
+    "email": "user@example.com",
+    "score": 95,
+    "status": "valid",
+    "checks": {
+      "format": { "passed": true, "message": "Valid format" },
+      "mx": { "passed": true, "message": "MX records found" },
+      "smtp": { "passed": true, "message": "Mailbox accepted" },
+      "catchAll": { "passed": true, "message": "Not a catch-all" },
+      "disposable": { "passed": true, "message": "Not disposable" },
+      "generic": { "passed": true, "message": "Not a role address" },
+      "freeProvider": { "passed": true, "message": "Business domain" },
+      "dnsbl": { "passed": true, "message": "Not blocklisted" },
+      "spf": { "passed": true, "message": "SPF present" },
+      "dmarc": { "passed": true, "message": "DMARC present" },
+      "typo": { "passed": true, "message": "No typo detected" }
+    },
+    "domain": { "name": "example.com", "reputation": "neutral" },
+    "processingTimeMs": 184,
+    "algoVersion": 1
   },
-  "suggestions": [],
   "meta": {
-    "domain": "example.com",
-    "domain_age_days": 8432,
-    "is_catch_all": false
-  },
-  "request_id": "req_abc123def"
+    "requestId": "req_abc123def",
+    "processingTimeMs": 190,
+    "creditsUsed": 1,
+    "creditsRemaining": 4999
+  }
 }`}
                 />
                 <p className="mt-3 text-[11px] leading-relaxed text-[var(--ink-3)]">
-                  A score is always paired with status and evidence. Never gate a send on the number
-                  alone.
+                  A score is always paired with status and check evidence. SMTP probes can be
+                  inconclusive or blocked by a provider, so never gate a send on the number alone.
                 </p>
               </section>
 
@@ -298,49 +299,84 @@ export default function ApiDocsPage() {
                   index="03"
                   id="bulk-validation"
                   title="Bulk validation"
-                  description="Send a CSV manifest and let the line run asynchronously. Poll the job status or subscribe to a webhook for completion."
+                  description="Upload a CSV from the dashboard and let the line run asynchronously. Poll the job status or subscribe to a webhook for completion."
                 />
-                <Endpoint method="POST" path="/v1/validate/bulk" />
+                <Endpoint method="POST" path="/api/v1/validate/bulk" />
 
                 <Subheading>CSV format</Subheading>
                 <p className="mt-2 text-sm leading-relaxed text-[var(--ink-2)]">
                   The file must include a header row with an <InlineCode>email</InlineCode> column.
-                  Extra columns are preserved in the export but not inspected.
+                  Only that column is inspected; other columns are ignored and are not returned in
+                  exports. Maximum rows depend on your plan: Starter 10,000, Pro 100,000, Business
+                  100,000.
                 </p>
                 <div className="mt-3">
                   <CodeBlock
                     label="manifest.csv"
-                    code={`email,firstName,lastName,company
-alice@example.com,Alice,Smith,Acme
-bob@example.org,Bob,Jones,Beta
-charlie@example.net,Charlie,Lee,Gamma`}
+                    code={`email
+alice@example.com
+bob@example.org
+charlie@example.net`}
                   />
                 </div>
 
                 <Subheading>Upload</Subheading>
+                <p className="mt-2 text-sm leading-relaxed text-[var(--ink-2)]">
+                  Send a multipart form with a <InlineCode>file</InlineCode> field from an
+                  authenticated dashboard session.
+                </p>
                 <CodeBlock
                   label="Request / multipart"
-                  code={`curl -X POST https://api.mailguard.pro/v1/validate/bulk \\
-  -H "X-API-Key: mg_live_xxxxxxxxxxxx" \\
-  -F "file=@contacts.csv"`}
+                  code={`POST https://mailguard.pro/api/v1/validate/bulk
+Cookie: <dashboard session>
+Content-Type: multipart/form-data
+
+file=@contacts.csv`}
                 />
                 <Subheading>Accepted</Subheading>
                 <CodeBlock
-                  label="202 / application/json"
+                  label="200 / application/json"
                   code={`{
-  "job_id": "job_xyz789abc",
-  "status": "queued",
-  "total": 5000,
-  "created_at": "2026-06-14T10:30:00Z"
+  "success": true,
+  "requestId": "8f0c2a7e-...",
+  "data": {
+    "jobId": "job_xyz789abc",
+    "totalEmails": 5000
+  }
 }`}
                 />
 
                 <Subheading>Check a job</Subheading>
-                <Endpoint method="GET" path="/v1/validate/bulk/:job_id" />
+                <Endpoint method="GET" path="/api/v1/bulk/:jobId/status" />
+                <CodeBlock
+                  label="200 / application/json"
+                  code={`{
+  "success": true,
+  "data": {
+    "id": "job_xyz789abc",
+    "status": "PROCESSING",
+    "totalEmails": 5000,
+    "processed": 1200,
+    "filename": "contacts.csv",
+    "createdAt": "2026-10-26T10:30:00.000Z",
+    "startedAt": "2026-10-26T10:30:02.000Z",
+    "completedAt": null,
+    "percentage": 24
+  }
+}`}
+                />
                 <p className="mt-2 text-sm leading-relaxed text-[var(--ink-2)]">
-                  Poll until <InlineCode>status</InlineCode> is <InlineCode>completed</InlineCode>{" "}
-                  or <InlineCode>failed</InlineCode>. Results are paginated; exports are available
-                  from the job record.
+                  Poll until <InlineCode>status</InlineCode> is <InlineCode>COMPLETED</InlineCode>{" "}
+                  or <InlineCode>FAILED</InlineCode>.
+                </p>
+
+                <Subheading>Results and exports</Subheading>
+                <Endpoint method="GET" path="/api/v1/bulk/:jobId/results?page=1&limit=50" />
+                <Endpoint method="GET" path="/api/v1/bulk/:jobId/export?format=csv" />
+                <p className="mt-2 text-sm leading-relaxed text-[var(--ink-2)]">
+                  The export endpoint accepts <InlineCode>csv</InlineCode>,{" "}
+                  <InlineCode>json</InlineCode>, and <InlineCode>xlsx</InlineCode>. A PDF inspection
+                  report is generated in the dashboard from the job&apos;s data.
                 </p>
               </section>
 
@@ -349,31 +385,21 @@ charlie@example.net,Charlie,Lee,Gamma`}
                   index="04"
                   id="webhooks"
                   title="Webhooks"
-                  description="Receive a signed POST when a job finishes or a watched address changes. Deliveries are retried with exponential backoff."
+                  description="Receive a signed POST when a bulk job finishes or fails. Deliveries are retried with exponential backoff."
                 />
                 <Subheading>Events</Subheading>
                 <DataTable
                   columns={["Event", "Description", "Trigger"]}
                   rows={[
                     [
-                      <InlineCode key="e">validation.completed</InlineCode>,
-                      "Single validation result ready",
-                      "After a single inspection",
-                    ],
-                    [
-                      <InlineCode key="e">bulk.completed</InlineCode>,
+                      <InlineCode key="e">bulk_job_completed</InlineCode>,
                       "Bulk job finished",
                       "All rows processed",
                     ],
                     [
-                      <InlineCode key="e">bulk.failed</InlineCode>,
+                      <InlineCode key="e">bulk_job_failed</InlineCode>,
                       "Bulk job failed",
-                      "Unrecoverable batch error",
-                    ],
-                    [
-                      <InlineCode key="e">email.updated</InlineCode>,
-                      "Watched address changed",
-                      "Status change on a watched address",
+                      "Unrecoverable batch error after retries",
                     ],
                   ]}
                 />
@@ -382,13 +408,18 @@ charlie@example.net,Charlie,Lee,Gamma`}
                 <CodeBlock
                   label="application/json"
                   code={`{
-  "event": "validation.completed",
-  "timestamp": "2026-06-14T10:30:00Z",
-  "payload": {
-    "email": "user@example.com",
-    "score": 95,
-    "status": "valid",
-    "request_id": "req_abc123def"
+  "event": "bulk_job_completed",
+  "timestamp": "2026-10-26T10:30:00.000Z",
+  "data": {
+    "jobId": "job_xyz789abc",
+    "totalEmails": 5000,
+    "results": {
+      "valid": 4210,
+      "invalid": 640,
+      "risky": 150
+    },
+    "deliveredRate": 84,
+    "timestamp": "2026-10-26T10:30:00.000Z"
   }
 }`}
                 />
@@ -396,9 +427,12 @@ charlie@example.net,Charlie,Lee,Gamma`}
                 <div className="mt-4 border border-[var(--line)] bg-[var(--surface-2)] px-4 py-3">
                   <p className="label-mono text-[var(--ink-2)]">Delivery</p>
                   <p className="mt-1 text-sm leading-relaxed text-[var(--ink-2)]">
-                    Each delivery includes an <InlineCode>X-Webhook-Signature</InlineCode> header
-                    using HMAC-SHA256. Verify it before processing. Failed deliveries are retried up
-                    to five times.
+                    Each delivery includes an <InlineCode>X-MailGuard-Signature</InlineCode> header
+                    containing the HMAC-SHA256 hex digest of the raw JSON body, plus{" "}
+                    <InlineCode>X-MailGuard-Event</InlineCode> and{" "}
+                    <InlineCode>X-MailGuard-Timestamp</InlineCode>. Verify the signature before
+                    processing. Failed deliveries are retried up to three times, then stored for
+                    manual retry from the dashboard.
                   </p>
                 </div>
               </section>
@@ -408,23 +442,26 @@ charlie@example.net,Charlie,Lee,Gamma`}
                   index="05"
                   id="rate-limits"
                   title="Rate limits"
-                  description="Limits apply per API key and reset daily at midnight UTC. Burst limits protect the line during short spikes."
+                  description="Limits apply per authenticated user. Single validation is limited per minute; bulk jobs, history exports, and history deletes are limited per hour. Anonymous validation is limited to 10 requests per minute per IP."
                 />
                 <DataTable
-                  columns={["Plan", "Requests / day", "Burst", "Bulk uploads"]}
+                  columns={["Plan", "Single validation", "Bulk jobs", "Exports", "History deletes"]}
                   rows={[
-                    ["Free", "100", "10 / min", "—"],
-                    ["Starter", "5,000", "100 / min", "10 / month"],
-                    ["Pro", "50,000", "500 / min", "Unlimited"],
-                    ["Business", "Custom", "Custom", "Unlimited"],
+                    ["Free", "20 / min", "—", "5 / hour", "5 / hour"],
+                    ["Starter", "100 / min", "5 / hour", "20 / hour", "20 / hour"],
+                    ["Pro", "500 / min", "20 / hour", "100 / hour", "100 / hour"],
+                    ["Business", "100,000 / min", "5,000 / hour", "5,000 / hour", "5,000 / hour"],
                   ]}
                 />
+                <p className="mt-2 text-[11px] leading-relaxed text-[var(--ink-3)]">
+                  Business limits are high-volume caps rather than literally unlimited request
+                  rates. Monthly validation credits are separate from these request limits.
+                </p>
                 <div className="mt-4 border border-[var(--line)] bg-[var(--surface)] px-4 py-3">
-                  <p className="label-mono text-[var(--ink-2)]">Response headers</p>
+                  <p className="label-mono text-[var(--ink-2)]">429 responses</p>
                   <p className="mt-1 text-sm leading-relaxed text-[var(--ink-2)]">
-                    Every response includes <InlineCode>X-RateLimit-Limit</InlineCode>,{" "}
-                    <InlineCode>X-RateLimit-Remaining</InlineCode>, and{" "}
-                    <InlineCode>X-RateLimit-Reset</InlineCode> so your client can pace itself.
+                    Plan-based rate-limit responses include a <InlineCode>retryAfter</InlineCode>{" "}
+                    value in epoch milliseconds. Rate-limit headers are not currently emitted.
                   </p>
                 </div>
               </section>
@@ -432,7 +469,7 @@ charlie@example.net,Charlie,Lee,Gamma`}
 
             <div className="mt-12 flex flex-col gap-3 border-t border-[var(--line-strong)] pt-5 sm:flex-row sm:items-center sm:justify-between">
               <p className="font-mono text-[9px] uppercase tracking-[0.06em] text-[var(--ink-3)]">
-                MailGuard Pro / API v1 / updated June 2026
+                MailGuard Pro / API v1 / updated October 2026
               </p>
               <a
                 href="#authentication"

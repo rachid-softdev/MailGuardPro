@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { loggerApi } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
+import { buildEmailHashMap } from "@/services/emailResolver";
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ jobId: string }> }) {
   try {
@@ -53,11 +54,15 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ job
       where: { bulkJobId: jobId },
       select: {
         email: true,
+        emailHash: true,
         score: true,
         status: true,
         checksJson: true,
       },
     });
+    const originalEmails = buildEmailHashMap(job.emailsJson);
+    const resolveEmail = (r: { email: string; emailHash?: string }) =>
+      (r.emailHash ? originalEmails.get(r.emailHash) : undefined) ?? r.email;
 
     // Calculate stats
     const valid = results.filter((r: { status: string }) => r.status === "valid").length;
@@ -102,8 +107,8 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ job
         highRiskEmails: results
           .filter((r: { score: number }) => r.score < 40)
           .slice(0, 30)
-          .map((r: { email: string; score: number; checksJson: any }) => ({
-            email: r.email,
+          .map((r: { email: string; emailHash?: string; score: number; checksJson: any }) => ({
+            email: resolveEmail(r),
             score: r.score,
             issue: !(r.checksJson as any)?.smtp?.passed
               ? "SMTP failed"
@@ -113,11 +118,13 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ job
                   ? "Invalid format"
                   : "Low score",
           })),
-        results: results.map((r: { email: string; score: number; status: string }) => ({
-          email: r.email,
-          score: r.score,
-          status: r.status,
-        })),
+        results: results.map(
+          (r: { email: string; emailHash?: string; score: number; status: string }) => ({
+            email: resolveEmail(r),
+            score: r.score,
+            status: r.status,
+          }),
+        ),
       },
     });
   } catch (error) {

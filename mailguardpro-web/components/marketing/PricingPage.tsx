@@ -14,7 +14,7 @@ const plans = [
     credits: "100",
     description: "For a first look at the line",
     features: [
-      "100 validations / month",
+      "100 validations included",
       "Single email validation",
       "Quality score 0–100",
       "Syntax and domain checks",
@@ -51,7 +51,7 @@ const plans = [
       "Bulk CSV upload — 100k rows",
       "All export formats — XLSX, PDF",
       "Webhooks",
-      "Priority support",
+      "Email support",
       "Advanced filters",
     ],
     cta: "Start trial",
@@ -65,12 +65,12 @@ const plans = [
     credits: "Unlimited",
     description: "For high-volume operations",
     features: [
-      "Unlimited validations",
-      "Unlimited bulk size",
-      "Dedicated IP",
-      "SLA 99.9%",
-      "Phone support",
-      "Custom integrations",
+      "Unlimited validation credits",
+      "Bulk CSV upload — 100k rows",
+      "All export formats — XLSX, PDF",
+      "Webhooks and API access",
+      "Advanced filters",
+      "Higher rate limits",
     ],
     cta: "Start trial",
     popular: false,
@@ -93,7 +93,7 @@ const faqs: { question: string; answer: ReactNode }[] = [
   {
     question: "What happens if I exceed my validation limit?",
     answer:
-      "You receive a notification at 80% of your monthly limit. If you exceed it, validations pause until the next cycle or until you upgrade. Additional credits cost €0.002 per validation.",
+      "You receive a notification at 80% of your monthly limit. If you exceed it, validations pause until the next cycle or until you upgrade. Free accounts include a one-time 100-validation allowance; paid plans refill monthly.",
   },
   {
     question: "Is there a free trial?",
@@ -104,22 +104,21 @@ const faqs: { question: string; answer: ReactNode }[] = [
     question: "Can I pay by invoice?",
     answer: (
       <>
-        Annual Business customers can pay by invoice. We support wire transfers and SEPA payments
-        for annual commitments. Write to{" "}
+        Invoice billing is not available in the product today. Write to{" "}
         <a
           className="text-[var(--accent-text)] underline decoration-[var(--line-strong)] underline-offset-2"
-          href="mailto:support@mailguardpro.com?subject=Business%20annual%20invoice%20billing"
+          href="mailto:support@mailguardpro.com?subject=Annual%20billing%20question"
         >
           support@mailguardpro.com
         </a>{" "}
-        to set it up.
+        if you need to discuss annual billing.
       </>
     ),
   },
   {
     question: "What payment methods do you accept?",
     answer:
-      "All major credit and debit cards (Visa, Mastercard, American Express) and PayPal. Annual Business payments can also use wire transfer or SEPA direct debit.",
+      "Card payments are handled by Stripe Checkout. Available payment methods depend on your region and are shown at checkout.",
   },
 ];
 
@@ -245,7 +244,7 @@ export function PricingPage() {
                 Simple, honest rates.
               </h1>
               <p className="mt-4 max-w-[54ch] text-[15px] leading-relaxed text-[var(--ink-2)]">
-                Pick the volume you need. Every plan returns the same score, the same six checks,
+                Pick the volume you need. Every plan returns the same score, the same eleven checks,
                 and the same exportable evidence. No feature held hostage for a demo call.
               </p>
             </div>
@@ -346,7 +345,7 @@ export function PricingPage() {
           )}
 
           <p className="mt-3 font-mono text-[9px] uppercase tracking-[0.05em] text-[var(--ink-3)]">
-            Pay as you go / €0.002 per validation / prices exclude VAT
+            Prices in EUR, excluding VAT. Annual billing available on paid plans.
           </p>
         </div>
       </section>

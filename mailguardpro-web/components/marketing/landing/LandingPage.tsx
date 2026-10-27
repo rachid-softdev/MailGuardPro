@@ -9,8 +9,8 @@ import { cn } from "@/lib/cn";
 import { SCORE_BANDS } from "@/lib/score";
 
 const specs = [
-  { value: "0–100", label: "Calibrated verdict" },
-  { value: "6", label: "Checks per address" },
+  { value: "0–100", label: "Weighted verdict" },
+  { value: "11", label: "Checks per address" },
   { value: "100k", label: "Rows per batch" },
   { value: "4", label: "Export formats" },
 ];
@@ -21,20 +21,40 @@ const checks = [
     detail: "Local part, domain, and TLD are structurally valid.",
   },
   {
-    name: "Domain",
-    detail: "The domain resolves and is configured to receive mail.",
-  },
-  {
     name: "MX record",
-    detail: "A mail exchanger exists and responds to the handshake.",
+    detail: "The domain publishes a mail exchanger.",
   },
   {
-    name: "Mailbox",
-    detail: "The mailbox itself is confirmed, not just the domain.",
+    name: "SMTP mailbox",
+    detail: "The mail server responds to a recipient probe when the provider allows it.",
+  },
+  {
+    name: "Catch-all",
+    detail: "Domains that accept every address are flagged.",
   },
   {
     name: "Disposable",
-    detail: "Burner, temporary, and catch-all domains are flagged.",
+    detail: "Burner and temporary inbox providers are flagged.",
+  },
+  {
+    name: "Generic inbox",
+    detail: "Role addresses such as info@ and sales@ are surfaced.",
+  },
+  {
+    name: "Free provider",
+    detail: "Consumer mailbox providers are identified.",
+  },
+  {
+    name: "DNS blocklist",
+    detail: "The domain is checked against DNS blocklists.",
+  },
+  {
+    name: "SPF",
+    detail: "The domain publishes an SPF record.",
+  },
+  {
+    name: "DMARC",
+    detail: "The domain publishes a DMARC policy.",
   },
   {
     name: "Typo",
@@ -46,7 +66,7 @@ const steps = [
   {
     kicker: "Station 01",
     title: "Drop the manifest",
-    body: "Upload a CSV or paste the list. We map the email column, keep your extra fields, and show you exactly what will be inspected.",
+    body: "Upload a CSV and we read the email column, deduplicate the list, and show you exactly what will be inspected.",
   },
   {
     kicker: "Station 02",
@@ -65,7 +85,7 @@ const plans = [
     name: "Free",
     price: "€0",
     period: "forever",
-    inspections: "100 / month",
+    inspections: "100 included",
     bulk: "—",
     exports: "—",
     api: "—",
@@ -97,7 +117,7 @@ const plans = [
     exports: "CSV, JSON, XLSX, PDF",
     api: "Included",
     webhooks: "Included",
-    support: "Priority",
+    support: "Email",
     cta: "Start trial",
     href: "/pricing",
   },
@@ -105,12 +125,12 @@ const plans = [
     name: "Business",
     price: "€99",
     period: "per month",
-    inspections: "Unlimited",
-    bulk: "Unlimited",
+    inspections: "Unlimited credits",
+    bulk: "100k rows",
     exports: "All formats",
     api: "Included",
     webhooks: "Included",
-    support: "Phone + SLA",
+    support: "Email",
     cta: "Start trial",
     href: "/pricing",
   },
@@ -143,8 +163,9 @@ export function LandingPage() {
             </h1>
 
             <p className="mt-6 max-w-[47ch] text-[17px] leading-relaxed text-[var(--ink-2)]">
-              MailGuard inspects syntax, domain, mailbox, disposability, and typos — then returns
-              one calibrated score from 0 to 100. Clean the list before it costs you a send.
+              MailGuard inspects syntax, MX records, SMTP responses, catch-all domains,
+              disposability, role addresses, DNS blocklists, SPF, DMARC, and typos — then returns
+              one weighted score from 0 to 100. Clean the list before it costs you a send.
             </p>
 
             <div className="mt-8 flex flex-wrap gap-2.5">
@@ -159,7 +180,7 @@ export function LandingPage() {
             </div>
 
             <p className="mt-4 font-mono text-[10px] uppercase leading-relaxed tracking-[0.06em] text-[var(--ink-3)]">
-              Free plan · 100 inspections / month · no card
+              Free plan · 100 inspections included · no card
             </p>
           </div>
 
@@ -207,7 +228,7 @@ export function LandingPage() {
                 A score you can defend.
               </h2>
               <p className="mt-4 max-w-[46ch] text-[15px] leading-relaxed text-[var(--ink-2)]">
-                One number, six checks. The verdict is a weighted reading of the evidence — not a
+                One number, eleven checks. The verdict is a weighted reading of the evidence — not a
                 vibe. Every inspection can be opened, explained, and exported.
               </p>
 
@@ -232,7 +253,7 @@ export function LandingPage() {
 
             <div>
               <div className="flex items-end justify-between gap-4 border-b border-[var(--line-strong)] pb-2">
-                <p className="label-mono">The six checks</p>
+                <p className="label-mono">The eleven checks</p>
                 <p className="font-mono text-[9px] uppercase tracking-[0.06em] text-[var(--ink-3)]">
                   Verdict / evidence
                 </p>
@@ -264,8 +285,8 @@ export function LandingPage() {
                   className="mt-0.5 shrink-0 text-[var(--status-valid)]"
                   aria-hidden="true"
                 />
-                The sample passes all six. Real inspections return the same evidence, including the
-                check that failed and the reason.
+                The sample passes all eleven. Real inspections return the same evidence, including
+                the check that failed and the reason.
               </p>
             </div>
           </div>
@@ -308,7 +329,7 @@ export function LandingPage() {
                   <div>
                     <p className="font-mono text-xs text-[var(--ink)]">northwind-oct.csv</p>
                     <p className="mt-0.5 font-mono text-[10px] text-[var(--ink-3)]">
-                      24,810 rows · 6 checks each
+                      24,810 rows · 11 checks each
                     </p>
                   </div>
                   <p className="font-mono text-xs text-[var(--ink-2)]">100%</p>
@@ -393,15 +414,15 @@ export function LandingPage() {
                 One endpoint. A verdict in the response.
               </h2>
               <p className="mt-4 max-w-[44ch] text-[15px] leading-relaxed text-[var(--code-muted)]">
-                Send an address, receive the score, status, six checks, and any typo suggestion. No
-                proprietary client, no dashboard required.
+                Send an address, receive the score, status, eleven checks, and any typo suggestion.
+                No proprietary client, no dashboard required.
               </p>
 
               <dl className="mt-8 divide-y divide-[var(--code-line)] border-y border-[var(--code-line)]">
                 {[
                   ["score", "Integer from 0 to 100."],
                   ["status", "valid · risky · invalid · unknown."],
-                  ["checks", "The six signals behind the number."],
+                  ["checks", "The eleven signals behind the number."],
                   ["suggestion", "A corrected address when a typo is caught."],
                 ].map(([term, description]) => (
                   <div key={term} className="grid grid-cols-[90px_1fr] gap-3 py-3">
@@ -437,22 +458,11 @@ export function LandingPage() {
                   <p className="font-mono text-[9px] uppercase tracking-[0.07em] text-[var(--code-muted)]">
                     Request
                   </p>
-                  <p className="font-mono text-[9px] text-[var(--code-muted)]">application/json</p>
+                  <p className="font-mono text-[9px] text-[var(--code-muted)]">query params</p>
                 </div>
                 <pre className="overflow-x-auto p-4 font-mono text-[11px] leading-[1.75] text-[var(--code-ink)] sm:text-[12px]">
-                  <code>
-                    <span className="text-[var(--code-accent)]">POST</span> /v1/validate{"\n"}
-                    <span className="text-[var(--code-muted)]">Authorization:</span> Bearer
-                    mg_live_…{"\n"}
-                    <span className="text-[var(--code-muted)]">Content-Type:</span> application/json
-                    {"\n\n"}
-                    {"{"}
-                    {"\n  "}
-                    <span className="text-[var(--code-accent)]">&quot;email&quot;</span>:{" "}
-                    <span className="text-[var(--code-ink)]">&quot;mara@northwind.co&quot;</span>
-                    {"\n"}
-                    {"}"}
-                  </code>
+                  <code>{`GET /api/v1/validate?email=mara%40northwind.co
+X-API-Key: mg_live_…`}</code>
                 </pre>
               </div>
 
@@ -466,32 +476,29 @@ export function LandingPage() {
                   </span>
                 </div>
                 <pre className="overflow-x-auto p-4 font-mono text-[11px] leading-[1.75] text-[var(--code-ink)] sm:text-[12px]">
-                  <code>
-                    {"{"}
-                    {"\n  "}
-                    <span className="text-[var(--code-accent)]">&quot;score&quot;</span>: 94,
-                    {"\n  "}
-                    <span className="text-[var(--code-accent)]">&quot;status&quot;</span>:{" "}
-                    <span className="text-[var(--code-ink)]">&quot;valid&quot;</span>,{"\n  "}
-                    <span className="text-[var(--code-accent)]">&quot;checks&quot;</span>: {"{"}
-                    {"\n    "}
-                    <span className="text-[var(--code-muted)]">&quot;syntax&quot;</span>: true,
-                    {"\n    "}
-                    <span className="text-[var(--code-muted)]">&quot;domain&quot;</span>: true,
-                    {"\n    "}
-                    <span className="text-[var(--code-muted)]">&quot;mx&quot;</span>: true,
-                    {"\n    "}
-                    <span className="text-[var(--code-muted)]">&quot;mailbox&quot;</span>: true,
-                    {"\n    "}
-                    <span className="text-[var(--code-muted)]">&quot;disposable&quot;</span>: true,
-                    {"\n    "}
-                    <span className="text-[var(--code-muted)]">&quot;typo&quot;</span>: true
-                    {"\n  "}
-                    {"}"},{"\n  "}
-                    <span className="text-[var(--code-accent)]">&quot;suggestion&quot;</span>: null
-                    {"\n"}
-                    {"}"}
-                  </code>
+                  <code>{`{
+  "success": true,
+  "data": {
+    "email": "mara@northwind.co",
+    "score": 94,
+    "status": "valid",
+    "checks": {
+      "format": { "passed": true },
+      "mx": { "passed": true },
+      "smtp": { "passed": true },
+      "catchAll": { "passed": true },
+      "disposable": { "passed": true },
+      "generic": { "passed": true },
+      "freeProvider": { "passed": true },
+      "dnsbl": { "passed": true },
+      "spf": { "passed": true },
+      "dmarc": { "passed": true },
+      "typo": { "passed": true }
+    },
+    "processingTimeMs": 184
+  },
+  "meta": { "creditsUsed": 1, "creditsRemaining": 4986 }
+}`}</code>
                 </pre>
               </div>
               <p className="mt-2 text-right font-mono text-[9px] uppercase tracking-[0.07em] text-[var(--code-muted)]">

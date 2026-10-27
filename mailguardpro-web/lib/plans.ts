@@ -25,11 +25,12 @@ export const PLAN_INCLUDED_CREDITS: Record<Plan, number> = {
  * Maximum rows per bulk job.
  * 0 means the plan has no access to bulk validation (pricing card: FREE
  * only includes single email validation).
- * BUSINESS is effectively capped by the global processor limit (100k rows).
+ * BUSINESS is also bounded by the global processor limit (100k rows), so its
+ * plan cap is the same as PRO rather than an unenforceable "unlimited".
  */
 export const PLAN_BULK_MAX_ROWS: Record<Plan, number> = {
   FREE: 0,
   STARTER: 10000,
   PRO: 100000,
-  BUSINESS: 1000000,
+  BUSINESS: 100000,
 };

@@ -3,8 +3,9 @@
 
 import { stringify } from "csv-stringify/sync";
 import ExcelJS from "exceljs";
-import { sanitizeForCsv } from "@/lib/emailSanitizer";
+import { neutralizeCsvFormula } from "@/lib/emailSanitizer";
 import { prisma } from "@/lib/prisma";
+import { getBulkJobEmailMap } from "./emailResolver";
 import type { ValidationChecks } from "./types";
 import { ExportOptions } from "./types";
 
@@ -29,15 +30,19 @@ export async function exportResults(options: ExportOptions): Promise<Buffer> {
     where.score = { ...where.score, lte: filters.maxScore };
   }
 
-  const results = await prisma.validation.findMany({
-    where,
-    orderBy: { score: "desc" },
-  });
+  const [results, originalEmails] = await Promise.all([
+    prisma.validation.findMany({
+      where,
+      orderBy: { score: "desc" },
+    }),
+    getBulkJobEmailMap(jobId),
+  ]);
 
   // Formater les résultats pour l'export
   const formattedResults = results.map(
     (r: {
       email: string;
+      emailHash?: string;
       score: number;
       status: string;
       checksJson: unknown;
@@ -45,7 +50,9 @@ export async function exportResults(options: ExportOptions): Promise<Buffer> {
     }) => {
       const checks = r.checksJson as unknown as ValidationChecks | null;
       return {
-        email: r.email,
+        // Validation rows store masked addresses; the outbox restores the
+        // original list address for the export.
+        email: (r.emailHash ? originalEmails.get(r.emailHash) : undefined) ?? r.email,
         score: r.score,
         status: r.status,
         formatValid: checks?.format?.passed,
@@ -84,9 +91,10 @@ export async function exportResults(options: ExportOptions): Promise<Buffer> {
 
 function exportCSV(results: any[]): Buffer {
   const rows = results.map((r) => ({
-    email: sanitizeForCsv(r.email),
+    // csv-stringify handles quoting; only neutralize formula prefixes here.
+    email: neutralizeCsvFormula(r.email),
     score: r.score,
-    status: sanitizeForCsv(r.status),
+    status: neutralizeCsvFormula(r.status),
     format_valid: r.formatValid,
     mx_valid: r.mxValid,
     smtp_valid: r.smtpValid,
@@ -98,8 +106,8 @@ function exportCSV(results: any[]): Buffer {
     spf_valid: r.spfValid,
     dmarc_valid: r.dmarcValid,
     typo: r.typo,
-    suggestion: sanitizeForCsv(r.suggestion || ""),
-    domain_reputation: sanitizeForCsv(r.domainReputation || ""),
+    suggestion: neutralizeCsvFormula(r.suggestion || ""),
+    domain_reputation: neutralizeCsvFormula(r.domainReputation || ""),
     processing_time_ms: r.processingTimeMs,
   }));
 

@@ -16,7 +16,7 @@ describe("lib/plans — plan entitlements (single source of truth)", () => {
       FREE: 0,
       STARTER: 10000,
       PRO: 100000,
-      BUSINESS: 1000000,
+      BUSINESS: 100000,
     });
   });
 });

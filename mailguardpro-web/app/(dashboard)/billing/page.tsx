@@ -59,7 +59,7 @@ const PLANS: PlanDef[] = [
     credits: "100",
     description: "Perfect for testing",
     features: [
-      "100 validations/month",
+      "100 validations included",
       "Single email validation",
       "Basic score (0-100)",
       "Email format check",
@@ -92,7 +92,7 @@ const PLANS: PlanDef[] = [
       "Bulk CSV upload (100k rows)",
       "All export formats (XLSX, PDF)",
       "Webhooks",
-      "Priority support",
+      "Email support",
       "Advanced filters",
     ],
     icon: BarChart3,
@@ -104,13 +104,12 @@ const PLANS: PlanDef[] = [
     credits: "Unlimited",
     description: "For enterprises",
     features: [
-      "Unlimited validations",
-      "Unlimited bulk size",
-      "All features included",
-      "Dedicated IP",
-      "SLA 99.9%",
-      "Phone support",
-      "Custom integrations",
+      "Unlimited validation credits",
+      "Bulk CSV upload (100k rows)",
+      "All export formats (XLSX, PDF)",
+      "Webhooks and API access",
+      "Advanced filters",
+      "Higher rate limits",
     ],
     icon: ArrowUpCircle,
   },
@@ -412,7 +411,7 @@ export default function BillingPage() {
               <div className="bg-[var(--surface)] px-3 py-2.5">
                 <dt className="label-mono text-[8px]">Credits remaining</dt>
                 <dd className="mt-1 font-mono text-[15px] font-semibold text-[var(--ink)] tabular">
-                  {user.credits.toLocaleString()}
+                  {user.plan === "BUSINESS" ? "Unlimited" : user.credits.toLocaleString()}
                 </dd>
               </div>
               <div className="bg-[var(--surface)] px-3 py-2.5">

@@ -86,7 +86,7 @@ export function AuthShell({ eyebrow, title, description, children, footer }: Aut
           </div>
 
           <p className="font-mono text-[9px] uppercase tracking-[0.06em] text-[var(--ink-3)]">
-            One score. Six checks. No guesswork.
+            One score. Eleven checks. No guesswork.
           </p>
         </aside>
 

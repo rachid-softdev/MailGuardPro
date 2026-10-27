@@ -7,6 +7,7 @@ import { sanitizeForHtml } from "@/lib/emailSanitizer";
 import { logger } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
 import { queueRedis } from "@/lib/redis";
+import { getBulkJobEmailMap } from "@/services/emailResolver";
 
 // BullMQ queue singleton (reused across all uploads)
 const bulkQueue = new Queue("bulk-validation", {
@@ -42,6 +43,8 @@ export interface BulkUploadOptions {
   requestId?: string;
   /** Plan-based row cap (PLAN_BULK_MAX_ROWS) enforced together with the global limit. */
   maxRows?: number;
+  /** BUSINESS: skip the credit gate and do not decrement the legacy balance. */
+  unlimited?: boolean;
 }
 
 export async function processBulkUpload(
@@ -164,8 +167,12 @@ export async function processBulkUpload(
     };
   }
 
-  // Calculate credit cost
-  const creditCost = emails.length;
+  // Calculate credit cost. BUSINESS is unlimited: it must not be blocked by
+  // a zero/negative legacy balance, and we do not decrement for tracking
+  // (Validation rows remain the source of usage).
+  const requiredCredits = emails.length;
+  const unlimited = options?.unlimited === true;
+  const creditsCharged = unlimited ? 0 : requiredCredits;
 
   const jobId = uuidv4();
   let dbCommitted = false;
@@ -173,11 +180,13 @@ export async function processBulkUpload(
   try {
     // 1. DB transaction first — credit deduction + job creation
     await prisma.$transaction(async (tx: any) => {
-      const deduction = await tx.user.updateMany({
-        where: { id: userId, credits: { gte: creditCost } },
-        data: { credits: { decrement: creditCost } },
-      });
-      if (deduction.count === 0) throw new Error("Insufficient credits");
+      if (!unlimited) {
+        const deduction = await tx.user.updateMany({
+          where: { id: userId, credits: { gte: requiredCredits } },
+          data: { credits: { decrement: requiredCredits } },
+        });
+        if (deduction.count === 0) throw new Error("Insufficient credits");
+      }
       await tx.bulkJob.create({
         data: {
           id: jobId,
@@ -212,17 +221,20 @@ export async function processBulkUpload(
     if (error instanceof Error && error.message === "Insufficient credits") {
       return {
         success: false,
-        errors: [`Insufficient credits. Required: ${creditCost}`],
+        errors: [`Insufficient credits. Required: ${requiredCredits}`],
       };
     }
 
-    // Compensating rollback: if DB committed but Redis/Queue failed, refund credits and delete job
+    // Compensating rollback: if DB committed but Redis/Queue failed, refund
+    // charged credits and delete job. BUSINESS was never charged.
     if (dbCommitted) {
-      await prisma.user
-        .update({ where: { id: userId }, data: { credits: { increment: creditCost } } })
-        .catch((e: unknown) =>
-          logger.error({ err: e, context: "refund" }, "Rollback refund failed"),
-        );
+      if (!unlimited) {
+        await prisma.user
+          .update({ where: { id: userId }, data: { credits: { increment: creditsCharged } } })
+          .catch((e: unknown) =>
+            logger.error({ err: e, context: "refund" }, "Rollback refund failed"),
+          );
+      }
       await prisma.bulkJob
         .delete({ where: { id: jobId } })
         .catch((e: unknown) =>
@@ -318,7 +330,7 @@ export async function getBulkJobResults(
     where.score = { ...where.score, lte: filters.maxScore };
   }
 
-  const [results, total] = await Promise.all([
+  const [results, total, originalEmails] = await Promise.all([
     prisma.validation.findMany({
       where,
       skip,
@@ -326,10 +338,14 @@ export async function getBulkJobResults(
       orderBy: { createdAt: "desc" },
     }),
     prisma.validation.count({ where }),
+    getBulkJobEmailMap(jobId),
   ]);
 
   return {
-    results,
+    results: results.map((result) => ({
+      ...result,
+      email: (result.emailHash ? originalEmails.get(result.emailHash) : undefined) ?? result.email,
+    })),
     total,
     page,
     limit,
@@ -442,9 +458,13 @@ export async function getBulkJobResultsCursor(
 
   const hasNextPage = results.length > limit;
   const items = hasNextPage ? results.slice(0, -1) : results;
+  const originalEmails = await getBulkJobEmailMap(jobId);
 
   return {
-    results: items,
+    results: items.map((result) => ({
+      ...result,
+      email: (result.emailHash ? originalEmails.get(result.emailHash) : undefined) ?? result.email,
+    })),
     nextCursor: hasNextPage ? items[items.length - 1]?.id : undefined,
     hasNextPage,
   };

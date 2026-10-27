@@ -14,6 +14,7 @@ export const PLAN_LIMITS = {
     webhooks: { requests: 5, window: 3600 }, // 5 webhooks/hour
     billing: { requests: 3, window: 60 }, // 3 req/min
     export: { requests: 5, window: 3600 },
+    delete: { requests: 5, window: 3600 },
   },
   STARTER: {
     validate: { requests: 100, window: 60 }, // 100 req/min
@@ -22,6 +23,7 @@ export const PLAN_LIMITS = {
     webhooks: { requests: 10, window: 3600 }, // 10 webhooks/hour
     billing: { requests: 10, window: 60 }, // 10 req/min
     export: { requests: 20, window: 3600 },
+    delete: { requests: 20, window: 3600 },
   },
   PRO: {
     validate: { requests: 500, window: 60 }, // 500 req/min
@@ -30,6 +32,7 @@ export const PLAN_LIMITS = {
     webhooks: { requests: 20, window: 3600 }, // 20 webhooks/hour
     billing: { requests: 30, window: 60 }, // 30 req/min
     export: { requests: 100, window: 3600 },
+    delete: { requests: 100, window: 3600 },
   },
   BUSINESS: {
     validate: { requests: 999999, window: 60 }, // Unlimited
@@ -38,12 +41,20 @@ export const PLAN_LIMITS = {
     webhooks: { requests: 999999, window: 3600 }, // Unlimited
     billing: { requests: 999999, window: 60 }, // Unlimited
     export: { requests: 999999, window: 3600 },
+    delete: { requests: 999999, window: 3600 },
   },
 } as const;
 
 // Rate-limitable actions. Bulk row caps are plan entitlements, not rate
 // limits — see PLAN_BULK_MAX_ROWS in lib/plans.ts.
-export type RateLimitAction = "validate" | "bulk" | "apiKeys" | "webhooks" | "billing" | "export";
+export type RateLimitAction =
+  | "validate"
+  | "bulk"
+  | "apiKeys"
+  | "webhooks"
+  | "billing"
+  | "export"
+  | "delete";
 
 // Helper pour récupérer les limites selon le plan
 export function getPlanLimits(plan: Plan) {

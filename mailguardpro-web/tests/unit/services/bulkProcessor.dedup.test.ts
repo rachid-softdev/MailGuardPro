@@ -111,6 +111,21 @@ describe("bulkProcessor.processBulkUpload — dedup, credits, edge cases", () =>
     );
   });
 
+  // ── P0: BUSINESS unlimited bypass ──────────────────────────────────────
+  it("should not read or decrement credits in unlimited mode", async () => {
+    mockUserUpdateMany.mockResolvedValue({ count: 0 });
+
+    const csv = "email\na@x.com\nb@x.com";
+    const file = new File([csv], "test.csv", { type: "text/csv" });
+
+    const result = await processBulkUpload(file, "user-biz", undefined, { unlimited: true });
+
+    expect(result.success).toBe(true);
+    expect(result.totalEmails).toBe(2);
+    expect(mockUserUpdateMany).not.toHaveBeenCalled();
+    expect(mockBulkJobCreate).toHaveBeenCalled();
+  });
+
   // ── P0: insufficient credits ───────────────────────────────────────────
   it("should return an insufficient-credits error when user lacks credits", async () => {
     mockUserUpdateMany.mockResolvedValue({ count: 0 });

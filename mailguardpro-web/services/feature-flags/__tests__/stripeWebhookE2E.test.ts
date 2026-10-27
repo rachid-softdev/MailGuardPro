@@ -133,7 +133,13 @@ function createMockPrisma() {
       create: vi.fn(),
       upsert: vi.fn(),
     },
-    user: { findFirst: vi.fn(), findUnique: vi.fn(), update: vi.fn(), findMany: vi.fn() },
+    user: {
+      findFirst: vi.fn(),
+      findUnique: vi.fn(),
+      update: vi.fn(),
+      updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+      findMany: vi.fn(),
+    },
     stripeEvent: { create: vi.fn().mockResolvedValue({}) },
     $transaction: vi.fn((fn: any) => fn(mockPrisma)),
     $queryRaw: vi.fn().mockResolvedValue([

@@ -108,7 +108,7 @@ export default function ValidatePage() {
         <PageHeader
           eyebrow="Inspection / single address"
           title="Inspect an address."
-          description="Send one address through six checks. You get a calibrated score, the evidence behind it, and a status you can act on."
+          description="Send one address through eleven checks. You get a weighted score, the evidence behind it, and a status you can act on."
           actions={
             <Link href="/history" className="btn btn-ghost btn-sm">
               Open history
@@ -122,7 +122,7 @@ export default function ValidatePage() {
               </span>
               <span className="h-3 w-px bg-[var(--line)]" aria-hidden="true" />
               <span className="font-mono text-[9px] uppercase tracking-[0.05em] text-[var(--ink-3)]">
-                Six checks
+                Eleven checks
               </span>
               <span className="h-3 w-px bg-[var(--line)]" aria-hidden="true" />
               <span className="font-mono text-[9px] uppercase tracking-[0.05em] text-[var(--ink-3)]">
@@ -361,8 +361,9 @@ export default function ValidatePage() {
                   No address on the belt.
                 </h2>
                 <p className="mt-2 max-w-[42ch] text-[13px] leading-relaxed text-[var(--ink-2)]">
-                  Type an address above. The line checks syntax, domain, MX records, disposable
-                  inboxes, and common typos, then returns one calibrated score.
+                  Type an address above. The line checks syntax, MX and SMTP records, catch-all
+                  domains, disposability, role addresses, DNS blocklists, SPF, DMARC, and common
+                  typos, then returns one weighted score.
                 </p>
                 <Link href="/bulk" className="btn btn-ghost btn-sm mt-4">
                   Send a batch instead
@@ -371,7 +372,7 @@ export default function ValidatePage() {
               </div>
 
               <div className="border-t border-[var(--line)] pt-5 md:border-l md:border-t-0 md:pl-8 md:pt-0">
-                <p className="label-mono">Score calibration</p>
+                <p className="label-mono">Score bands</p>
                 <div className="mt-3 space-y-2.5">
                   {SCORE_BANDS.map((band) => (
                     <div key={band.short} className="flex items-center gap-3">

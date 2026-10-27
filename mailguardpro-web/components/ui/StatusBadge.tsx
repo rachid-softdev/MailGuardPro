@@ -13,14 +13,14 @@ const statusConfig = {
     color: "var(--status-valid-text)",
     bg: "var(--status-valid-bg)",
     dotColor: "var(--status-valid)",
-    help: "Email exists and is deliverable. High confidence this address is safe to send to.",
+    help: "The format, MX, and SMTP checks passed. Treat this as high confidence, not a guarantee.",
   },
   invalid: {
     label: "INVALID",
     color: "var(--status-invalid-text)",
     bg: "var(--status-invalid-bg)",
     dotColor: "var(--status-invalid)",
-    help: "Email does not exist or has been rejected by the mail server. Remove this address from your list.",
+    help: "A hard check failed — format, disposable domain, or SMTP rejection. Remove this address from your list.",
   },
   risky: {
     label: "RISKY",

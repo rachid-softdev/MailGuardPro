@@ -9,6 +9,7 @@
 // =============================================================================
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { hashEmail } from "@/lib/emailHash";
 
 // =============================================================================
 // MOCKS (using vi.hoisted pattern from existing tests)
@@ -18,6 +19,7 @@ const { mockPrisma } = vi.hoisted(() => ({
   mockPrisma: {
     bulkJob: {
       findFirst: vi.fn(),
+      findUnique: vi.fn(),
     },
     validation: {
       findMany: vi.fn(),
@@ -96,6 +98,7 @@ const mockJobData = {
 describe("CRIT-1: Bulk results endpoint (getBulkJobResults)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(mockPrisma.bulkJob.findUnique).mockResolvedValue({ emailsJson: [] });
   });
 
   // ==========================================================================
@@ -244,6 +247,35 @@ describe("CRIT-1: Bulk results endpoint (getBulkJobResults)", () => {
     expect(mockPrisma.validation.findMany).toHaveBeenCalledWith(
       expect.objectContaining({ skip: 10, take: 10 }),
     );
+  });
+
+  it("should resolve bulk rows to their original addresses from the outbox", async () => {
+    vi.mocked(mockPrisma.bulkJob.findFirst).mockResolvedValue(mockJobData);
+    vi.mocked(mockPrisma.bulkJob.findUnique).mockResolvedValue({
+      emailsJson: [{ email: "alice@example.com" }],
+    });
+    vi.mocked(mockPrisma.validation.findMany).mockResolvedValue([
+      {
+        id: "val-1",
+        email: "a***@example.com",
+        emailHash: hashEmail("alice@example.com"),
+        score: 95,
+        status: "valid",
+      },
+      {
+        id: "val-2",
+        email: "m***@example.com",
+        emailHash: hashEmail("missing@example.com"),
+        score: 40,
+        status: "risky",
+      },
+    ]);
+    vi.mocked(mockPrisma.validation.count).mockResolvedValue(2);
+
+    const result = await getBulkJobResults(JOB_ID, OWNER_ID, 1, 50);
+
+    expect(result.results[0].email).toBe("alice@example.com");
+    expect(result.results[1].email).toBe("m***@example.com");
   });
 
   // ==========================================================================

@@ -101,6 +101,21 @@ describe("POST /api/v1/validate/bulk — route envelope", () => {
     expect(mockProcess).not.toHaveBeenCalled();
   });
 
+  // P1: BUSINESS uploads bypass the legacy credit balance
+  it("should pass unlimited mode to the processor for BUSINESS", async () => {
+    mockUserFindUnique.mockResolvedValueOnce({ credits: 0, plan: "BUSINESS" });
+
+    const res = await POST(csvRequest("email\na@b.com\nc@d.com"));
+
+    expect(res.status).toBe(200);
+    expect(mockProcess).toHaveBeenCalledWith(
+      expect.any(File),
+      "user-1",
+      undefined,
+      expect.objectContaining({ maxRows: 100000, unlimited: true }),
+    );
+  });
+
   // P1: 500 when processor throws
   it("should return 500 when processBulkUpload throws", async () => {
     mockProcess.mockRejectedValue(new Error("kaboom"));

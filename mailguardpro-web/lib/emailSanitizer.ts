@@ -20,16 +20,24 @@ export function sanitizeForHtml(raw: string): string {
     .replace(/'/g, "&#x27;");
 }
 
-export function sanitizeForCsv(value: string): string {
+/**
+ * Prefix values that spreadsheet software would treat as a formula. This is
+ * safe to use with an encoder that handles CSV quoting itself (csv-stringify).
+ */
+export function neutralizeCsvFormula(value: string): string {
   // CSV injection vectors: =, +, -, @
-  if (/^[=+\-@\t\r\n]/.test(value)) {
-    return `'${value}`;
+  return /^[=+\-@\t\r\n]/.test(value) ? `'${value}` : value;
+}
+
+export function sanitizeForCsv(value: string): string {
+  // Apply formula neutralization first, then quote the complete value. Doing
+  // the checks separately would let a formula-leading value containing a comma
+  // or newline break out of its CSV cell.
+  const sanitized = neutralizeCsvFormula(value);
+  if (/[,"\n\r]/.test(sanitized)) {
+    return `"${sanitized.replace(/"/g, '""')}"`;
   }
-  // If value contains comma, newline, or quote, wrap in quotes
-  if (/[,"\n\r]/.test(value)) {
-    return `"${value.replace(/"/g, '""')}"`;
-  }
-  return value;
+  return sanitized;
 }
 
 export function sanitizeForAttr(value: string): string {
