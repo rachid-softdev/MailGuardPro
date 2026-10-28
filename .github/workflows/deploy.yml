@@ -48,11 +48,33 @@ jobs:
 
       - name: Build application
         run: pnpm --filter @mailguardpro/web run build
+        # Module-level env validation requires these at build time
+        # (see lib/stripe.ts, lib/resend.ts, lib/redis.ts, lib/auth.ts,
+        #  lib/emailHash.ts, lib/ipHash.ts). Keep in sync with .env.example.
         env:
           DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
           REDIS_URL: ${{ secrets.STAGING_REDIS_URL }}
           AUTH_SECRET: ${{ secrets.STAGING_AUTH_SECRET }}
           AUTH_URL: https://staging.mailguard.pro
+          NEXT_PUBLIC_APP_URL: https://staging.mailguard.pro
+          RESEND_API_KEY: ${{ secrets.STAGING_RESEND_API_KEY }}
+          EMAIL_FROM: ${{ secrets.STAGING_EMAIL_FROM }}
+          EMAIL_HASH_SALT: ${{ secrets.STAGING_EMAIL_HASH_SALT }}
+          IP_HASH_KEY: ${{ secrets.STAGING_IP_HASH_KEY }}
+          API_KEY_PEPPER: ${{ secrets.STAGING_API_KEY_PEPPER }}
+          TOKEN_ENCRYPTION_KEY: ${{ secrets.STAGING_TOKEN_ENCRYPTION_KEY }}
+          CRON_SECRET: ${{ secrets.STAGING_CRON_SECRET }}
+          STRIPE_SECRET_KEY: ${{ secrets.STAGING_STRIPE_SECRET_KEY }}
+          STRIPE_WEBHOOK_SECRET: ${{ secrets.STAGING_STRIPE_WEBHOOK_SECRET }}
+          NEXT_PUBLIC_STRIPE_PUBLIC_KEY: ${{ secrets.STAGING_STRIPE_PUBLIC_KEY }}
+          STRIPE_STARTER_PRICE_ID: ${{ secrets.STAGING_STRIPE_STARTER_PRICE_ID }}
+          STRIPE_PRO_PRICE_ID: ${{ secrets.STAGING_STRIPE_PRO_PRICE_ID }}
+          STRIPE_BUSINESS_PRICE_ID: ${{ secrets.STAGING_STRIPE_BUSINESS_PRICE_ID }}
+          STRIPE_STARTER_ANNUAL_PRICE_ID: ${{ secrets.STAGING_STRIPE_STARTER_ANNUAL_PRICE_ID }}
+          STRIPE_PRO_ANNUAL_PRICE_ID: ${{ secrets.STAGING_STRIPE_PRO_ANNUAL_PRICE_ID }}
+          STRIPE_BUSINESS_ANNUAL_PRICE_ID: ${{ secrets.STAGING_STRIPE_BUSINESS_ANNUAL_PRICE_ID }}
+          AUTH_GOOGLE_ID: ${{ secrets.STAGING_AUTH_GOOGLE_ID }}
+          AUTH_GOOGLE_SECRET: ${{ secrets.STAGING_AUTH_GOOGLE_SECRET }}
 
       - name: Deploy to staging server
         uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
@@ -101,11 +123,33 @@ jobs:
 
       - name: Build application
         run: pnpm --filter @mailguardpro/web run build
+        # Module-level env validation requires these at build time
+        # (see lib/stripe.ts, lib/resend.ts, lib/redis.ts, lib/auth.ts,
+        #  lib/emailHash.ts, lib/ipHash.ts). Keep in sync with .env.example.
         env:
           DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
           REDIS_URL: ${{ secrets.PRODUCTION_REDIS_URL }}
           AUTH_SECRET: ${{ secrets.PRODUCTION_AUTH_SECRET }}
           AUTH_URL: https://mailguard.pro
+          NEXT_PUBLIC_APP_URL: https://mailguard.pro
+          RESEND_API_KEY: ${{ secrets.PRODUCTION_RESEND_API_KEY }}
+          EMAIL_FROM: ${{ secrets.PRODUCTION_EMAIL_FROM }}
+          EMAIL_HASH_SALT: ${{ secrets.PRODUCTION_EMAIL_HASH_SALT }}
+          IP_HASH_KEY: ${{ secrets.PRODUCTION_IP_HASH_KEY }}
+          API_KEY_PEPPER: ${{ secrets.PRODUCTION_API_KEY_PEPPER }}
+          TOKEN_ENCRYPTION_KEY: ${{ secrets.PRODUCTION_TOKEN_ENCRYPTION_KEY }}
+          CRON_SECRET: ${{ secrets.PRODUCTION_CRON_SECRET }}
+          STRIPE_SECRET_KEY: ${{ secrets.PRODUCTION_STRIPE_SECRET_KEY }}
+          STRIPE_WEBHOOK_SECRET: ${{ secrets.PRODUCTION_STRIPE_WEBHOOK_SECRET }}
+          NEXT_PUBLIC_STRIPE_PUBLIC_KEY: ${{ secrets.PRODUCTION_STRIPE_PUBLIC_KEY }}
+          STRIPE_STARTER_PRICE_ID: ${{ secrets.PRODUCTION_STRIPE_STARTER_PRICE_ID }}
+          STRIPE_PRO_PRICE_ID: ${{ secrets.PRODUCTION_STRIPE_PRO_PRICE_ID }}
+          STRIPE_BUSINESS_PRICE_ID: ${{ secrets.PRODUCTION_STRIPE_BUSINESS_PRICE_ID }}
+          STRIPE_STARTER_ANNUAL_PRICE_ID: ${{ secrets.PRODUCTION_STRIPE_STARTER_ANNUAL_PRICE_ID }}
+          STRIPE_PRO_ANNUAL_PRICE_ID: ${{ secrets.PRODUCTION_STRIPE_PRO_ANNUAL_PRICE_ID }}
+          STRIPE_BUSINESS_ANNUAL_PRICE_ID: ${{ secrets.PRODUCTION_STRIPE_BUSINESS_ANNUAL_PRICE_ID }}
+          AUTH_GOOGLE_ID: ${{ secrets.PRODUCTION_AUTH_GOOGLE_ID }}
+          AUTH_GOOGLE_SECRET: ${{ secrets.PRODUCTION_AUTH_GOOGLE_SECRET }}
 
       - name: Run database migrations
         run: pnpm --filter @mailguardpro/web exec prisma migrate deploy
