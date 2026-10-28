@@ -1,8 +1,10 @@
 name: Deploy
 
+# Manual-only. No deployment environment has been provisioned (the production
+# environment has no host, database, Redis, or SSH secrets configured), so every
+# push to main failed at the build step. Restore a `push` trigger once the
+# environment exists and its secrets are set.
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
     inputs:
       environment:
@@ -93,7 +95,7 @@ jobs:
   deploy-production:
     name: Deploy to Production
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && !contains(github.event.head_commit.message, '[skip deploy]')
+    if: github.event_name == 'workflow_dispatch' && inputs.environment == 'production'
     environment:
       name: production
       url: https://mailguard.pro
