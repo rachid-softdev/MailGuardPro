@@ -194,9 +194,9 @@ describe("plan matrix — assertFeature enforcement", () => {
       statusCode: 403,
       upgradeUrl: "/billing/upgrade",
     });
-    // EXPORT_PDF: FREE → enabled on STARTER
+    // EXPORT_PDF: FREE → enabled on PRO
     await expect(gate.assertFeature("org-free", "EXPORT_PDF")).rejects.toMatchObject({
-      planRequired: "STARTER",
+      planRequired: "PRO",
       currentPlan: "FREE",
     });
   });

@@ -275,7 +275,7 @@ export default function BulkJobDetailPage({ params }: { params: Promise<{ jobId:
               {job.avgScore >= 76
                 ? "The batch is clear to send. Keep the invalid rows out of your list."
                 : job.avgScore >= 61
-                  ? "Most of this batch is deliverable. Review the caution rows before sending."
+                  ? "Most of this batch passed the checks. Review the caution rows before sending."
                   : "A large share of this batch is risky. Clean the list before the next send."}
             </p>
             {job.riskyCount > 0 && (

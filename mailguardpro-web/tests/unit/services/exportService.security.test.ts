@@ -75,6 +75,14 @@ describe("exportService — CSV formula/injection sanitization (SEC)", () => {
     expect(content).toContain("'+evil@x.com");
     expect(content).toContain("'-drop");
   });
+
+  it("should quote a formula-leading value containing a comma exactly once", async () => {
+    mockValidationFindMany.mockResolvedValueOnce([{ ...injectionRow(), email: "=evil,foo@x.com" }]);
+    const result = await exportResults({ jobId: "job-1", format: "csv" });
+    const content = result.toString();
+    expect(content).toContain('"\'=evil,foo@x.com"');
+    expect(content).not.toContain('"""\'=evil,foo@x.com"""');
+  });
 });
 
 describe("exportService — unicode / encoding fidelity", () => {

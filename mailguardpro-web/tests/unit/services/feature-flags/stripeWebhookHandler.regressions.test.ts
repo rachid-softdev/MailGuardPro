@@ -5,16 +5,17 @@
 //   #3 subscription.updated (price change) / .deleted → sync User.plan
 // ================================================================
 
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type Stripe from "stripe";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { DowngradeService } from "@/services/feature-flags/downgradeService";
 import { StripeWebhookHandler } from "@/services/feature-flags/stripeWebhookHandler";
 
 // ---- Module-level mocks (dynamic imports inside the handler) ----
 // Functions referenced inside vi.mock factories must be hoisted.
-const { mockUserUpdateMany, mockRedisSet, mockLogError } = vi.hoisted(() => ({
+const { mockUserUpdateMany, mockUserFindFirst, mockRedisSet, mockLogError } = vi.hoisted(() => ({
   mockUserUpdateMany: vi.fn(),
+  mockUserFindFirst: vi.fn(),
   mockRedisSet: vi.fn(),
   mockLogError: vi.fn(),
 }));
@@ -24,7 +25,7 @@ vi.mock("@/lib/prisma", () => ({
     user: {
       updateMany: mockUserUpdateMany,
       findUnique: vi.fn(),
-      findFirst: vi.fn(),
+      findFirst: mockUserFindFirst,
       update: vi.fn(),
     },
     stripeEvent: { create: vi.fn() },
@@ -81,6 +82,7 @@ beforeAll(() => {
   process.env.STRIPE_PRO_PRICE_ID = "price_pro";
   process.env.STRIPE_STARTER_PRICE_ID = "price_starter";
   process.env.STRIPE_BUSINESS_PRICE_ID = "price_business";
+  process.env.STRIPE_PRO_ANNUAL_PRICE_ID = "price_pro_annual";
 });
 
 beforeEach(() => {
@@ -88,6 +90,7 @@ beforeEach(() => {
   // Idempotency: Redis NX acquired → "new" (not duplicate, not error)
   mockRedisSet.mockResolvedValue("OK");
   mockUserUpdateMany.mockResolvedValue({ count: 1 });
+  mockUserFindFirst.mockResolvedValue({ plan: "STARTER" });
 
   repoMock.getOrganizationByStripeCustomerId.mockResolvedValue({
     id: "org_1",
@@ -191,7 +194,7 @@ describe("Regression #3 — subscription sync legacy User.plan", () => {
       where: { organizationId: "org_1" },
       data: { plan: "PRO" },
     });
-  });
+  }, 10000);
 
   it("customer.subscription.deleted → syncUserPlan('FREE')", async () => {
     mockConstructEvent.mockReturnValue(
@@ -209,4 +212,141 @@ describe("Regression #3 — subscription sync legacy User.plan", () => {
       data: { plan: "FREE" },
     });
   });
+});
+
+// ================================================================
+// Stripe API shape + plan-mapping regressions
+// ================================================================
+describe("Stripe API shape and Price mapping", () => {
+  it("maps annual price IDs to their plan", async () => {
+    mockConstructEvent.mockReturnValue(
+      makeEvent("customer.subscription.created", {
+        customer: "cus_1",
+        id: "sub_annual",
+        status: "active",
+        items: {
+          data: [
+            {
+              price: { id: "price_pro_annual" },
+              current_period_start: 1_700_000_000,
+              current_period_end: 1_800_000_000,
+            },
+          ],
+        },
+      }),
+    );
+
+    await handler.handleWebhookEvent("body", "sig");
+
+    expect(repoMock.upsertSubscription).toHaveBeenCalledWith(
+      expect.objectContaining({
+        plan_key: "PRO",
+        current_period_start: new Date(1_700_000_000 * 1000),
+        current_period_end: new Date(1_800_000_000 * 1000),
+      }),
+    );
+    expect(mockUserUpdateMany).toHaveBeenCalledWith({
+      where: { organizationId: "org_1" },
+      data: { plan: "PRO" },
+    });
+  });
+
+  it("does not activate the legacy paid plan for an incomplete subscription", async () => {
+    mockConstructEvent.mockReturnValue(
+      makeEvent("customer.subscription.created", {
+        customer: "cus_1",
+        id: "sub_incomplete",
+        status: "incomplete",
+        items: { data: [{ price: { id: "price_pro" } }] },
+      }),
+    );
+
+    await handler.handleWebhookEvent("body", "sig");
+
+    expect(repoMock.upsertSubscription).toHaveBeenCalledWith(
+      expect.objectContaining({ plan_key: "PRO", status: "incomplete" }),
+    );
+    expect(mockUserUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it("reads the invoice subscription from invoice.parent after the Stripe API move", async () => {
+    mockConstructEvent.mockReturnValue(
+      makeEvent("invoice.payment_failed", {
+        customer: "cus_1",
+        attempt_count: 3,
+        parent: {
+          type: "subscription_details",
+          subscription_details: { subscription: "sub_1" },
+        },
+      }),
+    );
+    mockSubRetrieve.mockResolvedValue({
+      items: {
+        data: [{ current_period_start: 1_700_000_000, current_period_end: 1_800_000_000 }],
+      },
+    });
+
+    await handler.handleWebhookEvent("body", "sig");
+
+    expect(executeDowngradeSpy).toHaveBeenCalledWith(
+      "org_1",
+      "FREE",
+      new Date(1_800_000_000 * 1000),
+    );
+    expect(repoMock.updateSubscriptionStatus).toHaveBeenCalledWith("sub_1", "past_due");
+  });
+
+  it("grants the upgrade allowance when invoice.payment_succeeded arrives before subscription.updated", async () => {
+    mockConstructEvent.mockReturnValue(
+      makeEvent("invoice.payment_succeeded", {
+        customer: "cus_1",
+        parent: {
+          type: "subscription_details",
+          subscription_details: { subscription: "sub_1" },
+        },
+      }),
+    );
+    mockSubRetrieve.mockResolvedValue({
+      items: {
+        data: [
+          {
+            price: { id: "price_pro" },
+            current_period_start: 1_700_000_000,
+            current_period_end: 1_800_000_000,
+          },
+        ],
+      },
+    });
+
+    await handler.handleWebhookEvent("body", "sig");
+
+    // Previous legacy plan was STARTER (mockUserFindFirst), so PRO is an upgrade.
+    expect(mockUserUpdateMany).toHaveBeenCalledWith({
+      where: { organizationId: "org_1" },
+      data: { credits: 50000, creditsResetAt: expect.any(Date) },
+    });
+    expect(mockUserUpdateMany).toHaveBeenCalledWith({
+      where: { organizationId: "org_1" },
+      data: { plan: "PRO" },
+    });
+  });
+
+  it("grants the target allowance when a Business subscription downgrades with a non-positive balance", async () => {
+    mockUserFindFirst.mockResolvedValue({ plan: "BUSINESS" });
+    mockConstructEvent.mockReturnValue(
+      makeEvent("customer.subscription.updated", {
+        customer: "cus_1",
+        id: "sub_1",
+        status: "active",
+        items: { data: [{ price: { id: "price_pro" } }] },
+      }),
+    );
+
+    await handler.handleWebhookEvent("body", "sig");
+
+    expect(mockUserUpdateMany).toHaveBeenCalledWith({
+      where: { organizationId: "org_1", credits: { lte: 0 } },
+      data: { credits: 50000, creditsResetAt: expect.any(Date) },
+    });
+  }, 10000);
 });

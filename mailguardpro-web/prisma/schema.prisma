@@ -44,6 +44,9 @@ model User {
   image                  String?
   plan                   Plan      @default(FREE)
   credits                Int       @default(100)
+  // Next monthly allowance refill for paid plans. Null means "not scheduled
+  // yet" (legacy paid users) and is treated as due by the reset cron.
+  creditsResetAt         DateTime?
   createdAt              DateTime  @default(now())
   role                   Role      @default(USER)
   isActive               Boolean   @default(true)
@@ -64,6 +67,8 @@ model User {
   userRoles        UserRole[]
   deletionSchedule DeletionSchedule?
   organization     Organization?     @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+
+  @@index([plan, creditsResetAt])
 }
 
 model Account {

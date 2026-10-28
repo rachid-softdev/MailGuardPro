@@ -41,11 +41,49 @@ function getPlanKeyFromPriceId(priceId: string): string | null {
       // ignore
     }
   }
-  // Default mapping using well-known env vars
-  if (priceId === process.env.STRIPE_STARTER_PRICE_ID) return "STARTER";
-  if (priceId === process.env.STRIPE_PRO_PRICE_ID) return "PRO";
-  if (priceId === process.env.STRIPE_BUSINESS_PRICE_ID) return "BUSINESS";
+  // Default mapping using well-known env vars. Annual price IDs are optional;
+  // an unset value must never match an empty price ID.
+  const defaultMappings: Array<[string | undefined, string]> = [
+    [process.env.STRIPE_STARTER_PRICE_ID, "STARTER"],
+    [process.env.STRIPE_STARTER_ANNUAL_PRICE_ID, "STARTER"],
+    [process.env.STRIPE_PRO_PRICE_ID, "PRO"],
+    [process.env.STRIPE_PRO_ANNUAL_PRICE_ID, "PRO"],
+    [process.env.STRIPE_BUSINESS_PRICE_ID, "BUSINESS"],
+    [process.env.STRIPE_BUSINESS_ANNUAL_PRICE_ID, "BUSINESS"],
+  ];
+  for (const [id, plan] of defaultMappings) {
+    if (id && priceId === id) return plan;
+  }
   return null;
+}
+
+/**
+ * Stripe moved the invoice → subscription link under `parent` in API
+ * 2025-03-31.basil. Keep the legacy top-level fallback for events created
+ * under older API versions.
+ */
+function getInvoiceSubscriptionId(invoice: Stripe.Invoice): string | null {
+  const parentSubscription = invoice.parent?.subscription_details?.subscription;
+  const subscription = parentSubscription ?? (invoice as any).subscription;
+  if (!subscription) return null;
+  return typeof subscription === "string" ? subscription : subscription.id;
+}
+
+/**
+ * Subscription periods moved from the subscription root to its items in the
+ * same API version. Fall back to the old shape for older event payloads.
+ */
+function getSubscriptionPeriod(subscription: Stripe.Subscription): {
+  start: Date | null;
+  end: Date | null;
+} {
+  const item = subscription.items?.data?.[0];
+  const start = item?.current_period_start ?? (subscription as any).current_period_start ?? null;
+  const end = item?.current_period_end ?? (subscription as any).current_period_end ?? null;
+  return {
+    start: start ? new Date(start * 1000) : null,
+    end: end ? new Date(end * 1000) : null,
+  };
 }
 
 function mapStripeStatus(stripeStatus: Stripe.Subscription.Status): SubscriptionStatus {
@@ -203,19 +241,28 @@ export class StripeWebhookHandler {
     }
 
     const priceId = subscription.items.data[0]?.price.id ?? "";
-    const planKey = getPlanKeyFromPriceId(priceId) ?? "FREE";
+    const planKey = getPlanKeyFromPriceId(priceId);
     const status = mapStripeStatus(subscription.status);
-    const sub = subscription as any;
-    const periodStart = sub.current_period_start ? new Date(sub.current_period_start * 1000) : null;
-    const periodEnd = sub.current_period_end ? new Date(sub.current_period_end * 1000) : null;
+    const period = getSubscriptionPeriod(subscription);
+
+    if (!planKey) {
+      // Do not fall back to FREE: an unknown price is a configuration error,
+      // and silently downgrading a paying customer is worse than skipping the
+      // legacy-plan sync until the price mapping is fixed.
+      logger.error(
+        { orgId: org.id, priceId, subscriptionId: subscription.id },
+        "StripeWebhook: unknown price ID on subscription.created",
+      );
+      return;
+    }
 
     await this.repo.upsertSubscription({
       org_id: org.id,
       plan_key: planKey,
       status,
       stripe_sub_id: subscription.id,
-      current_period_start: periodStart,
-      current_period_end: periodEnd,
+      current_period_start: period.start,
+      current_period_end: period.end,
     });
 
     logger.info(
@@ -224,7 +271,13 @@ export class StripeWebhookHandler {
     );
 
     await this.cache.invalidate(org.id);
-    await this.syncUserPlan(org.id, planKey);
+
+    // An incomplete subscription has not been paid yet. Store its status, but
+    // wait for checkout/payment success or a later subscription.updated event
+    // before granting the paid legacy plan.
+    if (status === "active" || status === "trialing") {
+      await this.syncUserPlan(org.id, planKey);
+    }
   }
 
   private async handleSubscriptionUpdated(subscription: Stripe.Subscription): Promise<void> {
@@ -243,11 +296,7 @@ export class StripeWebhookHandler {
     const priceId = subscription.items.data[0]?.price.id ?? "";
     const newPlanKey = getPlanKeyFromPriceId(priceId);
     const status = mapStripeStatus(subscription.status);
-    const sub2 = subscription as any;
-    const periodStart = sub2.current_period_start
-      ? new Date(sub2.current_period_start * 1000)
-      : null;
-    const periodEnd = sub2.current_period_end ? new Date(sub2.current_period_end * 1000) : null;
+    const period = getSubscriptionPeriod(subscription);
 
     if (newPlanKey) {
       await this.repo.upsertSubscription({
@@ -255,8 +304,8 @@ export class StripeWebhookHandler {
         plan_key: newPlanKey,
         status,
         stripe_sub_id: subscription.id,
-        current_period_start: periodStart,
-        current_period_end: periodEnd,
+        current_period_start: period.start,
+        current_period_end: period.end,
       });
 
       // Only re-grant the paid plan to legacy User.plan when the
@@ -266,7 +315,11 @@ export class StripeWebhookHandler {
       // customer.subscription.updated (emited alongside
       // invoice.payment_failed) would undo the downgrade.
       if (status === "active" || status === "trialing") {
+        const previousPlan = await this.getLegacyPlan(org.id);
         await this.syncUserPlan(org.id, newPlanKey);
+        if (previousPlan) {
+          await this.syncCreditsForPlanChange(org.id, previousPlan, newPlanKey);
+        }
       }
     } else {
       // Just update status
@@ -306,7 +359,7 @@ export class StripeWebhookHandler {
 
   private async handleInvoicePaymentSucceeded(invoice: Stripe.Invoice): Promise<void> {
     const customerId = invoice.customer as string;
-    const subscriptionId = (invoice as any).subscription as string | undefined;
+    const subscriptionId = getInvoiceSubscriptionId(invoice);
 
     if (!customerId || !subscriptionId) return;
 
@@ -318,20 +371,26 @@ export class StripeWebhookHandler {
     // answers 5xx — Stripe then retries the delivery instead of the renewal
     // being silently lost.
     const subscription = await this.stripe.subscriptions.retrieve(subscriptionId);
-    const sub = subscription as any;
-    const periodStart = sub.current_period_start ? new Date(sub.current_period_start * 1000) : null;
-    const periodEnd = sub.current_period_end ? new Date(sub.current_period_end * 1000) : null;
+    const period = getSubscriptionPeriod(subscription);
 
-    const priceId = sub.items.data[0]?.price.id ?? "";
-    const planKey = getPlanKeyFromPriceId(priceId) ?? "FREE";
+    const priceId = subscription.items.data[0]?.price.id ?? "";
+    const planKey = getPlanKeyFromPriceId(priceId);
+
+    if (!planKey) {
+      logger.error(
+        { orgId: org.id, subscriptionId, priceId },
+        "StripeWebhook: unknown price ID on invoice.payment_succeeded",
+      );
+      return;
+    }
 
     await this.repo.upsertSubscription({
       org_id: org.id,
       plan_key: planKey,
       status: "active",
       stripe_sub_id: subscriptionId,
-      current_period_start: periodStart,
-      current_period_end: periodEnd,
+      current_period_start: period.start,
+      current_period_end: period.end,
     });
 
     await this.cache.invalidate(org.id);
@@ -341,12 +400,33 @@ export class StripeWebhookHandler {
       "StripeWebhook: payment succeeded — period renewed",
     );
 
+    // Capture the legacy plan before syncing so an upgrade grants its new
+    // allowance regardless of whether invoice.payment_succeeded or
+    // customer.subscription.updated arrives first. The grant is idempotent in
+    // the sense that a later same-plan event sees no rank increase.
+    const previousPlan = await this.getLegacyPlan(org.id);
     await this.syncUserPlan(org.id, planKey);
+    if (previousPlan) {
+      await this.syncCreditsForPlanChange(org.id, previousPlan, planKey);
+    }
+
+    // Refill the monthly allowance when this billing cycle is due. This is
+    // idempotent with the daily reset cron: whichever runs first advances
+    // `creditsResetAt`, and the other sees it is not due.
+    try {
+      const { resetCreditsForOrganization } = await import("@/lib/credits");
+      await resetCreditsForOrganization(org.id, planKey as any);
+    } catch (err) {
+      // The subscription period is already renewed. A credit refill failure
+      // must not make Stripe retry the whole event forever; the daily cron
+      // will pick up the user because `creditsResetAt` remains due.
+      logger.error({ err, orgId: org.id, planKey }, "StripeWebhook: credit refill failed");
+    }
   }
 
   private async handleInvoicePaymentFailed(invoice: Stripe.Invoice): Promise<void> {
     const customerId = invoice.customer as string;
-    const subscriptionId = (invoice as any).subscription as string | undefined;
+    const subscriptionId = getInvoiceSubscriptionId(invoice);
 
     if (!customerId || !subscriptionId) return;
 
@@ -358,8 +438,7 @@ export class StripeWebhookHandler {
     let currentPeriodEnd: Date | null = null;
     try {
       const subscription = await this.stripe.subscriptions.retrieve(subscriptionId);
-      const sub = subscription as any;
-      currentPeriodEnd = sub.current_period_end ? new Date(sub.current_period_end * 1000) : null;
+      currentPeriodEnd = getSubscriptionPeriod(subscription).end;
     } catch {
       // Non-fatal: downgrade still proceeds without a period end.
     }
@@ -383,6 +462,81 @@ export class StripeWebhookHandler {
 
     await this.cache.invalidate(org.id);
     await this.syncUserPlan(org.id, "FREE");
+  }
+
+  /**
+   * Read the legacy plan before a subscription update so upgrades can grant
+   * the new allowance immediately. Returns null when the user is not linked
+   * to an organization (checkout handles that case) or the query fails.
+   */
+  private async getLegacyPlan(orgId: string): Promise<string | null> {
+    try {
+      const { prisma } = await import("@/lib/prisma");
+      const user = await prisma.user.findFirst?.({
+        where: { organizationId: orgId },
+        orderBy: { createdAt: "asc" },
+        select: { plan: true },
+      });
+      return user?.plan ?? null;
+    } catch (err) {
+      logger.warn({ err, orgId }, "StripeWebhook: failed to read legacy plan before update");
+      return null;
+    }
+  }
+
+  /**
+   * Upgrades take effect immediately: set the balance to the new plan's
+   * included allowance. Downgrades keep the remaining balance until the next
+   * monthly refill, so unused credits are not confiscated mid-cycle.
+   *
+   * BUSINESS is the exception: its balance is not meaningful and can be 0 or
+   * negative because single validations still decrement it. When a Business
+   * user downgrades, grant the target plan's allowance if the balance is
+   * non-positive so they do not land on a paid plan with zero credits.
+   */
+  private async syncCreditsForPlanChange(
+    orgId: string,
+    previousPlan: string,
+    newPlan: string,
+  ): Promise<void> {
+    const rank: Record<string, number> = { FREE: 0, STARTER: 1, PRO: 2, BUSINESS: 3 };
+    const previousRank = rank[previousPlan] ?? -1;
+    const newRank = rank[newPlan] ?? -1;
+    const isUpgrade = newRank > previousRank;
+    const isBusinessDowngrade = previousPlan === "BUSINESS" && newPlan !== "BUSINESS";
+    if (!isUpgrade && !isBusinessDowngrade) return;
+
+    // The legacy User.plan column is an enum. A custom price→plan mapping must
+    // not write an unknown key into it or zero out credits on a downgrade.
+    if (!["FREE", "STARTER", "PRO", "BUSINESS"].includes(newPlan)) return;
+
+    try {
+      const { includedCreditsForPlan, isPaidPlan, nextMonthlyReset } = await import(
+        "@/lib/credits"
+      );
+      if (isUpgrade && !isPaidPlan(newPlan)) return;
+
+      const { prisma } = await import("@/lib/prisma");
+      await prisma.user.updateMany({
+        where: isBusinessDowngrade
+          ? { organizationId: orgId, credits: { lte: 0 } }
+          : { organizationId: orgId },
+        data: {
+          credits: includedCreditsForPlan(newPlan as any),
+          creditsResetAt: nextMonthlyReset(),
+        },
+      });
+
+      logger.info(
+        { orgId, previousPlan, newPlan, isBusinessDowngrade },
+        "StripeWebhook: plan-change allowance applied",
+      );
+    } catch (err) {
+      logger.error(
+        { err, orgId, previousPlan, newPlan },
+        "StripeWebhook: plan-change allowance failed",
+      );
+    }
   }
 
   /**

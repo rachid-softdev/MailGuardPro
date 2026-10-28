@@ -20,6 +20,7 @@
 import { headers } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
+import { nextMonthlyReset } from "@/lib/credits";
 import { loggerStripe } from "@/lib/logger";
 import { PLAN_INCLUDED_CREDITS } from "@/lib/plans";
 import { prisma } from "@/lib/prisma";
@@ -119,9 +120,10 @@ export async function POST(req: NextRequest) {
           const plan = getPlanFromPriceId(priceId);
 
           if (plan) {
-            // Grant the plan's included credits (single source: lib/plans.ts).
-            // BUSINESS is unlimited (-1 marker, credit gate bypassed in
-            // /api/v1/validate) and needs no credit grant.
+            // Set the plan's included credits (single source: lib/plans.ts).
+            // Using `set` instead of `increment` keeps checkout idempotent with
+            // the invoice.payment_succeeded handler, which may arrive first.
+            // BUSINESS is unlimited (credit gate bypassed) and needs no grant.
             const grant = plan === "BUSINESS" ? 0 : PLAN_INCLUDED_CREDITS[plan];
 
             await prisma.user.update({
@@ -129,7 +131,8 @@ export async function POST(req: NextRequest) {
               data: {
                 plan,
                 stripeSubscriptionId: subscriptionId,
-                credits: { increment: grant },
+                credits: grant,
+                creditsResetAt: nextMonthlyReset(),
               },
             });
 

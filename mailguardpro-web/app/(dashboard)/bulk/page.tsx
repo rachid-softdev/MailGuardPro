@@ -127,7 +127,7 @@ export default function BulkPage() {
       } else {
         setErrorMessage(
           data.error ||
-            "Upload failed — the server rejected the file. Ensure it contains valid emails (one per column, max 100,000 rows).",
+            "Upload failed — the server rejected the file. Ensure it contains valid emails (one per row, within your plan's row limit).",
         );
       }
     } catch (error) {
@@ -179,7 +179,7 @@ export default function BulkPage() {
         <PageHeader
           eyebrow="Bulk / batch intake"
           title="Send a batch through."
-          description="Drop a CSV and the line takes it from there. Every row gets the same six checks, score, and exportable evidence."
+          description="Drop a CSV and the line takes it from there. Every row gets the same eleven checks, score, and exportable evidence."
           actions={
             <Button onClick={openFilePicker} variant="primary" size="sm">
               <Upload size={14} aria-hidden="true" />
@@ -189,11 +189,11 @@ export default function BulkPage() {
           meta={
             <>
               <span className="font-mono text-[9px] uppercase tracking-[0.05em] text-[var(--ink-3)]">
-                CSV / up to 100,000 rows
+                CSV / plan row cap
               </span>
               <span className="h-3 w-px bg-[var(--line)]" aria-hidden="true" />
               <span className="font-mono text-[9px] uppercase tracking-[0.05em] text-[var(--ink-3)]">
-                1 credit / row
+                Usage recorded per row
               </span>
               <span className="h-3 w-px bg-[var(--line)]" aria-hidden="true" />
               <span className="font-mono text-[9px] uppercase tracking-[0.05em] text-[var(--ink-3)]">
@@ -223,7 +223,7 @@ export default function BulkPage() {
             </h2>
             <p className="mt-2 max-w-[46ch] text-[13px] leading-relaxed text-[var(--ink-2)]">
               The file needs an <code className="font-mono text-[12px]">email</code> header. Extra
-              columns are preserved in the export but never inspected.
+              columns are ignored; exports include the standard result columns.
             </p>
 
             <dl className="mt-5 grid grid-cols-2 gap-px border border-[var(--line)] bg-[var(--line)]">
@@ -233,7 +233,7 @@ export default function BulkPage() {
               </div>
               <div className="bg-[var(--surface)] px-3 py-2.5">
                 <dt className="label-mono text-[8px]">Max rows</dt>
-                <dd className="mt-1 font-mono text-[11px] text-[var(--ink)]">100,000</dd>
+                <dd className="mt-1 font-mono text-[11px] text-[var(--ink)]">10k-100k</dd>
               </div>
             </dl>
 
@@ -305,7 +305,7 @@ carol@gamma.org,Carol,Lee,Gamma LLC`}
                     Drag and drop your CSV here
                   </p>
                   <p className="mt-1 text-[12px] text-[var(--ink-3)]">
-                    or choose a file from your machine. Maximum 100,000 rows.
+                    or choose a file from your machine. Row limit depends on your plan.
                   </p>
 
                   <input

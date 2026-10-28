@@ -16,10 +16,11 @@ import { Sidebar } from "./Sidebar";
 
 interface DashboardShellProps {
   credits: number;
+  plan: string;
   children: React.ReactNode;
 }
 
-export function DashboardShell({ credits, children }: DashboardShellProps) {
+export function DashboardShell({ credits, plan, children }: DashboardShellProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { showPalette, setShowPalette, showCommandPalette, setShowCommandPalette } =
     useKeyboardShortcuts();
@@ -62,7 +63,7 @@ export function DashboardShell({ credits, children }: DashboardShellProps) {
             sidebarOpen ? "translate-x-0" : "-translate-x-full"
           }`}
         >
-          <Sidebar credits={credits} onClose={() => setSidebarOpen(false)} />
+          <Sidebar credits={credits} plan={plan} onClose={() => setSidebarOpen(false)} />
         </aside>
 
         <div className="flex min-h-screen flex-col md:ml-[var(--sidebar-width)]">

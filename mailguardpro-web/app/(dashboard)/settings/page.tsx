@@ -519,7 +519,8 @@ export default function SettingsPage() {
                   <p className="text-sm font-medium text-[var(--ink)]">Current Plan</p>
                   <p className="mt-0.5 font-mono text-[10px] uppercase tracking-[0.04em] text-[var(--ink-3)]">
                     {user?.plan === "FREE" ? "Free Plan" : user?.plan} ·{" "}
-                    {user?.credits?.toLocaleString()} credits remaining
+                    {user?.plan === "BUSINESS" ? "Unlimited" : user?.credits?.toLocaleString()}{" "}
+                    credits remaining
                   </p>
                 </div>
                 <span className="stamp stamp-idle">{user?.plan || "FREE"}</span>

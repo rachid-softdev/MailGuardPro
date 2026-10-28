@@ -1,49 +1,40 @@
-// API Route: Export validations and manage scheduled exports
-// POST /api/v1/exports?format=csv|xlsx|pdf — generate or schedule an export
-// GET  /api/v1/exports — list scheduled exports for the user
+// API Route: Export validation history as CSV.
+// POST /api/v1/exports?format=csv
+// GET  /api/v1/exports — list legacy scheduled exports (read-only)
+//
+// XLSX/PDF history exports are not implemented. They are available from a
+// completed bulk job, which has the full result set and original addresses.
+// Scheduled exports have no runner yet, so creation is rejected instead of
+// silently creating a job that never runs.
 
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { validateCsrfOrigin } from "@/lib/csrf";
+import { sanitizeForCsv } from "@/lib/emailSanitizer";
 import { loggerApi } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
+import { checkRateLimitByPlan, type Plan } from "@/lib/rateLimits";
+import { getBulkJobEmailMaps } from "@/services/emailResolver";
 
-const VALID_FORMATS = ["csv", "xlsx", "pdf"] as const;
+const VALID_FORMATS = ["csv"] as const;
 type ExportFormat = (typeof VALID_FORMATS)[number];
 
-const FORMAT_MIME_TYPES: Record<ExportFormat, string> = {
-  csv: "text/csv",
-  xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-  pdf: "application/pdf",
-};
-
-const FORMAT_EXTENSIONS: Record<ExportFormat, string> = {
-  csv: "csv",
-  xlsx: "csv", // fallback: XLSX not yet supported
-  pdf: "csv", // fallback: PDF not yet supported
-};
-
-function escapeCsv(value: unknown): string {
-  const str = String(value ?? "");
-  if (str.includes(",") || str.includes('"') || str.includes("\n") || str.includes("\r")) {
-    return `"${str.replace(/"/g, '""')}"`;
-  }
-  return str;
+function csvCell(value: unknown): string {
+  return sanitizeForCsv(String(value ?? ""));
 }
 
 function generateCsv(rows: Record<string, unknown>[]): string {
   if (rows.length === 0) return "";
   const headers = Object.keys(rows[0]);
-  const lines: string[] = [headers.map(escapeCsv).join(",")];
+  const lines: string[] = [headers.map(csvCell).join(",")];
   for (const row of rows) {
-    lines.push(headers.map((h) => escapeCsv(row[h])).join(","));
+    lines.push(headers.map((header) => csvCell(row[header])).join(","));
   }
   return lines.join("\r\n");
 }
 
 export async function POST(req: NextRequest) {
   try {
-    // CSRF protection
     const csrf = validateCsrfOrigin(req);
     if (!csrf.valid) {
       return NextResponse.json({ success: false, error: csrf.error }, { status: 403 });
@@ -57,89 +48,102 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const rateCheck = await checkRateLimitByPlan(
+      session.user.id,
+      (session.user.plan as Plan) || "FREE",
+      "export",
+    );
+    if (!rateCheck.success) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Rate limit exceeded. Please try again later.",
+          retryAfter: rateCheck.resetAt,
+        },
+        { status: 429 },
+      );
+    }
+
     const { searchParams } = new URL(req.url);
     const rawFormat = searchParams.get("format") || "csv";
 
     if (!VALID_FORMATS.includes(rawFormat as ExportFormat)) {
       return NextResponse.json(
-        { success: false, error: `Invalid format. Must be one of: ${VALID_FORMATS.join(", ")}` },
+        {
+          success: false,
+          error:
+            "Only CSV is available for history exports. Use a completed bulk job for XLSX or PDF.",
+        },
         { status: 400 },
       );
     }
 
-    const format = rawFormat as ExportFormat;
-
     const body = await req.json().catch(() => ({}));
     const filters = body.filters || body; // support both { filters: {...} } and flat body
-    const schedule = body.schedule;
 
-    // If schedule is provided, create a scheduled export record
-    if (schedule) {
-      if (!["daily", "weekly", "monthly"].includes(schedule.frequency)) {
-        return NextResponse.json(
-          { success: false, error: "schedule.frequency must be daily, weekly, or monthly" },
-          { status: 400 },
-        );
-      }
-
-      const now = new Date();
-      let nextRunAt: Date;
-      switch (schedule.frequency) {
-        case "daily":
-          nextRunAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-          break;
-        case "weekly":
-          nextRunAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-          break;
-        case "monthly":
-          nextRunAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
-          break;
-        default:
-          nextRunAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-      }
-
-      const scheduled = await prisma.scheduledExport.create({
-        data: {
-          userId: session.user.id,
-          scope: "validations",
-          format,
-          frequency: schedule.frequency,
-          filters: filters || {},
-          nextRunAt,
-        },
-      });
-
-      loggerApi.info(
-        { scheduledExportId: scheduled.id, format, frequency: schedule.frequency },
-        "Scheduled export created",
+    if (body.schedule) {
+      return NextResponse.json(
+        { success: false, error: "Scheduled exports are not available yet." },
+        { status: 501 },
       );
-
-      return NextResponse.json({ success: true, data: scheduled }, { status: 201 });
     }
 
-    // No schedule — generate export immediately
     const where: any = { userId: session.user.id };
 
     if (filters?.status) {
       where.status = filters.status;
     }
     if (filters?.search) {
-      where.email = { startsWith: filters.search.toLowerCase() };
+      const search = String(filters.search).trim().toLowerCase();
+      if (search.includes("@")) {
+        const { hashEmail } = await import("@/lib/emailHash");
+        where.emailHash = hashEmail(search);
+      } else {
+        where.email = { startsWith: search };
+      }
     }
-    if (filters?.dateFrom) {
-      where.createdAt = { ...(where.createdAt || {}), gte: new Date(filters.dateFrom) };
+    if (filters?.domain) {
+      where.email = {
+        ...(where.email ?? {}),
+        endsWith: `@${String(filters.domain).trim().toLowerCase()}`,
+      };
     }
-    if (filters?.dateTo) {
-      where.createdAt = { ...(where.createdAt || {}), lte: new Date(filters.dateTo) };
+    if (filters?.dateFrom || filters?.dateTo) {
+      const createdAt: Record<string, Date> = {};
+      if (filters.dateFrom) {
+        const from = new Date(filters.dateFrom);
+        if (!Number.isNaN(from.getTime())) createdAt.gte = from;
+      }
+      if (filters.dateTo) {
+        const to = new Date(filters.dateTo);
+        if (!Number.isNaN(to.getTime())) {
+          to.setUTCHours(23, 59, 59, 999);
+          createdAt.lte = to;
+        }
+      }
+      if (Object.keys(createdAt).length > 0) where.createdAt = createdAt;
+    }
+    if (filters?.scoreMin || filters?.scoreMax) {
+      const score: Record<string, number> = {};
+      const min = parseInt(filters.scoreMin ?? "", 10);
+      const max = parseInt(filters.scoreMax ?? "", 10);
+      if (!Number.isNaN(min)) score.gte = Math.max(0, Math.min(100, min));
+      if (!Number.isNaN(max)) score.lte = Math.max(0, Math.min(100, max));
+      if (Object.keys(score).length > 0) where.score = score;
     }
 
-    const validations = await prisma.validation.findMany({
+    // Fetch one extra row so the response can say whether the export was
+    // capped instead of silently returning a partial file.
+    const exportLimit = 10000;
+    const fetched = await prisma.validation.findMany({
       where,
       orderBy: { createdAt: "desc" },
-      take: 10000, // safety limit
+      take: exportLimit + 1,
       select: {
         id: true,
         email: true,
+        emailHash: true,
+        bulkJobId: true,
         score: true,
         status: true,
         createdAt: true,
@@ -148,6 +152,9 @@ export async function POST(req: NextRequest) {
       },
     });
 
+    const truncated = fetched.length > exportLimit;
+    const validations = truncated ? fetched.slice(0, exportLimit) : fetched;
+
     if (validations.length === 0) {
       return NextResponse.json(
         { success: false, error: "No validations found matching the filters" },
@@ -155,9 +162,18 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const jobIds = [
+      ...new Set(
+        validations.map((row) => row.bulkJobId).filter((jobId): jobId is string => Boolean(jobId)),
+      ),
+    ];
+    const originalByJob = await getBulkJobEmailMaps(jobIds, session.user.id);
+
     const rows = validations.map(
       (v: {
         email: string;
+        emailHash: string;
+        bulkJobId: string | null;
         score: number;
         status: string;
         createdAt: Date;
@@ -165,8 +181,9 @@ export async function POST(req: NextRequest) {
         processingTimeMs: number;
       }) => {
         const checks = v.checksJson as Record<string, unknown> | null;
+        const original = v.bulkJobId ? originalByJob.get(v.bulkJobId)?.get(v.emailHash) : undefined;
         return {
-          email: v.email,
+          email: original ?? v.email,
           score: v.score,
           status: v.status,
           created_at: v.createdAt.toISOString(),
@@ -190,15 +207,13 @@ export async function POST(req: NextRequest) {
     );
 
     const csvContent = generateCsv(rows);
-    const buffer = Buffer.from(csvContent, "utf-8");
 
-    const actualFormat: ExportFormat = format === "xlsx" || format === "pdf" ? "csv" : format;
-
-    return new NextResponse(new Uint8Array(buffer), {
+    return new NextResponse(csvContent, {
       headers: {
-        "Content-Type": FORMAT_MIME_TYPES[actualFormat],
-        "Content-Disposition": `attachment; filename="mailguard-export-${Date.now()}.${FORMAT_EXTENSIONS[format]}"`,
-        "X-Export-Fallback": format !== "csv" ? `true; original_format=${format}` : "false",
+        "Content-Type": "text/csv; charset=utf-8",
+        "Content-Disposition": `attachment; filename="mailguard-export${truncated ? "-truncated" : ""}-${Date.now()}.csv"`,
+        "X-Export-Truncated": truncated ? "true" : "false",
+        "X-Export-Row-Limit": String(exportLimit),
       },
     });
   } catch (error) {

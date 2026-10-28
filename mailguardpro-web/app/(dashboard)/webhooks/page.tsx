@@ -22,18 +22,12 @@ interface Webhook {
 
 const EVENT_DESCRIPTIONS: Record<string, string> = {
   bulk_job_completed: "Fires when a bulk validation job finishes processing all emails.",
-  credits_low: "Fires when your available credits drop below 20% of your plan limit.",
-  subscription_renewed: "Fires after a successful subscription payment renewal.",
-  subscription_cancelled: "Fires when a subscription is cancelled (at period end or immediately).",
-  daily_report: "Fires daily with a summary of validation activity for the previous day.",
+  bulk_job_failed: "Fires when a bulk validation job fails after all retries.",
 };
 
 const AVAILABLE_EVENTS = [
   { value: "bulk_job_completed", label: "Bulk Job Completed" },
-  { value: "credits_low", label: "Credits Low" },
-  { value: "subscription_renewed", label: "Subscription Renewed" },
-  { value: "subscription_cancelled", label: "Subscription Cancelled" },
-  { value: "daily_report", label: "Daily Report" },
+  { value: "bulk_job_failed", label: "Bulk Job Failed" },
 ];
 
 export default function WebhooksPage() {
@@ -300,7 +294,7 @@ export default function WebhooksPage() {
               </span>
               <span className="h-3 w-px bg-[var(--line)]" aria-hidden="true" />
               <span className="font-mono text-[9px] uppercase tracking-[0.05em] text-[var(--ink-3)]">
-                HMAC-SHA256 / retries x5
+                HMAC-SHA256 / retries x3
               </span>
             </>
           }

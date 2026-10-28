@@ -26,7 +26,11 @@ import { MockEntitlementRepository } from "./mockRepository";
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     stripeEvent: { create: vi.fn().mockResolvedValue({}) },
-    user: { findUnique: vi.fn() },
+    user: {
+      findUnique: vi.fn(),
+      findFirst: vi.fn(),
+      updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+    },
   },
 }));
 
@@ -1203,32 +1207,40 @@ describe("Stripe webhook event handlers", () => {
     repo.addOrg("org-exists");
     repo.organizations.get("org-exists")!.stripe_customer_id = "cus_existing";
 
-    const event = {
-      id: "evt_cr_1",
-      type: "customer.subscription.created",
-      data: {
-        object: {
-          customer: "cus_existing",
-          id: "sub_new_1",
-          items: { data: [{ price: { id: "price_pro" } }] },
-          status: "active",
-          current_period_start: Math.floor(Date.now() / 1000),
-          current_period_end: Math.floor(Date.now() / 1000) + 86400 * 30,
-        },
-      },
-    };
+    const prevPro = process.env.STRIPE_PRO_PRICE_ID;
+    process.env.STRIPE_PRO_PRICE_ID = "price_pro";
 
-    const handler = await createTestHandler(repo, cache, {
-      webhooks: { constructEvent: vi.fn(() => event) },
-      customers: { retrieve: vi.fn() },
-      subscriptions: { retrieve: vi.fn() },
-    } as any);
-    const result = await handler.handleWebhookEvent(JSON.stringify(event), "sig");
-    expect(result.received).toBe(true);
-    expect(result.eventType).toBe("customer.subscription.created");
-    const sub = repo.subscriptions.get("org-exists");
-    expect(sub).toBeDefined();
-    expect(sub!.stripe_sub_id).toBe("sub_new_1");
+    try {
+      const event = {
+        id: "evt_cr_1",
+        type: "customer.subscription.created",
+        data: {
+          object: {
+            customer: "cus_existing",
+            id: "sub_new_1",
+            items: { data: [{ price: { id: "price_pro" } }] },
+            status: "active",
+            current_period_start: Math.floor(Date.now() / 1000),
+            current_period_end: Math.floor(Date.now() / 1000) + 86400 * 30,
+          },
+        },
+      };
+
+      const handler = await createTestHandler(repo, cache, {
+        webhooks: { constructEvent: vi.fn(() => event) },
+        customers: { retrieve: vi.fn() },
+        subscriptions: { retrieve: vi.fn() },
+      } as any);
+      const result = await handler.handleWebhookEvent(JSON.stringify(event), "sig");
+      expect(result.received).toBe(true);
+      expect(result.eventType).toBe("customer.subscription.created");
+      const sub = repo.subscriptions.get("org-exists");
+      expect(sub).toBeDefined();
+      expect(sub!.stripe_sub_id).toBe("sub_new_1");
+    } finally {
+      if (prevPro !== undefined) process.env.STRIPE_PRO_PRICE_ID = prevPro;
+      else delete process.env.STRIPE_PRO_PRICE_ID;
+    }
   });
 
   it("subscription.deleted sets status to canceled", async () => {
@@ -2163,7 +2175,7 @@ describe("security scenarios", () => {
     expect(await gate.hasFeature("org-free", "EXPORT_PDF")).toBe(true); // override works
   });
 
-  it("Unknown priceId maps to FREE via webhook handler", async () => {
+  it("Unknown priceId is rejected instead of being mapped to FREE", async () => {
     const { StripeWebhookHandler } = await import("../stripeWebhookHandler");
     // Subclass to bypass idempotency (same pattern as existing tests)
     // @ts-expect-error base class declares checkIdempotency as private; override for test isolation
@@ -2209,9 +2221,9 @@ describe("security scenarios", () => {
     const handler = new TestHandler(repo, cache, mockStripe, "test_secret");
     const result = await handler.handleWebhookEvent(JSON.stringify(event), "sig");
     expect(result.received).toBe(true);
-    // Subscription should be created with FREE plan (unknown priceId → FREE fallback)
-    const sub = repo.subscriptions.get("org-test");
-    expect(sub?.plan_key).toBe("FREE");
+    // An unknown price is a configuration error. Do not silently downgrade a
+    // paying customer to FREE; leave the repo untouched until it is fixed.
+    expect(repo.subscriptions.get("org-test")).toBeUndefined();
   });
 
   it("Expired override cannot be used", async () => {
@@ -3160,7 +3172,7 @@ describe("StripeWebhookHandler — idempotency and event edge cases", () => {
     expect(result.error).toBe("Invalid signature");
   });
 
-  it("getPlanKeyFromPriceId with malformed JSON env var falls through to individual env vars", async () => {
+  it("malformed JSON env var does not map an unknown price", async () => {
     // Temporarily set malformed JSON mapping and clear individual vars
     const prevMapping = process.env.STRIPE_PRICE_PLAN_MAPPING;
     const prevPro = process.env.STRIPE_PRO_PRICE_ID;
@@ -3209,9 +3221,9 @@ describe("StripeWebhookHandler — idempotency and event edge cases", () => {
       }
       const handler = new TestHandler(repo, cache, mockStripe, "test_secret");
       await handler.handleWebhookEvent(JSON.stringify(event), "sig");
-      // With no env vars matching, should fall back to FREE
-      const sub = repo.subscriptions.get("org-bad-json");
-      expect(sub?.plan_key).toBe("FREE");
+      // With no env vars matching, the unknown price is skipped rather than
+      // being treated as FREE.
+      expect(repo.subscriptions.get("org-bad-json")).toBeUndefined();
     } finally {
       if (prevMapping !== undefined) process.env.STRIPE_PRICE_PLAN_MAPPING = prevMapping;
       else delete process.env.STRIPE_PRICE_PLAN_MAPPING;
@@ -4986,7 +4998,7 @@ describe("env var edge cases — constructor behaviors", () => {
     }
   });
 
-  it("All 3 STRIPE_*_PRICE_ID vars missing — falls back to FREE plan", async () => {
+  it("All 3 STRIPE_*_PRICE_ID vars missing — unknown price is skipped", async () => {
     const prevStarter = process.env.STRIPE_STARTER_PRICE_ID;
     const prevPro = process.env.STRIPE_PRO_PRICE_ID;
     const prevBiz = process.env.STRIPE_BUSINESS_PRICE_ID;
@@ -5014,7 +5026,7 @@ describe("env var edge cases — constructor behaviors", () => {
         }
       }
 
-      // Unknown price ID — should map to FREE
+      // Unknown price ID — must not be treated as FREE
       const event = {
         id: "evt_no_price_vars",
         type: "customer.subscription.created",
@@ -5047,8 +5059,7 @@ describe("env var edge cases — constructor behaviors", () => {
 
       await handler.handleWebhookEvent(JSON.stringify(event), "sig");
 
-      const sub = repo.subscriptions.get("org-no-prices");
-      expect(sub?.plan_key).toBe("FREE");
+      expect(repo.subscriptions.get("org-no-prices")).toBeUndefined();
     } finally {
       if (prevStarter !== undefined) process.env.STRIPE_STARTER_PRICE_ID = prevStarter;
       else delete process.env.STRIPE_STARTER_PRICE_ID;
@@ -5061,7 +5072,7 @@ describe("env var edge cases — constructor behaviors", () => {
     }
   });
 
-  it("STRIPE_PRICE_PLAN_MAPPING with empty JSON object yields no mappings", async () => {
+  it("STRIPE_PRICE_PLAN_MAPPING with empty JSON object maps no prices", async () => {
     const prevMapping = process.env.STRIPE_PRICE_PLAN_MAPPING;
     const prevPro = process.env.STRIPE_PRO_PRICE_ID;
     process.env.STRIPE_PRICE_PLAN_MAPPING = "{}";
@@ -5116,8 +5127,7 @@ describe("env var edge cases — constructor behaviors", () => {
 
       await handler.handleWebhookEvent(JSON.stringify(event), "sig");
 
-      const sub = repo.subscriptions.get("org-empty-map");
-      expect(sub?.plan_key).toBe("FREE");
+      expect(repo.subscriptions.get("org-empty-map")).toBeUndefined();
     } finally {
       if (prevMapping !== undefined) process.env.STRIPE_PRICE_PLAN_MAPPING = prevMapping;
       else delete process.env.STRIPE_PRICE_PLAN_MAPPING;

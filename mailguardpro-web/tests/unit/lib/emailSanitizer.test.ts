@@ -101,12 +101,20 @@ describe("sanitizeForCsv", () => {
     expect(sanitizeForCsv("\tDANGER")).toBe("'\tDANGER");
   });
 
-  it("prefixes carriage return with apostrophe", () => {
-    expect(sanitizeForCsv("\rDANGER")).toBe("'\rDANGER");
+  it("prefixes carriage return with apostrophe and quotes the newline", () => {
+    expect(sanitizeForCsv("\rDANGER")).toBe('"\'\rDANGER"');
   });
 
-  it("prefixes newline with apostrophe", () => {
-    expect(sanitizeForCsv("\nDANGER")).toBe("'\nDANGER");
+  it("prefixes newline with apostrophe and quotes the newline", () => {
+    expect(sanitizeForCsv("\nDANGER")).toBe('"\'\nDANGER"');
+  });
+
+  it("quotes a formula-leading value containing a comma", () => {
+    expect(sanitizeForCsv("=SUM(A1,A2)")).toBe('"\'=SUM(A1,A2)"');
+  });
+
+  it("quotes and escapes a formula-leading value containing a quote", () => {
+    expect(sanitizeForCsv('=HYPERLINK("http://x")')).toBe('"\'=HYPERLINK(""http://x"")"');
   });
 
   it("normal strings pass through unchanged", () => {

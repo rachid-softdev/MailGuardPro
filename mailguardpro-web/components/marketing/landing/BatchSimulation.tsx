@@ -87,7 +87,7 @@ export function BatchSimulation() {
             </h2>
           </div>
           <p className="max-w-[40ch] font-mono text-[10px] uppercase leading-relaxed tracking-[0.05em] text-[var(--ink-3)] lg:text-right">
-            Eight addresses, six checks each, one sorted manifest
+            Eight addresses, eleven checks each, one sorted manifest
           </p>
         </div>
 

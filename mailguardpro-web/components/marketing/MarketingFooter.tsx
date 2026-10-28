@@ -40,7 +40,7 @@ export function MarketingFooter() {
               <Wordmark />
             </Link>
             <p className="mt-4 max-w-[34ch] text-sm leading-relaxed text-[var(--ink-2)]">
-              Email inspection for lists that have to land. One score, six checks, no guesswork.
+              Email inspection for lists that have to land. One score, eleven checks, no guesswork.
             </p>
 
             <div className="mt-6">

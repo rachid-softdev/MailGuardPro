@@ -128,7 +128,7 @@ export const FEATURES: FeatureDefinition[] = [
 // ---- Plans ----
 export const PLANS: PlanDefinition[] = [
   { key: "FREE", name: "Free", priceMonthly: 0, stripePriceId: null },
-  { key: "STARTER", name: "Starter", priceMonthly: 1900, stripePriceId: null },
+  { key: "STARTER", name: "Starter", priceMonthly: 900, stripePriceId: null },
   { key: "PRO", name: "Professional", priceMonthly: 2900, stripePriceId: null },
   { key: "BUSINESS", name: "Business", priceMonthly: 9900, stripePriceId: null },
 ];
@@ -154,13 +154,13 @@ export const PLAN_FEATURE_MAP: Record<string, PlanFeatureDefinition[]> = {
     { key: "PRIORITY_SUPPORT", enabled: false },
   ],
   STARTER: [
-    { key: "EXPORT_PDF", enabled: true },
+    { key: "EXPORT_PDF", enabled: false },
     { key: "AI_SUMMARY", enabled: false },
     { key: "BULK_VALIDATE", enabled: true, limit: PLAN_INCLUDED_CREDITS.STARTER },
     { key: "API_ACCESS", enabled: true },
     { key: "TEAM_MEMBERS", enabled: true, limit: 3 },
     { key: "CUSTOM_HEADERS", enabled: false },
-    { key: "WEBHOOKS", enabled: true },
+    { key: "WEBHOOKS", enabled: false },
     { key: "SCHEDULED_EXPORTS", enabled: false },
     { key: "NEW_DASHBOARD", enabled: true },
     { key: "ADVANCED_FILTERS", enabled: false },

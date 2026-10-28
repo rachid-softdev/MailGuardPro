@@ -88,6 +88,7 @@ export async function POST(req: NextRequest) {
     const result = await processBulkUpload(file, session.user.id, undefined, {
       requestId,
       maxRows,
+      ...(plan === "BUSINESS" ? { unlimited: true } : {}),
     });
 
     const durationMs = Date.now() - startTime;

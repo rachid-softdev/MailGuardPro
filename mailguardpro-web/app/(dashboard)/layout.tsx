@@ -19,9 +19,14 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const { prisma } = await import("@/lib/prisma");
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
-    select: { credits: true },
+    select: { credits: true, plan: true },
   });
   const credits = user?.credits ?? 0;
+  const plan = user?.plan ?? "FREE";
 
-  return <DashboardShell credits={credits}>{children}</DashboardShell>;
+  return (
+    <DashboardShell credits={credits} plan={plan}>
+      {children}
+    </DashboardShell>
+  );
 }

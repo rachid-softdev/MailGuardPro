@@ -4,7 +4,7 @@ import { MarketingHeader } from "@/components/marketing/MarketingHeader";
 export const metadata: Metadata = {
   title: "MailGuard Pro - Email Validation API | Quality Score 0-100",
   description:
-    "Validate email addresses with 99% accuracy. Get a quality score (0-100), detect disposable emails, catch typos, and verify deliverability. Free tier available.",
+    "Validate email addresses with a 0-100 quality score. Inspect syntax, MX, SMTP, disposable domains, SPF, DMARC, and common typos. Free tier available.",
   keywords: [
     "email validation",
     "email verifier",
