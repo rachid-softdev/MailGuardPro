@@ -351,10 +351,27 @@ The deploy workflow:
 1. Checks out the repository
 2. Installs dependencies with `pnpm install --frozen-lockfile`
 3. Generates Prisma client
-4. Runs the production build (with `DATABASE_URL`, `REDIS_URL`, `AUTH_SECRET` for build-time env)
+4. Runs the production build with the full build-time env (module-level validation rejects a
+   build missing any of the required variables — see the secrets table below)
 5. Pushes artifacts to the server via SSH
 6. On the server: pulls latest code, installs, runs migrations, builds, and restarts the systemd service
 7. Notifies Slack on completion (success or failure)
+
+GitHub Actions secrets (production environment; staging uses the same names with `STAGING_`):
+
+| Secrets | Used for |
+|---------|----------|
+| `PRODUCTION_DATABASE_URL`, `PRODUCTION_REDIS_URL`, `PRODUCTION_AUTH_SECRET` | Build + migrations |
+| `PRODUCTION_RESEND_API_KEY`, `PRODUCTION_EMAIL_FROM` | Magic links / email |
+| `PRODUCTION_EMAIL_HASH_SALT`, `PRODUCTION_IP_HASH_KEY`, `PRODUCTION_API_KEY_PEPPER`, `PRODUCTION_TOKEN_ENCRYPTION_KEY`, `PRODUCTION_CRON_SECRET` | Security keys (required in production) |
+| `PRODUCTION_STRIPE_SECRET_KEY`, `PRODUCTION_STRIPE_WEBHOOK_SECRET`, `PRODUCTION_STRIPE_PUBLIC_KEY` | Billing |
+| `PRODUCTION_STRIPE_STARTER_PRICE_ID`, `PRODUCTION_STRIPE_PRO_PRICE_ID`, `PRODUCTION_STRIPE_BUSINESS_PRICE_ID` | Billing (required by `lib/stripe.ts`) |
+| `PRODUCTION_STRIPE_*_ANNUAL_PRICE_ID` | Optional — annual checkout disabled when unset |
+| `PRODUCTION_AUTH_GOOGLE_ID`, `PRODUCTION_AUTH_GOOGLE_SECRET` | Optional — Google sign-in |
+| `PRODUCTION_HOST`, `PRODUCTION_USERNAME`, `PRODUCTION_SSH_KEY` | SSH deployment |
+| `SLACK_WEBHOOK` | Optional — deploy notification |
+
+The server also needs these variables in its `.env` because the SSH step rebuilds on the host.
 
 ---
 
