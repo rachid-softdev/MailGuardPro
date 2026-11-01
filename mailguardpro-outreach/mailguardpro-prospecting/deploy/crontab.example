@@ -1,0 +1,24 @@
+# ============================================================
+# MailGuard Pro prospection — cron jobs
+# Installer avec : crontab -e
+# Remplacer /opt/mailguardpro-prospecting par le chemin réel du projet.
+# Les scripts chargent eux-mêmes .env et fixent PATH/TZ.
+# ============================================================
+
+SHELL=/bin/bash
+PATH=/usr/local/bin:/usr/bin:/bin
+TZ=Europe/Paris
+MAILTO=""
+
+# Pipeline quotidien : découverte annuaires, qualification, enrichissement,
+# vérification, brouillons, relances, export, envoi (DRY_RUN=true par défaut).
+15 7 * * * /opt/mailguardpro-prospecting/deploy/run_daily.sh >> /opt/mailguardpro-prospecting/data/logs/cron.log 2>&1
+
+# Découverte hebdomadaire : 100 fiches agences, 4 workers.
+45 7 * * 1 /opt/mailguardpro-prospecting/deploy/run_scale.sh agences 100 4 >> /opt/mailguardpro-prospecting/data/logs/scale.log 2>&1
+
+# Sauvegarde hebdomadaire du CRM le dimanche à 08:30.
+30 8 * * 0 /opt/mailguardpro-prospecting/deploy/backup.sh >> /opt/mailguardpro-prospecting/data/logs/backup.log 2>&1
+
+# Statistiques quotidiennes à 09:00 (optionnel, pratique pour le suivi).
+0 9 * * * /opt/mailguardpro-prospecting/deploy/stats.sh >> /opt/mailguardpro-prospecting/data/logs/stats.log 2>&1
