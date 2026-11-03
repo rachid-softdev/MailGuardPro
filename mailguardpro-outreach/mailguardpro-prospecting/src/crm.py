@@ -287,7 +287,7 @@ class CRM:
                     AND c.id IN ({placeholders})
                     AND NOT EXISTS (
                         SELECT 1 FROM messages m WHERE m.company_id = c.id
-                    ) ORDER BY c.score DESC LIMIT ?""",
+                    ) ORDER BY c.score DESC, c.id DESC LIMIT ?""",
                 (STATUS_ENRICHED, *company_ids, limit),
             )
         return self._fetch_all(
@@ -295,7 +295,7 @@ class CRM:
                WHERE c.status = ? AND c.score IS NOT NULL
                AND NOT EXISTS (
                    SELECT 1 FROM messages m WHERE m.company_id = c.id
-               ) ORDER BY c.score DESC LIMIT ?""",
+               ) ORDER BY c.score DESC, c.id DESC LIMIT ?""",
             (STATUS_ENRICHED, limit),
         )
 

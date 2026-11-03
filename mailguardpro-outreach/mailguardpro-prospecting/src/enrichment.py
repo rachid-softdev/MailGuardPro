@@ -42,7 +42,30 @@ MAX_ENRICH_PER_RUN = 5
 MAX_CONTACTS_PER_COMPANY = 3
 
 # Mots-clés d'un email générique privilégié (contact@, info@, hello@...)
-GENERIC_EMAIL_KEYWORDS = ("contact", "info", "hello", "bonjour")
+GENERIC_EMAIL_KEYWORDS = (
+    "contact", "info", "hello", "bonjour", "enquiries", "enquiry",
+    "sales", "team", "office", "agence",
+)
+
+# Adresses de rôle non commerciales : inutiles (voire contre-productives)
+# pour une prise de contact. On les ignore dès la collecte.
+NON_SALES_EMAIL_KEYWORDS = (
+    "security", "privacy", "legal", "abuse", "postmaster", "webmaster",
+    "noreply", "no-reply", "donotreply", "do-not-reply", "jobs", "careers",
+    "recrutement", "press", "media", "support", "help", "billing",
+    "accounts", "finance", "gdpr", "dpo", "compliance", "spam",
+    "hostmaster", "unsubscribe", "newsletter", "people",
+)
+
+# Parties locales courtes à comparer exactement (évite de bloquer "prabesh@").
+NON_SALES_EMAIL_EXACT = {"pr"}
+
+
+def _is_non_sales_email(email: str) -> bool:
+    """True si l'adresse est un rôle technique/non commercial."""
+    local = (email or "").split("@", 1)[0].lower()
+    return local in NON_SALES_EMAIL_EXACT or any(
+        keyword in local for keyword in NON_SALES_EMAIL_KEYWORDS)
 
 
 class Enricher:
@@ -66,7 +89,9 @@ class Enricher:
         if result["foreign"]:
             log.debug(f"Emails hors-domaine ignorés sur {url}: "
                       f"{', '.join(result['foreign'])}")
-        return result["emails"], result["home_text"]
+        emails = [e for e in result["emails"]
+                  if not _is_non_sales_email(e.get("email", ""))]
+        return emails, result["home_text"]
 
     # --------------------------------------------------------- décideurs
 

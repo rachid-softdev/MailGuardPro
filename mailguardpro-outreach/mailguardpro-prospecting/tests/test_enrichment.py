@@ -75,3 +75,49 @@ def test_enrich_dedup_generic_email_between_contacts(crm, sample_company, monkey
     emails = [c["email"] for c in contacts]
     assert emails.count("contact@example.fr") == 1  # jamais de doublon
     assert None in emails  # deuxième contact sans email plutôt que doublon
+
+
+def test_non_sales_email_filtered_out(crm, sample_company, monkeypatch):
+    """Les adresses de rôle (security@, accounts@...) ne deviennent pas contacts."""
+    company_id = _qualify(crm, sample_company)
+    monkeypatch.setattr(
+        "src.enrichment.harvest_site_emails",
+        lambda url, **kwargs: _site_result([
+            "security@example.fr",
+            "contact@example.fr",
+        ]),
+    )
+
+    summary = Enricher(searcher=_FakeSearcher()).enrich(crm, limit=5)
+
+    assert summary["errors"] == 0
+    assert summary["with_contacts"] == 1
+    contacts = crm.get_contacts_for_company(company_id)
+    assert [c["email"] for c in contacts] == ["contact@example.fr"]
+
+
+def test_non_sales_only_email_skipped(crm, sample_company, monkeypatch):
+    """S'il ne reste qu'une adresse non commerciale, aucun contact n'est créé."""
+    company_id = _qualify(crm, sample_company)
+    monkeypatch.setattr(
+        "src.enrichment.harvest_site_emails",
+        lambda url, **kwargs: _site_result(["security@example.fr"]),
+    )
+
+    summary = Enricher(searcher=_FakeSearcher()).enrich(crm, limit=5)
+
+    assert summary["with_contacts"] == 0
+    assert crm.get_contacts_for_company(company_id) == []
+
+
+def test_non_sales_email_detection():
+    """Détecte les rôles non commerciaux sans faux positif sur un prénom."""
+    from src.enrichment import _is_non_sales_email
+
+    assert _is_non_sales_email("security@example.fr")
+    assert _is_non_sales_email("accounts@example.fr")
+    assert _is_non_sales_email("pr@example.fr")
+    assert _is_non_sales_email("people@example.fr")
+    assert not _is_non_sales_email("prabesh@example.fr")
+    assert not _is_non_sales_email("contact@example.fr")
+    assert not _is_non_sales_email("sales@example.fr")

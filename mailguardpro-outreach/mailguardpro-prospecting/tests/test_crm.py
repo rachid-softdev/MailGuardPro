@@ -115,6 +115,21 @@ def test_enriched_without_message_skips_unscored(crm, sample_company):
     assert crm.get_enriched_companies_without_message() == []
 
 
+def test_enriched_without_message_prioritizes_newest_on_tie(crm, sample_company):
+    """À score égal, les prospects les plus récents passent en premier."""
+    first = crm.upsert_company(sample_company)
+    crm.set_company_score(first, 100, "ok", "strong")
+    crm.set_company_status(first, STATUS_ENRICHED)
+
+    second = crm.upsert_company({**sample_company, "domain": "second.fr",
+                                 "name": "Second SARL"})
+    crm.set_company_score(second, 100, "ok", "strong")
+    crm.set_company_status(second, STATUS_ENRICHED)
+
+    selected = crm.get_enriched_companies_without_message(limit=1)
+    assert [c["id"] for c in selected] == [second]
+
+
 def test_enriched_without_message_filters_company_ids(crm, sample_company):
     """Le filtre `company_ids` cible un lot sans inclure les autres prospects."""
     first = crm.upsert_company(sample_company)
