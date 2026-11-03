@@ -1,0 +1,36 @@
+{
+  "campaign": "mailguardpro-email-hygiene-v1",
+  "offer": {
+    "name": "MailGuard Pro — Email Intelligence Platform",
+    "tagline": "Score every email 0-100 before it costs you a bounce.",
+    "key_features": [
+      "Score de qualité 0-100 par email",
+      "11 vérifications : format, MX, SMTP réel, catch-all, domaines jetables, adresses génériques, DNSBL, SPF, DMARC, fautes de frappe",
+      "Validation en masse par CSV (jusqu'à 100 000 lignes selon le plan)",
+      "API REST, clés API et webhooks",
+      "Exports CSV, JSON, XLSX et PDF",
+      "Plan gratuit : 100 inspections, sans carte"
+    ],
+    "cta": "Testez gratuitement vos 100 premiers emails",
+    "cta_url": "https://mailguard.pro"
+  },
+  "tone": "concret, direct, orienté deliverability et ROI, sans hype ni jargon inutile",
+  "email_template": {
+    "subject": "{{company_name}} — vos listes avant la prochaine campagne",
+    "body": "Bonjour {{first_name}},\n\n{{personal_insight}}\n\nChez MailGuard Pro, nous donnons un score de qualité de 0 à 100 à chaque email avant l'envoi : MX, SMTP réel, adresses jetables, catch-all, SPF/DMARC, fautes de frappe. Objectif : éviter les bounces et protéger la réputation de votre domaine.\n\n{{personal_relevance}}\n\n{{cta}} : {{cta_url}}\n\nBonne journée,\n{{sender_name}}"
+  },
+  "email_template_en": {
+    "subject": "{{company_name}} — your lists before the next campaign",
+    "body": "Hello {{first_name}},\n\n{{personal_insight}}\n\nAt MailGuard Pro, we score every email from 0 to 100 before sending: MX, real SMTP, disposable addresses, catch-all, SPF/DMARC and typos. The goal is simple: fewer bounces and a healthier domain.\n\n{{personal_relevance}}\n\n{{cta}}: {{cta_url}}\n\nBest regards,\n{{sender_name}}"
+  },
+  "followup_days": [3],
+  "followup_template": {
+    "subject": "Re: {{company_name}} — listes email",
+    "body": "Bonjour {{first_name}},\n\nJe me permets de revenir vers vous suite à mon précédent message.\n\n{{personal_insight}}\n\nSi vous n'êtes pas la bonne personne pour la délivrabilité ou la qualité des listes, je serais ravi qu'on m'oriente vers le bon contact.\n\n{{cta}} : {{cta_url}}\n\nBonne journée,\n{{sender_name}}"
+  },
+  "followup_template_en": {
+    "subject": "Re: {{company_name}} — email lists",
+    "body": "Hello {{first_name}},\n\nJust following up on my previous message.\n\n{{personal_insight}}\n\nIf you're not the right person for deliverability or list quality, I'd be grateful if you could point me to the right contact.\n\n{{cta}}: {{cta_url}}\n\nBest regards,\n{{sender_name}}"
+  },
+  "max_emails_per_company": 2
+}

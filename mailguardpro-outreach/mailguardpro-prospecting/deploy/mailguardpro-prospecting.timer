@@ -1,0 +1,10 @@
+[Unit]
+Description=Planification quotidienne MailGuard Pro prospecting
+
+[Timer]
+OnCalendar=*-*-* 07:15:00
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target

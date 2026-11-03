@@ -1,0 +1,6 @@
+selenium==4.15.2
+webdriver-manager==4.0.1
+requests==2.33.0
+beautifulsoup4==4.15.0
+dnspython==2.9.0
+pytest==9.0.3

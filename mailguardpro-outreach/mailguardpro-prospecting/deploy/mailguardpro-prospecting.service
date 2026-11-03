@@ -1,0 +1,15 @@
+[Unit]
+Description=MailGuard Pro prospecting — run quotidien
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/mailguardpro-prospecting
+ExecStart=/opt/mailguardpro-prospecting/deploy/run_daily.sh
+# Adaptez User/Group à l'utilisateur propriétaire du répertoire.
+User=mailguard
+Group=mailguard
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7

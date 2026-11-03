@@ -1,0 +1,7 @@
+# Les scripts de déploiement doivent rester en LF, même sur un checkout Windows.
+.gitattributes text eol=lf
+*.sh text eol=lf
+crontab.example text eol=lf
+logrotate.conf text eol=lf
+env.vps.example text eol=lf
+*.md text eol=lf
